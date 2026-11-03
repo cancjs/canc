@@ -8,7 +8,7 @@ import { ICancelableHandlerOptions, IRequestLike, IResponseLike, THandlerFn } fr
 import { TAnyFn } from '../../../_util';
 import {
   abandonIfHeadersSent,
-  alreadySentHeaders,
+  alreadySentResponse,
   attachCancelResponse,
   ensureCancelState,
   existingCancelState,
@@ -106,13 +106,13 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
       if (owned && abandonIfHeadersSent(context)) {
         console.error('[@cancjs/server-hono] response cut after its head was sent', error);
 
-        return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
+        return alreadySentResponse(context, CLIENT_CLOSED_STATUS);
       }
 
       // the documented discriminator, never a message check and never instanceof: a live response
       // has a client to answer, a finished one has none, a deadline or not
       if (isCancelError(error) && isResponseUnreachable(context)) {
-        return new Response(null, { headers: alreadySentHeaders(context), status: CLIENT_CLOSED_STATUS });
+        return alreadySentResponse(context, CLIENT_CLOSED_STATUS);
       }
 
       throw error;

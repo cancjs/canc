@@ -2,7 +2,7 @@ import type { CancelError } from '@cancjs/promise';
 import type { Context, Env, ErrorHandler } from 'hono';
 
 import { cancelHeadersFor, ownedStatusOf, STALE_CONTENT_HEADERS } from '../../../_server/exchange';
-import { abandonIfHeadersSent, alreadySentHeaders, existingCancelState, isResponseUnreachable } from './bindings';
+import { abandonIfHeadersSent, alreadySentResponse, existingCancelState, isResponseUnreachable } from './bindings';
 import { CLIENT_CLOSED_STATUS } from './handler';
 
 /** Options for the opt-in error handler. */
@@ -66,7 +66,7 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
     }
 
     if (isResponseUnreachable(c)) {
-      return new Response(null, { headers: alreadySentHeaders(c), status: CLIENT_CLOSED_STATUS });
+      return alreadySentResponse(c, CLIENT_CLOSED_STATUS);
     }
 
     // the route's headers and the cancellation's own go along
