@@ -1313,8 +1313,9 @@ describe('request deadline', () => {
 
     expect((await send(port, '/deep')).body).toBe('ok');
     await tick(5);
-    // the disconnect wiring, plus the request registry of a server met for the first time
-    expect(closeListeners).toBe(2);
+    // the disconnect wiring, the request registry of a server met for the first time, and the close handler
+    // @hono/node-server 2 attaches once the response is written
+    expect(closeListeners).toBe(3);
     // read inside the route, the one in-flight forwarder however many layers
     expect(abortListeners).toBe(1);
     expect(warnings.stop()).toEqual([]);
