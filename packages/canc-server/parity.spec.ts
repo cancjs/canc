@@ -189,8 +189,7 @@ for (const adapter of adapters) {
           if (answered !== undefined) {
             expect(base.status).toBe(answered);
           }
-          // a header the app set survives the answer, unless the framework clears them all (koa)
-          // default error response clears every header set so far (koa)
+          // an app header survives the answer; koa's default error response clears them all
           expect(base.headers['x-app']).toBe(adapter.name === 'koa' && group.label === 'app default' ? undefined : '1');
 
           // the app's own handler writes its own headers, so only the default answer carries these
