@@ -5,9 +5,10 @@ import { AddressInfo } from 'node:net';
 import { CancelablePromise, CancelError } from '@cancjs/promise';
 import { serve } from '@hono/node-server';
 import express from 'express';
-import Fastify, { FastifyInstance } from 'fastify';
-import { Hono } from 'hono';
+import Fastify, { FastifyInstance, FastifyReply } from 'fastify';
+import { Context, Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import Koa from 'koa';
 
 import * as expressServer from './canc-server-express/src';
@@ -15,12 +16,15 @@ import * as fastifyServer from './canc-server-fastify/src';
 import * as honoServer from './canc-server-hono/src';
 import * as koaServer from './canc-server-koa/src';
 
-/**
+/*
  * Parity of the framework adapters with the bare framework.
  *
  * The same failure is raised through every way of mounting the adapter, and what the client and the
  * app can observe must be identical: status, the headers an app cares about, body, log lines, app
  * level events and fastify hooks.
+ *
+ * The node adapter has no block: it has no framework twin to compare against, so the plain, wrapped
+ * and handler modes do not apply to it and its own suite covers it.
  *
  * Modes:
  *   P   plain route, nothing from the adapter mounted
@@ -54,6 +58,11 @@ import * as koaServer from './canc-server-koa/src';
  */
 
 type TMode = 'P' | 'W' | 'M' | 'H' | 'U' | 'WU' | 'HU' | 'UH';
+interface IHttpError extends Error {
+  status?: number;
+  statusCode?: number;
+}
+
 type TKind = 'cancel' | 'rate-limit' | 'deadline' | 'shutdown';
 
 interface IObserved {
@@ -79,9 +88,9 @@ interface IAdapter {
   name: string;
   modes: TMode[];
   build: (mode: TMode, kind: TKind, harness: IHarness, stops: Array<() => Promise<void>>) => Promise<IRunning>;
-  /** The mode a mode is documented to behave like, when that is not the baseline of its group. */
+  // the mode a mode is documented to behave like, when that is not the baseline of its group
   reference?: (mode: TMode, kind: TKind) => TMode | undefined;
-  /** Expected changes of a mode against its reference. */
+  // expected changes of a mode against its reference
   delta?: (mode: TMode, kind: TKind, base: IObserved) => IObserved;
 }
 
@@ -232,18 +241,19 @@ function optionsFor(kind: TKind): { timeout: typeof DEADLINE } | undefined {
   return kind === 'deadline' ? { timeout: DEADLINE } : undefined;
 }
 
-/** A generator route body; `fail` is what the app throws for the non-minted kinds. */
-function generatorFor(kind: TKind, harness: IHarness, fail: () => Error): any {
+// a generator route body; `fail` is what the app throws for the non-minted kinds
+function generatorFor(kind: TKind, harness: IHarness, fail: () => Error): () => Generator<unknown, never, unknown> {
   if (kind === 'cancel' || kind === 'rate-limit') {
-    return function* () {
+    return function* (): Generator<unknown, never, unknown> {
       yield CancelablePromise.resolve();
       throw fail();
     };
   }
 
-  return function* () {
+  return function* (): Generator<unknown, never, unknown> {
     harness.started.resolve();
-    yield never();
+
+    return (yield never()) as never;
   };
 }
 
@@ -255,7 +265,7 @@ function rateLimitError(): Error {
   return Object.assign(new Error('slow down'), { headers: { 'retry-after': '7' }, status: 429, statusCode: 429 });
 }
 
-function statusOf(error: any): number {
+function statusOf(error: IHttpError): number {
   return error.status ?? error.statusCode ?? 500;
 }
 
@@ -281,7 +291,7 @@ async function buildExpress(mode: TMode, kind: TKind, harness: IHarness): Promis
   }
 
   if (WITH_USER_HANDLER.includes(mode)) {
-    app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    app.use((error: IHttpError, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
       res.status(statusOf(error)).set('x-user', '1').json({ user: error.message });
     });
   }
@@ -303,16 +313,16 @@ async function buildKoa(mode: TMode, kind: TKind, harness: IHarness): Promise<IR
   const app = new Koa();
   app.env = 'development';
   // a listener replaces koa's own logger, so the event is what is compared
-  app.on('error', (error: any) => harness.events.push(`error ${error.status ?? ''} ${error.message}`));
+  app.on('error', (error: IHttpError) => harness.events.push(`error ${error.status ?? ''} ${error.message}`));
 
   const fail = failureFor(kind, rateLimitError);
   const user: Koa.Middleware = async (ctx, next) => {
     try {
       await next();
-    } catch (error: any) {
-      ctx.status = statusOf(error);
+    } catch (error) {
+      ctx.status = statusOf(error as IHttpError);
       ctx.set('x-user', '1');
-      ctx.body = { user: error.message };
+      ctx.body = { user: (error as IHttpError).message };
     }
   };
 
@@ -361,8 +371,11 @@ async function buildFastify(mode: TMode, kind: TKind, harness: IHarness): Promis
     },
   });
   const fail = failureFor(kind, rateLimitError);
-  const user = (error: any, _request: unknown, reply: any): void => {
-    reply.code(statusOf(error)).header('x-user', '1').send({ user: error.message });
+  const user = (error: unknown, _request: unknown, reply: FastifyReply): void => {
+    reply
+      .code(statusOf(error as IHttpError))
+      .header('x-user', '1')
+      .send({ user: (error as IHttpError).message });
   };
 
   app.addHook('onError', (_request, _reply, error, done) => {
@@ -413,7 +426,8 @@ async function buildHono(mode: TMode, kind: TKind, harness: IHarness): Promise<I
 
     return new HTTPException(429, { message: 'slow down', res: new Response('slow down', { headers, status: 429 }) });
   });
-  const user = (error: any, c: any): Response => c.json({ user: error.message }, statusOf(error), { 'x-user': '1' });
+  const user = (error: IHttpError, c: Context): Response =>
+    c.json({ user: error.message }, statusOf(error) as ContentfulStatusCode, { 'x-user': '1' });
 
   if (mode === 'M') {
     app.use('*', honoServer.cancelMiddleware());
@@ -513,7 +527,7 @@ function portOf(server: Server): number {
   return (server.address() as AddressInfo).port;
 }
 
-/** Work that never settles on its own, standing in for a query still in flight. */
+// work that never settles on its own, standing in for a query still in flight
 function never(): CancelablePromise<never> {
   return new CancelablePromise<never>(() => {
     /**/
