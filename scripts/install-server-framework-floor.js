@@ -236,6 +236,29 @@ function runSuites(options) {
   return failed;
 }
 
+// the versions in the prefix, so a run on the workspace copies cannot pass for a floor run
+function verifyPrefix(options) {
+  const mismatches = [];
+
+  for (const name of options.only) {
+    for (const [pkg, floor] of FLOOR[name]) {
+      const wanted = options.versions[pkg] ?? floor;
+      const manifest = path.join(options.prefix, 'node_modules', ...pkg.split('/'), 'package.json');
+      const found = fs.existsSync(manifest) ? JSON.parse(fs.readFileSync(manifest, 'utf8')).version : undefined;
+
+      console.log(`prefix ${pkg}: ${found ?? 'missing'} (wanted ${wanted})`);
+
+      if (found !== wanted) {
+        mismatches.push(`${pkg} is ${found ?? 'missing'}, wanted ${wanted}`);
+      }
+    }
+  }
+
+  if (mismatches.length > 0) {
+    throw new Error(`the prefix does not hold the requested versions: ${mismatches.join('; ')}`);
+  }
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
 
@@ -247,6 +270,10 @@ function main() {
 
   if (options.install && !options.latest) {
     install(options);
+  }
+
+  if (!options.latest) {
+    verifyPrefix(options);
   }
 
   if (!options.run) {
