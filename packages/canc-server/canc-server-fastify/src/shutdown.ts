@@ -9,7 +9,7 @@ import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server
  * plugin and `createShutdown` may come from different copies of this code and from different
  * encapsulation scopes, and the server is the one object they all share.
  */
-const CLOSE_DRAIN = Symbol.for('@cancjs/server-fastify:CloseDrain');
+const CLOSE_DRAIN = Symbol.for('cancjs.server-fastify.closeDrain');
 
 interface ICloseDrain {
   /** Set once the `preClose` hook that runs the drain is registered. */
