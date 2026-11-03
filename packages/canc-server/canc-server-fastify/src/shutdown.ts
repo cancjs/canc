@@ -4,19 +4,17 @@ import { getShutdownFunction, setShutdownFunction } from '../../../_server/holde
 import { createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
 import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
-/**
- * Key the drain fastify's own close runs is configured under, on the instance's `http.Server`. The
- * plugin and `createShutdown` may come from different copies of this code and from different
- * encapsulation scopes, and the server is the one object they all share.
- */
-const CLOSE_DRAIN = Symbol.for('cancjs.server-fastify.closeDrain');
+// key the drain fastify's own close runs is configured under, on the instance's http.Server: the
+// plugin and createShutdown may come from different copies of this code and from different
+// encapsulation scopes, and the server is the one object they all share
+const CLOSE_DRAIN = Symbol.for('@cancjs/server-fastify:CloseDrain');
 
 interface ICloseDrain {
-  /** Set once the `preClose` hook that runs the drain is registered. */
+  // set once the preClose hook that runs the drain is registered
   hooked?: boolean;
-  /** Options stored by `createShutdown(app, options)`, used by a plain `app.close()`. */
+  // options stored by createShutdown(app, options), used by a plain app.close()
   options?: IShutdownOptions;
-  /** Set once the windows were lowered to fit `pluginTimeout` and that was logged. */
+  // set once the windows were lowered to fit pluginTimeout and that was logged
   warned?: boolean;
 }
 
