@@ -588,7 +588,7 @@ describe('error handler', () => {
 
       expect(response.statusCode).toBe(500);
       expect(response.body).toBe('Internal Server Error');
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server-hono]'), failure);
+      expect(errorSpy).toHaveBeenCalledWith(failure);
     } finally {
       errorSpy.mockRestore();
     }

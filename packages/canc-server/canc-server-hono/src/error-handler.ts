@@ -55,7 +55,7 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
         return withContextHeaders(c, carried.getResponse());
       }
 
-      console.error('[@cancjs/server-hono] request handler failed', error);
+      console.error(error);
 
       return c.text('Internal Server Error', 500);
     }
