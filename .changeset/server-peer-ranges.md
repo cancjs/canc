@@ -1,7 +1,9 @@
 ---
-"@cancjs/server-hono": patch
+"@cancjs/server-hono": minor
 ---
 
-Raise the peer floors to `hono >=4.8.0` and `@hono/node-server >=1.9.0`, the oldest releases the adapter is tested against.
+**Breaking:** raise the peer floors to `hono >=4.8.0` and `@hono/node-server >=1.9.0`, the oldest releases the adapter is tested against. Users on `hono` 4.0 to 4.7 or `@hono/node-server` 1.0 to 1.8 now get a peer conflict and must upgrade.
 
-Older `hono` releases answer an error only through `HTTPException`, so a deadline or shutdown cancellation fell back to a plain `500`. Older `@hono/node-server` releases do not hand the node request and response to the handler, so a disconnect could not be detected.
+Before `hono` 4.8.0 the answer built from an error's `getResponse()` dropped the headers the route and its middleware had set, so a deadline or shutdown answer lost them (4.6 and 4.7 do read `getResponse()` and do answer `503`). `@hono/node-server` before 1.9.0 does not honor the `x-hono-already-sent` marker, so an answer the adapter already sent was written a second time.
+
+There is no adapter-side fix for the 4.7.0 case: the loss is inside hono's own default error handler path, so a fix would need the request context inside `getResponse()`, which is not a small change.
