@@ -1279,45 +1279,58 @@ describe('request deadline', () => {
 
   it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const warnings = recordWarnings();
-    let closeListeners = -1;
-    let abortListeners = -1;
 
-    const app = new Hono();
+    // each count is what the wrapped chain adds to the response, read at finish: every layer has
+    // registered whatever it registers by then, none removed yet. The one-layer chain is the
+    // baseline, so whatever the node server attaches itself is in both and only growth shows
+    const measure = async (extraLayers: number): Promise<{ abort: number; close: number }> => {
+      let closeListeners = -1;
+      let abortListeners = -1;
 
-    // read at finish: every layer has registered whatever it registers by then, none removed yet
-    app.use(async (c, next) => {
-      const outgoing = (c.env as { outgoing: http.ServerResponse }).outgoing;
-      // counts only what the wrapped chain adds: Node's own close listeners vary by version
-      const before = outgoing.listenerCount('close');
+      const app = new Hono();
 
-      outgoing.on('finish', () => {
-        closeListeners = outgoing.listenerCount('close') - before;
+      app.use(async (c, next) => {
+        const outgoing = (c.env as { outgoing: http.ServerResponse }).outgoing;
+        // counts only what the wrapped chain adds: Node's own close listeners vary by version
+        const before = outgoing.listenerCount('close');
+
+        outgoing.on('finish', () => {
+          closeListeners = outgoing.listenerCount('close') - before;
+        });
+        await next();
       });
-      await next();
-    });
 
-    for (let layer = 0; layer < 11; layer += 1) {
-      app.use(passThrough());
-    }
+      for (let layer = 0; layer < extraLayers; layer += 1) {
+        app.use(passThrough());
+      }
 
-    app.get(
-      '/deep',
-      cancelableHandler(function* (c) {
-        abortListeners = getEventListeners(getRequestSignal(c), 'abort').length;
+      app.get(
+        '/deep',
+        cancelableHandler(function* (c) {
+          abortListeners = getEventListeners(getRequestSignal(c), 'abort').length;
 
-        return c.text('ok');
-      }),
-    );
+          return c.text('ok');
+        }),
+      );
 
-    const port = await listen(app);
+      const port = await listen(app);
 
-    expect((await send(port, '/deep')).body).toBe('ok');
-    await tick(5);
-    // the disconnect wiring, the request registry of a server met for the first time, and the close handler
-    // @hono/node-server 2 attaches once the response is written
-    expect(closeListeners).toBe(3);
+      expect((await send(port, '/deep')).body).toBe('ok');
+      await tick(5);
+
+      return { abort: abortListeners, close: closeListeners };
+    };
+
+    const shallow = await measure(0);
+    const deep = await measure(11);
+
+    // the disconnect wiring and the request registry of a server met for the first time, plus the
+    // close handler @hono/node-server 2 attaches once the response is written
+    expect(shallow.close).toBeGreaterThan(0);
+    expect(deep.close).toBe(shallow.close);
     // read inside the route, the one in-flight forwarder however many layers
-    expect(abortListeners).toBe(1);
+    expect(deep.abort).toBe(1);
+    expect(shallow.abort).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 });
