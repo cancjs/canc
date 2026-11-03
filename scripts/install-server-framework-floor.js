@@ -86,10 +86,22 @@ function resolveNpmCli() {
     return process.env.npm_execpath;
   }
 
+  // npm sits beside the node binary: bin/node_modules on windows, lib/node_modules on a unix prefix
+  const bin = path.dirname(process.execPath);
+  const candidates = [
+    path.join(bin, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(bin, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ];
+  const found = candidates.find((candidate) => fs.existsSync(candidate));
+
+  if (found) {
+    return found;
+  }
+
   try {
     return require.resolve('npm/bin/npm-cli.js');
   } catch {
-    return path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
+    throw new Error('npm-cli.js not found, run the script through npm or put npm beside node');
   }
 }
 
