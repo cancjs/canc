@@ -36,6 +36,7 @@ const HOME_PACKAGE_DIRS = {
   '@cancjs/promise': 'canc-promise',
   '@cancjs/toolbox': 'canc-toolbox',
   '@cancjs/node': 'canc-node',
+  '@cancjs/server-fastify': path.join('canc-server', 'canc-server-fastify'),
   '@cancjs/server-node': path.join('canc-server', 'canc-server-node'),
   '@cancjs/unhandled-rejection': 'canc-unhandled-rejection',
 };
@@ -54,6 +55,7 @@ const ALLOWED_SOURCE_DECLARATIONS = {
     /^packages[\\/]_util[\\/]/,
   ],
   '@cancjs/node': [/^packages[\\/]canc-node[\\/]/],
+  '@cancjs/server-fastify': [/^packages[\\/]canc-server[\\/]canc-server-fastify[\\/]/],
   '@cancjs/server-node': [/^packages[\\/]canc-server[\\/]canc-server-node[\\/]/, /^packages[\\/]_server[\\/]/],
   '@cancjs/unhandled-rejection': [/^packages[\\/]canc-unhandled-rejection[\\/]/],
 };
@@ -68,6 +70,7 @@ const HOME_SOURCE_PATTERNS = {
     /^packages[\\/]_util[\\/]/,
   ],
   '@cancjs/node': [/^packages[\\/]canc-node[\\/]/],
+  '@cancjs/server-fastify': [/^packages[\\/]canc-server[\\/]canc-server-fastify[\\/]/],
   '@cancjs/server-node': [/^packages[\\/]canc-server[\\/]canc-server-node[\\/]/, /^packages[\\/]_server[\\/]/],
   '@cancjs/unhandled-rejection': [/^packages[\\/]canc-unhandled-rejection[\\/]/],
 };
