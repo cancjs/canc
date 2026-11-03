@@ -157,7 +157,7 @@ The drain runs inside fastify's own close, as a `preClose` hook that `cancelPlug
 
 A request that arrives on a kept-alive connection during the close is fastify's to answer: it sends `503` while `return503OnClosing` is on, its default. Set `return503OnClosing: false` to serve such requests instead.
 
-Fastify gives every `preClose` hook `pluginTimeout` to finish, 10 s by default. A drain longer than that is cut short: `app.close()` rejects with `AVV_ERR_READY_TIMEOUT`, and fastify closes the connections still open. The default windows already reach it (`cancelAfter` 10 s, `closeAfter` 11 s), so under the defaults a request still hung at 10 s hits the timeout. Keep `closeAfter` below `pluginTimeout`, or raise `pluginTimeout` (`0` turns it off).
+Fastify gives every `preClose` hook `pluginTimeout` to finish, 10 s by default, and rejects `app.close()` with `AVV_ERR_READY_TIMEOUT` when one runs longer. The default windows would pass it (`cancelAfter` 10 s, `closeAfter` 11 s), so inside fastify's close the shutdown lowers its windows to end just under `pluginTimeout` and logs that once through `app.log.warn`. Raise `pluginTimeout` to keep longer windows, or set it to `0` to turn the limit off.
 
 Fastify takes no hook once the instance has started. Created after `app.listen()` without the plugin, `createShutdown` drains the server first, then calls `app.close()`, so a late request on a kept-alive connection is served rather than refused. The options given to `createShutdown(app, options)` apply on that path as well.
 

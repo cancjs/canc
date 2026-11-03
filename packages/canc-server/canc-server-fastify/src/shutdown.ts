@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
 import { getShutdownFunction, setShutdownFunction } from '../../../_server/holder';
-import { createServerShutdown } from '../../../_server/shutdown';
+import { createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
 import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
 /**
@@ -16,9 +16,13 @@ interface ICloseDrain {
   hooked?: boolean;
   /** Options stored by `createShutdown(app, options)`, used by a plain `app.close()`. */
   options?: IShutdownOptions;
+  /** Set once the windows were lowered to fit `pluginTimeout` and that was logged. */
+  warned?: boolean;
 }
 
 const ALREADY_STARTED = 'FST_ERR_INSTANCE_ALREADY_LISTENING';
+// room left under pluginTimeout for fastify to end the close after the windows run out
+const PLUGIN_TIMEOUT_MARGIN = 500;
 
 function getCloseDrain(server: IServerLike): ICloseDrain {
   const keyed = server as unknown as Record<symbol, ICloseDrain | undefined>;
@@ -30,6 +34,46 @@ function getCloseDrain(server: IServerLike): ICloseDrain {
   }
 
   return drain;
+}
+
+function usableMs(ms: number | undefined): number | undefined {
+  return ms === undefined || ms !== ms ? undefined : Math.max(0, ms);
+}
+
+// fastify cuts a preClose hook off at pluginTimeout and rejects the close, so the windows are
+// lowered to end inside it; a reversed pair is left alone for the shutdown to reject
+function fitPluginTimeout(
+  instance: FastifyInstance,
+  drain: ICloseDrain,
+  options: IShutdownOptions | undefined,
+): IShutdownOptions | undefined {
+  const limit = instance.initialConfig.pluginTimeout;
+  if (typeof limit !== 'number' || !(limit > 0) || limit === Infinity) {
+    return options;
+  }
+
+  const cancelAt = usableMs(options?.cancelAfter);
+  const closeAt = usableMs(options?.closeAfter);
+  if (cancelAt !== undefined && closeAt !== undefined && cancelAt > closeAt) {
+    return options;
+  }
+
+  const closeAfter = closeAt ?? (cancelAt ?? DEFAULT_SHUTDOWN_TIMEOUT) + 1000;
+  const cap = limit - Math.min(PLUGIN_TIMEOUT_MARGIN, Math.floor(limit / 10));
+  if (closeAfter <= cap) {
+    return options;
+  }
+
+  const cancelAfter = cancelAt === undefined ? Math.max(0, cap - 1000) : Math.min(cancelAt, cap);
+  if (!drain.warned) {
+    drain.warned = true;
+    instance.log.warn(
+      { cancelAfter, closeAfter: cap, pluginTimeout: limit },
+      '[@cancjs/server-fastify] shutdown windows lowered to end inside pluginTimeout',
+    );
+  }
+
+  return { ...options, cancelAfter, closeAfter: cap };
 }
 
 /**
@@ -50,7 +94,7 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
   try {
     instance.addHook('preClose', async function drainOnClose() {
       // a shutdown() call already started it, and the server part hands back that same run
-      await shutdownServer(drain.options);
+      await shutdownServer(fitPluginTimeout(instance, drain, drain.options));
     });
   } catch (error) {
     if ((error as { code?: unknown } | null)?.code === ALREADY_STARTED) {
@@ -75,7 +119,8 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
  * of the drain (one that ends websockets, say) runs when the close starts, and one registered after
  * it waits for the drain. A request arriving on a kept-alive connection during the close is
  * answered by fastify, with 503 unless `return503OnClosing` is false. Fastify cuts a `preClose` hook
- * off at `pluginTimeout` (10 s by default), so keep `closeAfter` below it or raise it.
+ * off at `pluginTimeout` (10 s by default), which the default windows would pass, so there the
+ * windows are lowered to end just inside it, and that is logged once through `app.log.warn`.
  *
  * The drain stops the server: no new connections, a window for in-flight handlers to finish, and
  * a cancel for any still running when `cancelAfter` ends (at once with `cancelAfter: 0`). Every
@@ -138,7 +183,9 @@ export function createShutdown(
 
     const merged = { ...drain.options, ...callOptions };
     // started here rather than in the hook, so a bad option throws to the caller before the close
-    const drained = shutdownServer(merged);
+    const drained = shutdownServer(
+      insideClose && merged.closeServer !== false ? fitPluginTimeout(app, drain, merged) : merged,
+    );
     let result: Promise<IShutdownResult>;
 
     if (merged?.closeServer === false) {

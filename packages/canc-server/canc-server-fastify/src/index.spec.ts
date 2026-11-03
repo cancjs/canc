@@ -2184,6 +2184,25 @@ describe('drain inside the fastify close', () => {
     expect((await pending).statusCode).toBe(503);
   });
 
+  it('fits the default windows under pluginTimeout and logs that once', async () => {
+    const started = deferred();
+    const instance = Fastify({ pluginTimeout: 2_000 });
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance);
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    await expect(instance.close()).resolves.toBeUndefined();
+    expect((await pending).statusCode).toBe(503);
+    await shutdown();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it('drains first and closes after when created after listen without the plugin', async () => {
     const order: string[] = [];
     const arrived = deferred();
