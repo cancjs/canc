@@ -46,6 +46,7 @@ function fitPluginTimeout(
   options: IShutdownOptions | undefined,
 ): IShutdownOptions | undefined {
   const limit = instance.initialConfig.pluginTimeout;
+  // only an initialConfig override gives Infinity, fastify refuses it at construction
   if (typeof limit !== 'number' || !(limit > 0) || limit === Infinity) {
     return options;
   }
@@ -57,7 +58,7 @@ function fitPluginTimeout(
   }
 
   const closeAfter = closeAt ?? (cancelAt ?? DEFAULT_SHUTDOWN_TIMEOUT) + 1000;
-  const cap = limit - Math.min(PLUGIN_TIMEOUT_MARGIN, Math.floor(limit / 10));
+  const cap = limit - Math.max(1, Math.min(PLUGIN_TIMEOUT_MARGIN, Math.floor(limit / 10)));
   if (closeAfter <= cap) {
     return options;
   }

@@ -2203,6 +2203,38 @@ describe('drain inside the fastify close', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it('ends the lowered default windows a margin under pluginTimeout', async () => {
+    const instance = Fastify({ pluginTimeout: 4_000 });
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance);
+    await listen(instance);
+    app = undefined;
+
+    await shutdown();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toEqual({ cancelAfter: 2_600, closeAfter: 3_600, pluginTimeout: 4_000 });
+  });
+
+  it('keeps the windows when pluginTimeout is 0', async () => {
+    const started = deferred();
+    const instance = Fastify({ pluginTimeout: 0 });
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    createShutdown(instance, { cancelAfter: 200 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    await expect(withinMs(instance.close(), 2_000)).resolves.toBeUndefined();
+    expect((await pending).statusCode).toBe(503);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('logs no lowering for shutdown() windows that already fit pluginTimeout', async () => {
     const instance = Fastify();
     const warn = jest.spyOn(instance.log, 'warn');
