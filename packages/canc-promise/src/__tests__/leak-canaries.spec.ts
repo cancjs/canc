@@ -9,7 +9,9 @@ import { CancelablePromise } from '../cancelable-promise';
  * chain; (c) signal-attached settled promises collectable while signal alive, checked via listener
  * count on a mock signal; (d) handlers array released after cancel; (e) long-lived parent w/ 10k
  * transient children -> heapUsed plateau, measured via process.memoryUsage() before/after two
- * successive 10k-iteration bursts with a forced collection between them.
+ * successive 10k-iteration bursts with a forced collection between them; (f) settled then-chain links
+ * collected behind a retained tail; (g) the same for a queue appended one link at a time, with
+ * adopting links and a rejected queue.
  *
  * Every probe needs a real collector, not just a `global.gc` call that may be a no-op. See the
  * acquireGC() helper below for how one is obtained and what happens when none is available.
@@ -306,6 +308,48 @@ describeIfGC('leak canaries (GC probe)', () => {
       // head plus every link but the retained tail
       expect(collected).toBe(links);
       expect(tail.canceled).toBe(false);
+    });
+  });
+
+  describe('(g) a queue appended one link at a time keeps only its tail', () => {
+    it('settled links of a fulfilled queue and of a rejected queue are collected', async () => {
+      const links = 2000;
+      let collected = 0;
+      const registry = new FinalizationRegistry<number>(() => {
+        collected++;
+      });
+
+      // fulfilled queue: every other link adopts a promise, and links are appended after settling
+      let queue: CancelablePromise<number> = CancelablePromise.resolve(0);
+      registry.register(queue, -1);
+      for (let i = 0; i < links; i++) {
+        queue = i % 2 === 0 ? queue.then((v) => CancelablePromise.resolve(v + 1)) : queue.then((v) => v + 1);
+        registry.register(queue, i);
+        if (i % 100 === 99) {
+          await queue;
+        }
+      }
+      const fulfilledTail = queue;
+      await expect(fulfilledTail).resolves.toBe(links);
+
+      // rejected queue: a rejection passes down every link, and the rejected tail is retained
+      let failing: CancelablePromise<number> = CancelablePromise.reject<number, Error>(new Error('stop'));
+      registry.register(failing, -2);
+      for (let i = 0; i < links; i++) {
+        failing = failing.then((v) => v + 1);
+        registry.register(failing, links + i);
+      }
+      const rejectedTail = failing;
+      await expect(rejectedTail).rejects.toThrow('stop');
+
+      for (let i = 0; i < 6 && collected < 2 * links; i++) {
+        gc();
+        await drain();
+      }
+
+      // both first promises plus every link but the two retained tails
+      expect(collected).toBe(2 * links);
+      expect(fulfilledTail.canceled).toBe(false);
     });
   });
 });
