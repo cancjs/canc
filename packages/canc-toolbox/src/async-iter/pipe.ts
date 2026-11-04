@@ -1,4 +1,4 @@
-import type { CancelablePromise } from '@cancjs/promise';
+import type { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import type {
   IPipeableAsyncIterable,
@@ -21,18 +21,18 @@ import { applyPipe } from '../../../_toolbox/async-iter/pipe';
  */
 export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
   pipe(): ICancelablePipeable<T>;
-  pipe<R>(term: ITermOp<T, R>): CancelablePromise<R>;
+  pipe<R>(term: ITermOp<T, R>): CancelablePromise<R, Unlisted>;
   pipe<B1>(op1: IPipeOp<T, B1>): ICancelablePipeable<B1>;
-  pipe<B1, R>(op1: IPipeOp<T, B1>, term: ITermOp<B1, R>): CancelablePromise<R>;
+  pipe<B1, R>(op1: IPipeOp<T, B1>, term: ITermOp<B1, R>): CancelablePromise<R, Unlisted>;
   pipe<B1, B2>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>): ICancelablePipeable<B2>;
-  pipe<B1, B2, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, term: ITermOp<B2, R>): CancelablePromise<R>;
+  pipe<B1, B2, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, term: ITermOp<B2, R>): CancelablePromise<R, Unlisted>;
   pipe<B1, B2, B3>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>): ICancelablePipeable<B3>;
   pipe<B1, B2, B3, R>(
     op1: IPipeOp<T, B1>,
     op2: IPipeOp<B1, B2>,
     op3: IPipeOp<B2, B3>,
     term: ITermOp<B3, R>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, Unlisted>;
   pipe<B1, B2, B3, B4>(
     op1: IPipeOp<T, B1>,
     op2: IPipeOp<B1, B2>,
@@ -45,7 +45,7 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
     op3: IPipeOp<B2, B3>,
     op4: IPipeOp<B3, B4>,
     term: ITermOp<B4, R>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, Unlisted>;
   pipe<B1, B2, B3, B4, B5>(
     op1: IPipeOp<T, B1>,
     op2: IPipeOp<B1, B2>,
@@ -60,7 +60,7 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
     op4: IPipeOp<B3, B4>,
     op5: IPipeOp<B4, B5>,
     term: ITermOp<B5, R>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, Unlisted>;
   pipe<B1, B2, B3, B4, B5, B6>(
     op1: IPipeOp<T, B1>,
     op2: IPipeOp<B1, B2>,
@@ -77,7 +77,7 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
     op5: IPipeOp<B4, B5>,
     op6: IPipeOp<B5, B6>,
     term: ITermOp<B6, R>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, Unlisted>;
   pipe<B1, B2, B3, B4, B5, B6, B7>(
     op1: IPipeOp<T, B1>,
     op2: IPipeOp<B1, B2>,
@@ -96,7 +96,7 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
     op6: IPipeOp<B5, B6>,
     op7: IPipeOp<B6, B7>,
     term: ITermOp<B7, R>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, Unlisted>;
   pipe<B1, B2, B3, B4, B5, B6, B7, B8>(
     op1: IPipeOp<T, B1>,
     op2: IPipeOp<B1, B2>,
@@ -117,7 +117,7 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
     op7: IPipeOp<B6, B7>,
     op8: IPipeOp<B7, B8>,
     term: ITermOp<B8, R>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, Unlisted>;
   pipe<B1, B2, B3, B4, B5, B6, B7, B8, B9>(
     op1: IPipeOp<T, B1>,
     op2: IPipeOp<B1, B2>,
@@ -140,7 +140,7 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
     op8: IPipeOp<B7, B8>,
     op9: IPipeOp<B8, B9>,
     term: ITermOp<B9, R>,
-  ): CancelablePromise<R>;
+  ): CancelablePromise<R, Unlisted>;
   pipe<TOps extends readonly unknown[], R>(
     ops: readonly [...TOps],
     term: ITermOp<TPipeElementOf<T, TOps>, R>,
@@ -156,7 +156,7 @@ export interface ICancelablePipeable<T> extends IPipeableAsyncIterable<T> {
  */
 export type TCancelableGrouped<TSource, TOps extends readonly unknown[]> =
   [TPipeWalk<TSource, TOps>] extends [never] ? never
-  : TPipeWalk<TSource, TOps> extends IPipeWalkTerm<infer R> ? CancelablePromise<R>
+  : TPipeWalk<TSource, TOps> extends IPipeWalkTerm<infer R> ? CancelablePromise<R, Unlisted>
   : TPipeWalk<TSource, TOps> extends IPipeWalkLazy<infer TCurrent> ? ICancelablePipeable<TCurrent>
   : never;
 
@@ -166,7 +166,7 @@ export type TCancelableGrouped<TSource, TOps extends readonly unknown[]> =
 export type TCancelableGroupedTerm<TSource, TOps extends readonly unknown[], R> =
   [TPipeWalk<TSource, TOps>] extends [never] ? never
   : // any here checks the walk shape (lazy vs terminal), not the element type
-  TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? CancelablePromise<R>
+  TPipeWalk<TSource, TOps> extends IPipeWalkLazy<any> ? CancelablePromise<R, Unlisted>
   : never;
 
 /**
@@ -176,9 +176,13 @@ export type TCancelableGroupedTerm<TSource, TOps extends readonly unknown[], R> 
  * pipeline ends in something cancelable without a cast. The runtime is the shared algorithm.
  */
 export function pipe<A>(source: TPipeSource<A>): ICancelablePipeable<A>;
-export function pipe<A, R>(source: TPipeSource<A>, term: ITermOp<A, R>): CancelablePromise<R>;
+export function pipe<A, R>(source: TPipeSource<A>, term: ITermOp<A, R>): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1>(source: TPipeSource<A>, op1: IPipeOp<A, B1>): ICancelablePipeable<B1>;
-export function pipe<A, B1, R>(source: TPipeSource<A>, op1: IPipeOp<A, B1>, term: ITermOp<B1, R>): CancelablePromise<R>;
+export function pipe<A, B1, R>(
+  source: TPipeSource<A>,
+  op1: IPipeOp<A, B1>,
+  term: ITermOp<B1, R>,
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -189,7 +193,7 @@ export function pipe<A, B1, B2, R>(
   op1: IPipeOp<A, B1>,
   op2: IPipeOp<B1, B2>,
   term: ITermOp<B2, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2, B3>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -202,7 +206,7 @@ export function pipe<A, B1, B2, B3, R>(
   op2: IPipeOp<B1, B2>,
   op3: IPipeOp<B2, B3>,
   term: ITermOp<B3, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2, B3, B4>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -217,7 +221,7 @@ export function pipe<A, B1, B2, B3, B4, R>(
   op3: IPipeOp<B2, B3>,
   op4: IPipeOp<B3, B4>,
   term: ITermOp<B4, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2, B3, B4, B5>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -234,7 +238,7 @@ export function pipe<A, B1, B2, B3, B4, B5, R>(
   op4: IPipeOp<B3, B4>,
   op5: IPipeOp<B4, B5>,
   term: ITermOp<B5, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2, B3, B4, B5, B6>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -253,7 +257,7 @@ export function pipe<A, B1, B2, B3, B4, B5, B6, R>(
   op5: IPipeOp<B4, B5>,
   op6: IPipeOp<B5, B6>,
   term: ITermOp<B6, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2, B3, B4, B5, B6, B7>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -274,7 +278,7 @@ export function pipe<A, B1, B2, B3, B4, B5, B6, B7, R>(
   op6: IPipeOp<B5, B6>,
   op7: IPipeOp<B6, B7>,
   term: ITermOp<B7, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2, B3, B4, B5, B6, B7, B8>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -297,7 +301,7 @@ export function pipe<A, B1, B2, B3, B4, B5, B6, B7, B8, R>(
   op7: IPipeOp<B6, B7>,
   op8: IPipeOp<B7, B8>,
   term: ITermOp<B8, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 export function pipe<A, B1, B2, B3, B4, B5, B6, B7, B8, B9>(
   source: TPipeSource<A>,
   op1: IPipeOp<A, B1>,
@@ -322,7 +326,7 @@ export function pipe<A, B1, B2, B3, B4, B5, B6, B7, B8, B9, R>(
   op8: IPipeOp<B7, B8>,
   op9: IPipeOp<B8, B9>,
   term: ITermOp<B9, R>,
-): CancelablePromise<R>;
+): CancelablePromise<R, Unlisted>;
 /**
  * Array-grouped form, which the ladder above does not cover.
  *
