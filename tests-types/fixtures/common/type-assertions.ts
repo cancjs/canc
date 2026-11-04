@@ -168,25 +168,25 @@ wr.resolve(123);
 
 // ============================================================ helpers
 const cc = catchCancel(Promise.resolve(7));
-type _catchCancel = Expect<Equal<typeof cc, CancelablePromise<number | CancelError, never>>>;
+type _catchCancel = Expect<Equal<typeof cc, CancelablePromise<number | CancelError, Unlisted>>>;
 
 // Each flag option adds its error kind to the resolution side, because a caught error is the
 // value the returned promise resolves with
 const ccOpt = catchCancel(Promise.resolve(7), { bubble: false, abort: true });
-type _catchCancelOpt = Expect<Equal<typeof ccOpt, CancelablePromise<number | CancelError | AbortError, never>>>;
+type _catchCancelOpt = Expect<Equal<typeof ccOpt, CancelablePromise<number | CancelError | AbortError, Unlisted>>>;
 
 const ccTimeout = catchCancel(Promise.resolve(7), { timeout: true });
 type _catchCancelTimeout = Expect<
-  Equal<typeof ccTimeout, CancelablePromise<number | CancelError | TimeoutError, never>>
+  Equal<typeof ccTimeout, CancelablePromise<number | CancelError | TimeoutError, Unlisted>>
 >;
 
 const ccBothFlags = catchCancel(Promise.resolve(7), { abort: true, timeout: true });
 type _catchCancelBothFlags = Expect<
-  Equal<typeof ccBothFlags, CancelablePromise<number | CancelError | AbortError | TimeoutError, never>>
+  Equal<typeof ccBothFlags, CancelablePromise<number | CancelError | AbortError | TimeoutError, Unlisted>>
 >;
 
 const sc = suppressCancel(Promise.resolve(7));
-type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void, never>>>;
+type _suppressCancel = Expect<Equal<typeof sc, CancelablePromise<number | void, Unlisted>>>;
 
 const mc = makeCancelable(Promise.resolve(7));
 type _makeCancelable = Expect<Equal<typeof mc, CancelablePromise<number, Unlisted>>>;
@@ -196,22 +196,22 @@ const _bad: CancelablePromise<number> = catchCancel(new CancelError());
 
 const ca = catchAbort(Promise.resolve(7));
 type _catchAbort = Expect<
-  Equal<typeof ca, CancelablePromise<number | AbortError | (CancelError & { readonly aborted: true }), never>>
+  Equal<typeof ca, CancelablePromise<number | AbortError | (CancelError & { readonly aborted: true }), Unlisted>>
 >;
 
 const sa = suppressAbort(Promise.resolve(7));
-type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void, never>>>;
+type _suppressAbort = Expect<Equal<typeof sa, CancelablePromise<number | void, Unlisted>>>;
 
 const tas = toAbortSignal(Promise.resolve(7));
 type _toAbortSignal = Expect<Equal<typeof tas, AbortSignal>>;
 
 const ct = catchTimeout(Promise.resolve(7));
 type _catchTimeout = Expect<
-  Equal<typeof ct, CancelablePromise<number | TimeoutError | (CancelError & { readonly timedOut: true }), never>>
+  Equal<typeof ct, CancelablePromise<number | TimeoutError | (CancelError & { readonly timedOut: true }), Unlisted>>
 >;
 
 const st = suppressTimeout(Promise.resolve(7));
-type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void, never>>>;
+type _suppressTimeout = Expect<Equal<typeof st, CancelablePromise<number | void, Unlisted>>>;
 
 const cce = createCatchError(ToolboxAbortError);
 type _createCatchError = Expect<Equal<typeof cce, ICatchErrorFn<[typeof ToolboxAbortError]>>>;
