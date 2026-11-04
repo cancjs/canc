@@ -812,10 +812,16 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<ISettledResult<any>[] | { [P in keyof any]: ISettledResult<any> }, never> {
-    // The spread stays outside any try so an iterable that throws while iterating surfaces
-    // synchronously (documented behavior), not as a rejected aggregate.
+    let items: T[];
+    try {
+      items = [...values];
+    } catch (error) {
+      // like the native allSettled, a throwing iterable rejects the result instead of throwing
+      return this.reject<ISettledResult<any>[], never>(error, options);
+    }
+
     return this.all(
-      [...values].map(
+      items.map(
         (promiseOrValue) =>
           // `_adopt` reuses a same-constructor canc input as-is and only wraps raw values /
           // foreign thenables, dropping the former unconditional resolve() wrap that ran a full

@@ -296,14 +296,16 @@ describe('combinator inputs follow consumer counting', () => {
       });
     });
 
-    // allSettled spreads the iterable before taking any input, so the throw is synchronous
-    it('allSettled() throws synchronously and leaves the inputs untouched', async () => {
+    // allSettled spreads before taking input; a throw leaves every input untouched
+    it('allSettled() rejects and leaves the inputs untouched', async () => {
       const sole = pending<string>();
       const shared = pending<string>();
       const consumer = shared.promise.then((value) => value);
       const boom = new Error('iteration failed');
 
-      expect(() => CancelablePromise.allSettled(yieldThenThrow([sole.promise, shared.promise], boom))).toThrow(boom);
+      await expect(CancelablePromise.allSettled(yieldThenThrow([sole.promise, shared.promise], boom))).rejects.toBe(
+        boom,
+      );
       await settleAll();
 
       expect(sole.promise.isCanceled).toBe(false);
