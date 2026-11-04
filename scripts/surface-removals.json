@@ -175,6 +175,1077 @@
       "name": "IShutdownOptions",
       "member": "timeout",
       "reason": "Prerelease-only option replaced by cancelAfter, the grace-end cancel point; never shipped in a stable release."
+    },
+    {
+      "package": "@cancjs/coroutine",
+      "entry": "./gen",
+      "name": "ICancAsyncGenerator",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_abortListeners",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_abortSignals",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_addChainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_boundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_cancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_cancelHandlers",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_canceledReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_chain",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_chainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_collector",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_completedChainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_dispose",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_flags",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_getBoundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_internalState",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_isCanceledReasonSet",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_pendingSyncCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_pendingSyncCancelReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_reject",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_resolve",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_retainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_runCancellation",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_runSettlementEffects",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_setFlag",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_subscribe",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "_then",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "[CANCEL_PROMISE_BRAND]",
+      "reason": "The brand stays on the prototype at runtime; kept out of the published type so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/fetch",
+      "entry": ".",
+      "name": "TCancelableFetchLaterPromise",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_abortListeners",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_abortSignals",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_addChainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_boundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_cancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_cancelHandlers",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_canceledReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_chain",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_chainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_collector",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_completedChainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_dispose",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_flags",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_getBoundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_internalState",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_isCanceledReasonSet",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_pendingSyncCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_pendingSyncCancelReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_reject",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_resolve",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_retainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_runCancellation",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_runSettlementEffects",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_setFlag",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_subscribe",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "_then",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "[CANCEL_PROMISE_BRAND]",
+      "reason": "The brand stays on the prototype at runtime; kept out of the published type so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./child-process",
+      "name": "TExecPromise",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_activeCollector",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_adopt",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_checkOptionsChanged",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_getOptions",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_pendingInternalCall",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "[CANCEL_PROMISE_BRAND]",
+      "reason": "The brand stays on the prototype at runtime; kept out of the published type so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_abortListeners",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_abortSignals",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_addChainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_boundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_cancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_cancelHandlers",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_canceledReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_chain",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_chainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_collector",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_completedChainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_dispose",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_flags",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_getBoundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_internalState",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_isCanceledReasonSet",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_pendingSyncCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_pendingSyncCancelReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_reject",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_resolve",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_retainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_runCancellation",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_runSettlementEffects",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_setFlag",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_subscribe",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "CancelablePromise",
+      "member": "_then",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "Failing",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "[CANCEL_PROMISE_BRAND]",
+      "reason": "The brand stays on the prototype at runtime; kept out of the published type so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_abortListeners",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_abortSignals",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_addChainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_boundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_cancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_cancelHandlers",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_canceledReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_chain",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_chainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_collector",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_completedChainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_dispose",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_flags",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_getBoundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_internalState",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_isCanceledReasonSet",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_pendingSyncCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_pendingSyncCancelReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_reject",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_resolve",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_retainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_runCancellation",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_runSettlementEffects",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_setFlag",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_subscribe",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "WithFailure",
+      "member": "_then",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_activeCollector",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_adopt",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_checkOptionsChanged",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_getOptions",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_pendingInternalCall",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "[CANCEL_PROMISE_BRAND]",
+      "reason": "The brand stays on the prototype at runtime; kept out of the published type so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_abortListeners",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_abortSignals",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_addChainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_boundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_cancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_cancelHandlers",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_canceledReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_chain",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_chainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_collector",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_completedChainsCount",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_dispose",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_flags",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_getBoundCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_internalState",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_isCanceledReasonSet",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_pendingSyncCancel",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_pendingSyncCancelReason",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_reject",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_resolve",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_retainRef",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_runCancellation",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_runSettlementEffects",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_setFlag",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_subscribe",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "default",
+      "member": "_then",
+      "reason": "Internal member, not public API; kept out of the published types so copies of the package stay assignable to each other."
+    },
+    {
+      "package": "@cancjs/toolbox",
+      "entry": ".",
+      "name": "LazyPromise",
+      "member": "[FAILURE]",
+      "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
     }
   ]
 }
