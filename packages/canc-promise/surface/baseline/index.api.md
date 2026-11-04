@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-promise/dist/types/index.d.ts`
-- Exports: 78
+- Exports: 80
 
 ## `AbortError` (type)
 
@@ -145,6 +145,15 @@ readonly [FAILURE]?: Exclude<TFailure, CancelError> | undefined
 0 extends 1 & T ? never : T extends { readonly [FAILURE]?: infer F; } ? [F] extends [undefined] ? never : F : T extends PromiseLike<unknown> ? Unlisted : never
 ```
 
+## `IAbortSignal` (interface)
+
+```text
+readonly aborted: boolean
+addEventListener: (type: "abort", listener: any, options?: unknown) => void
+readonly reason?: any
+removeEventListener: (type: "abort", listener: any, options?: unknown) => void
+```
+
 ## `ICancelErrorOptions` (interface)
 
 ```text
@@ -227,9 +236,9 @@ timeout?: boolean | undefined
 ## `IExecutorContext<TResult = any, TFailure = unknown>` (interface)
 
 ```text
-getSignal: (this: void) => IAbortSignal // @deprecated
+getSignal: (this: void) => TAbortSignal // @deprecated
 handleCancel: (this: void, onCancel: TOnCancel) => CancelablePromise<TResult, TFailure>
-readonly signal: IAbortSignal
+readonly signal: AbortSignal
 ```
 
 ## `IHandleCancelOptions` (interface)
@@ -308,6 +317,18 @@ M extends TErrorConstructor ? InstanceType<M> : M extends (error: any) => error 
 
 ```text
 M[number] extends TErrorConstructor ? InstanceType<M[number]> : M[number] extends (error: any) => error is infer G ? G : M[number] extends string ? Error & { name: M[number]; } : never
+```
+
+## `TAbortSignal` (type)
+
+```text
+readonly aborted: boolean
+addEventListener: (type: string, listener: EventListener | EventListenerObject, options?: AddEventListenerOptions | boolean) => void
+dispatchEvent: (event: Event) => boolean
+onabort: ((this: AbortSignal, ev: Event) => any) | null
+readonly reason: any
+removeEventListener: (type: string, listener: EventListener | EventListenerObject, options?: EventListenerOptions | boolean) => void
+throwIfAborted: () => void
 ```
 
 ## `TCancelFn` (type)

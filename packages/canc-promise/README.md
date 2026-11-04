@@ -518,12 +518,12 @@ const quotes = new CancelablePromise(executor, {
 });
 ```
 
-Inside the executor, `getSignal()` returns an `AbortSignal` that aborts when the promise is
-canceled, so signal-aware APIs can be connected directly:
+Inside the executor, `signal` is an `AbortSignal` that aborts when the promise is canceled, so
+signal-aware APIs can be connected directly. It is typed as the `AbortSignal` of your TypeScript lib:
 
 ```js
-const data = new CancelablePromise((resolve, reject, { getSignal }) => {
-  fetch('/api/data', { signal: getSignal() }).then(resolve, reject);
+const data = new CancelablePromise((resolve, reject, { signal }) => {
+  fetch('/api/data', { signal }).then(resolve, reject);
 });
 ```
 
@@ -599,7 +599,7 @@ per-call options or a class static instead of relying on the registry.
 
 `new CancelablePromise(executor, options?)`, where `executor` is
 `(resolve, reject, context) => void`. The context object provides `handleCancel` for registering
-cleanup and `getSignal` for obtaining an `AbortSignal` tied to the promise. Also the default
+cleanup and `signal`, an `AbortSignal` tied to the promise (`getSignal()` is its deprecated form). Also the default
 export.
 
 Statics, each taking an optional trailing options argument: `all`, `allSettled`, `any`, `race`,
