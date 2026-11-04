@@ -20,9 +20,8 @@ class BarError extends Error {
 }
 
 describe('Failure vocabulary', () => {
-  it('FAILURE is a unique symbol', () => {
-    expect(typeof FAILURE).toBe('symbol');
-    expect(FAILURE).toBe(Symbol.for('@cancjs/promise:failure'));
+  it('FAILURE is a string key, the same in every copy of the package', () => {
+    expect(FAILURE).toBe('_cancFailure');
   });
 
   it('types behave as expected', () => {
