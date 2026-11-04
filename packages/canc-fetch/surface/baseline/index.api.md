@@ -37,32 +37,6 @@ TNetworkTypeError | Unlisted
 ## `TCancelableFetchLaterPromise` (type)
 
 ```text
-_abortListeners?: Map<IAbortSignal, any> | undefined
-_abortSignals?: Array<IAbortSignal> | undefined
-_addChainRef: (bubbleOnComplete?: boolean) => (() => void) | undefined
-_boundCancel?: ((reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void) | undefined
-_cancel: (reason?: any, disposing?: boolean, collector?: any[]) => void
-_cancelHandlers?: Array<TOnCancel> | undefined
-_canceledReason: any
-_chain: (childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean) => void
-_chainsCount: number
-_collector?: Array<any> | undefined
-_completedChainsCount: number
-_dispose: () => CancelablePromise<ISettledResult<unknown>[], never> | void
-_flags: number
-_getBoundCancel: () => (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
-_internalState: TCancelablePromiseStates
-_isCanceledReasonSet: boolean
-_pendingSyncCancel: boolean
-_pendingSyncCancelReason: any
-_reject: (reason?: any) => void
-_resolve: (value?: any) => void
-_retainRef: (settleTiming?: boolean) => (() => void) | undefined
-_runCancellation: (reason?: any, collector?: any[]) => void
-_runSettlementEffects: () => void
-_setFlag: any
-_subscribe: (onFulfilled?: ((value: IFetchLaterResultLike) => any) | null | undefined, onRejected?: ((reason: any) => any) | null) => void
-_then: <TResult1 = IFetchLaterResultLike, TResult2 = never>(onFulfilled?: ((value: IFetchLaterResultLike) => TResult1) | null | undefined, onRejected?: ((reason: any) => TResult2) | null | undefined) => CancelablePromise<Awaited<TResult1> | Awaited<TResult2>, ([TResult2] extends [never] ? TCancelableFetchFailure : never) | FailureOf<TResult1> | FailureOf<TResult2>>
 asyncCancel: boolean // @deprecated
 bubble: boolean // @deprecated
 cancel: (reason?: any, _disposing?: boolean) => CancelablePromise<ISettledResult<unknown>[], never> | void
@@ -75,9 +49,8 @@ handleCancel: (onCancel: TOnCancel, options?: IHandleCancelOptions) => Cancelabl
 isCancelable: boolean // @deprecated
 isCanceled: boolean // @deprecated
 options: Required<ICancelablePromiseFlagOptions>
-readonly [CANCEL_PROMISE_BRAND]: true
-readonly [FAILURE]?: TCancelableFetchFailure | undefined
 readonly [toStringTag]: string
+readonly _cancFailure?: TCancelableFetchFailure | undefined
 readonly activated: boolean | null
 shield: boolean // @deprecated
 strict: boolean // @deprecated
