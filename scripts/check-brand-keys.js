@@ -4,6 +4,7 @@
 // Each *_ERROR_BRAND constant is paired with its key and class in brand-keys.json.
 // Marker members (readonly _canc<Name>: <literal> on an interface in _util source and built
 // types) are pinned by name and literal, since the member name is type identity across copies.
+// String keys (stringKeys) are constants read by value across copies, pinned by file and value.
 //
 // Usage: node scripts/check-brand-keys.js
 
@@ -217,6 +218,29 @@ function checkMarkers(registry, packageNames, problems) {
   return Object.keys(expected).length;
 }
 
+// String constants other copies read by value: a key that is type identity, or a wire message.
+// Pinned by declaring file and value, like a brand key.
+function checkStringKeys(registry, problems) {
+  const expected = registry.stringKeys || {};
+  for (const [name, entry] of Object.entries(expected)) {
+    const file = path.join(ROOT, entry.file || '');
+    if (!entry.file || !fs.existsSync(file)) {
+      problems.push(`string key ${name}: declaring file "${entry.file}" not found`);
+      continue;
+    }
+    const code = fs.readFileSync(file, 'utf8');
+    const match = new RegExp(`export\\s+const\\s+${name}\\s*(?::[^=]+)?=\\s*['"]([^'"]+)['"]`).exec(code);
+    if (!match) {
+      problems.push(
+        `missing ${entry.state === 'published' ? 'published' : 'pending'} string key: ${name} not declared in ${entry.file}`,
+      );
+    } else if (match[1] !== entry.value) {
+      problems.push(`string key ${name} in ${entry.file} is "${match[1]}", expected "${entry.value}"`);
+    }
+  }
+  return Object.keys(expected).length;
+}
+
 function checkBrandKeys() {
   const registry = JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf8'));
   const publishedSet = new Set(registry.published || []);
@@ -423,6 +447,7 @@ function checkBrandKeys() {
   }
 
   const markerCount = checkMarkers(registry, packageNames, problems);
+  const stringKeyCount = checkStringKeys(registry, problems);
 
   const uniqueProblems = [...new Set(problems)];
   const uniqueWarnings = [...new Set(warnings)];
@@ -435,6 +460,7 @@ function checkBrandKeys() {
     publishedCount: publishedSet.size,
     pendingCount: pendingSet.size,
     markerCount,
+    stringKeyCount,
     collectedKeys: [...collectedKeys].sort(),
   };
 }
@@ -446,7 +472,7 @@ function main() {
   }
   if (result.passed) {
     console.log(
-      `PASS brand keys: ${result.keyCount} keys verified (${result.publishedCount} published, ${result.pendingCount} pending, markers: ${result.markerCount})`,
+      `PASS brand keys: ${result.keyCount} keys verified (${result.publishedCount} published, ${result.pendingCount} pending, markers: ${result.markerCount}, string keys: ${result.stringKeyCount})`,
     );
     process.exit(0);
   } else {
