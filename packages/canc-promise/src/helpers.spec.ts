@@ -292,6 +292,40 @@ describe('catchCancel', () => {
     expect(outer.isCanceled).toBe(true);
     await expect(outer).rejects.toBeInstanceOf(CancelError);
   });
+
+  describe('a CancelError caused by a timeout', () => {
+    const timeoutCanceled = () => CancelablePromise.reject(new CancelError(undefined, { cause: new TimeoutError() }));
+
+    it('keeps rejecting by default', async () => {
+      const result = catchCancel(timeoutCanceled());
+
+      await expect(result).rejects.toMatchObject({ timedOut: true });
+      await expect(result).rejects.toBeInstanceOf(CancelError);
+    });
+
+    it('keeps rejecting with {abort:true}', async () => {
+      await expect(catchCancel(timeoutCanceled(), { abort: true })).rejects.toMatchObject({ timedOut: true });
+    });
+
+    it('resolves with the error with {timeout:true}', async () => {
+      const result = await catchCancel(timeoutCanceled(), { timeout: true });
+
+      expect(result).toBeInstanceOf(CancelError);
+      expect(result).toMatchObject({ timedOut: true });
+    });
+
+    it('is thrown back by the bare-error form by default', () => {
+      const error = new CancelError(undefined, { cause: new TimeoutError() });
+
+      expect(() => catchCancel(error)).toThrow(error);
+    });
+
+    it('does not change a plain cancel, still caught', async () => {
+      const error = new CancelError();
+
+      await expect(catchCancel(CancelablePromise.reject(error))).resolves.toBe(error);
+    });
+  });
 });
 
 describe('suppressCancel', () => {
