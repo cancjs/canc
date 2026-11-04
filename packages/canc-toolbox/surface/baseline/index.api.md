@@ -38,9 +38,9 @@ resolve: (value?: PromiseLike<T> | T | undefined) => void
 ## `ICancelifyContext` (interface)
 
 ```text
-getSignal: () => any // @deprecated
+getSignal: () => TAbortSignal // @deprecated
 handleCancel: THandleCancel
-readonly signal: any
+readonly signal: AbortSignal
 ```
 
 ## `ICancelifyOptions` (interface)
