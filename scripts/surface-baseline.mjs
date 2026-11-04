@@ -2,6 +2,8 @@
 // Resolution relies on node_modules/@cancjs/* symlinks of the checkout it runs in;
 // always run in the tree that built dist.
 // Known limit: non-exported helper type shapes are not recorded.
+// Two rules run on every rendered baseline: no `never` failure over a PromiseLike input,
+// and no internal member on the promise class type.
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
@@ -597,6 +599,38 @@ function diffLines(expected, actual) {
   return out;
 }
 
+// A PromiseLike input may reject with anything, so a signature taking one must not declare `never`
+const PROMISELIKE_NEVER_RE = /^(.*)\)(?::| =>) (?:CancelablePromise|LazyPromise)<.*, never>$/;
+// `<package> <section heading>` of a signature that may still declare `never`
+// over a PromiseLike input
+const PROMISELIKE_NEVER_ALLOWLIST = new Set([]);
+// Copies of @cancjs/promise match by structure, so its class type carries
+// no internal member and no symbol brand
+const STRUCTURAL_CLASS_HEADINGS = new Set([
+  '## `CancelablePromise<TResult, TFailure = unknown>` (class)',
+  '## `default<TResult, TFailure = unknown>` (class)',
+]);
+const NON_PUBLIC_MEMBER_RE = /^(?:static )?(?:readonly )?(?:_(?!cancFailure\b)|\[CANCEL_PROMISE_BRAND\])/;
+
+function surfaceRuleViolations(pkgName, files) {
+  const problems = [];
+  for (const [name, content] of files) {
+    let section = '';
+    content.split(/\r?\n/).forEach((line, index) => {
+      if (line.startsWith('## ')) section = line;
+      const where = `${pkgName} ${name}:${index + 1}`;
+      const match = PROMISELIKE_NEVER_RE.exec(line);
+      if (match && match[1].includes('PromiseLike<') && !PROMISELIKE_NEVER_ALLOWLIST.has(`${pkgName} ${section}`)) {
+        problems.push(`${where} declares no failure over a PromiseLike input, under ${section}`);
+      }
+      if (pkgName === '@cancjs/promise' && STRUCTURAL_CLASS_HEADINGS.has(section) && NON_PUBLIC_MEMBER_RE.test(line)) {
+        problems.push(`${where} puts a non-public member on the class type: ${line.slice(0, 80)}`);
+      }
+    });
+  }
+  return problems;
+}
+
 function getPkgDir(pkgName) {
   const bare = pkgName.replace('@cancjs/', 'canc-');
   if (bare.startsWith('canc-server-')) {
@@ -614,6 +648,11 @@ export async function run({ check = false, pkg = null } = {}) {
     const pkgPosix = toPosix(pkgDir);
     const baselineDir = join(pkgDir, 'surface', 'baseline');
     const files = await generateBaselines(pkgName, pkgDir, pkgPosix);
+
+    for (const problem of surfaceRuleViolations(pkgName, files)) {
+      console.error(`Surface rule failed for ${problem}`);
+      failed = true;
+    }
 
     if (check) {
       const committed = existsSync(baselineDir) ? readdirSync(baselineDir).filter((f) => f.endsWith('.api.md')) : [];
