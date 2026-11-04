@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { setFnName } from '../_util';
 import { IAbortSignalLike } from './abort-signal';
 import { NO_SIGNAL, TGetSignal, withSignalAccessor } from './cancel-signal';
@@ -126,12 +127,15 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
    * Turn an errfirst (or value-first) callback function into one returning a promise built against
    * the bound implementation.
    */
-  function promisify(fn: TCallbackFn, options: IPromisifyOptions & ILazyOn): (...args: any[]) => TLazyOf<K, any>;
-  function promisify(fn: TCallbackFn, options?: IPromisifyOptions): (...args: any[]) => TPromiseOf<K, any, never>;
+  function promisify(
+    fn: TCallbackFn,
+    options: IPromisifyOptions & ILazyOn,
+  ): (...args: any[]) => TLazyOf<K, any, Unlisted>;
+  function promisify(fn: TCallbackFn, options?: IPromisifyOptions): (...args: any[]) => TPromiseOf<K, any, Unlisted>;
   function promisify(
     fn: TCallbackFn,
     options?: IPromisifyOptions,
-  ): (...args: any[]) => TPromiseOf<K, any, never> | TLazyOf<K, any> {
+  ): (...args: any[]) => TPromiseOf<K, any, Unlisted> | TLazyOf<K, any, Unlisted> {
     const errorFirst = options?.errorFirst !== false;
     const multiArgs = options?.multiArgs;
     const useCustom = options?.custom !== false;
@@ -144,7 +148,10 @@ export function promisifyFactory<K extends IPromiseKind = IPromiseLikeKind>(deps
     const customImpl = useCustom ? (fn as unknown as Record<PropertyKey, unknown>)[kCustom] : undefined;
     const custom: TCallbackFn | undefined = typeof customImpl === 'function' ? (customImpl as TCallbackFn) : undefined;
 
-    const wrapped = function (this: unknown, ...callArgs: any[]): TPromiseOf<K, any, never> | TLazyOf<K, any> {
+    const wrapped = function (
+      this: unknown,
+      ...callArgs: any[]
+    ): TPromiseOf<K, any, Unlisted> | TLazyOf<K, any, Unlisted> {
       // `run` is an arrow, so it keeps this function's receiver without aliasing it.
       const run = (resolve: (value: any) => void, reject: (reason?: any) => void, ctx?: IExecutorCtx) => {
         // Custom impl short-circuits the callback path entirely: call it and adopt its promise.
@@ -248,7 +255,7 @@ export function promisifyAllFactory<K extends IPromiseKind = IPromiseLikeKind>(d
   const promisify = promisifyFactory(deps);
 
   // cache in factory closure avoids shared-dir split-brain across copies
-  const wrappedCache = new WeakMap<TCallbackFn, (...args: any[]) => TPromiseOf<K, any, never>>();
+  const wrappedCache = new WeakMap<TCallbackFn, (...args: any[]) => TPromiseOf<K, any, Unlisted>>();
 
   /**
    * Batch-promisify the methods of an object. See IPromisifyAllOptions for selection, naming, and

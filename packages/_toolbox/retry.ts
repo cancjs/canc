@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { ILazyOn, IToolboxDeps, TCallDeps, TLazyOf } from './deps';
@@ -84,9 +85,22 @@ export function retryFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
    * last attempt is what the caller sees.
    */
   function retry<T, F = never>(
+    input: (attempt: number) => TPromiseOf<K, T, F>,
+    options: IRetryOptions<K> & ILazyOn,
+  ): TLazyOf<K, T, F>;
+  function retry<T>(
+    input: (attempt: number) => PromiseLike<T>,
+    options: IRetryOptions<K> & ILazyOn,
+  ): TLazyOf<K, T, Unlisted>;
+  function retry<T, F = never>(
     input: (attempt: number) => TPromiseOf<K, T, F> | T | PromiseLike<T>,
     options: IRetryOptions<K> & ILazyOn,
   ): TLazyOf<K, T, F>;
+  function retry<T, F = never>(
+    input: (attempt: number) => TPromiseOf<K, T, F>,
+    options?: IRetryOptions<K>,
+  ): TPromiseOf<K, T, F>;
+  function retry<T>(input: (attempt: number) => PromiseLike<T>, options?: IRetryOptions<K>): TPromiseOf<K, T, Unlisted>;
   function retry<T, F = never>(
     input: (attempt: number) => TPromiseOf<K, T, F> | T | PromiseLike<T>,
     options?: IRetryOptions<K>,

@@ -301,11 +301,11 @@ In addition, async iterables can be consumed and produced with `canc.forAwait` a
 
 A helper that takes the work as an argument reads the declared failure set off that argument, so the set survives the wrapper with no type argument at the call site.
 
-- `retry`, `minDelay` and `delay(input, ms)` take the failure set from the work they wrap.
+- `retry`, `minDelay` and `delay(input, ms)` take the failure set from the work they wrap. When that work is a native or foreign promise, or a function returning one, the set is open (`Unlisted`), since such a promise can reject with anything; a plain value declares `never`.
 - `debounce`, `throttle` and a call through `limit` take the set from the work too and keep it open (`F | Unlisted`), because a superseded call or a job dropped from the queue also rejects. That rejection is a cancellation, so it is not listed.
 - `map` adds the `AggregateError` it rejects with under `stopOnError: false` to the mapper's set, which stays open (`F | AggregateError | Unlisted`).
 - `timeout` and `waitFor` declare `TimeoutError` inside an open set (`TimeoutError | Unlisted`), because the work they wait on can reject with something else. A `catch` reason on their result is `any`, and a coroutine step over `waitFor` or a bare `timeout(ms)` contributes `TimeoutError`; a step over `timeout(input, ms)` contributes the input's set plus `TimeoutError`. `timeout(input, ms)` adds `TimeoutError` to the input's own set, so a `CancelablePromise<T, FooError>` input gives `FooError | TimeoutError | Unlisted`.
-- `delay(ms)`, `defer` and `promisify` declare a `never` failure set. None of them wraps a promise to read one from.
+- `delay(ms)` and `defer` declare a `never` failure set: neither wraps a promise to read one from. `promisify` declares an open set (`Unlisted`), because the callback can fail with any error.
 - `cancelify` and the terminal operations of the async iterator helpers (`toArray`, `reduce`, `find` and the rest) leave the failure set undeclared (`unknown`), because the function or the source you pass decides what they reject with. Neither carries a wrapped set yet.
 - `LazyPromise.try(fn)` takes the failure set from what `fn` returns, and a helper called with `{ lazy: true }` keeps the set its eager form declares. A lazy promise built any other way leaves the set undeclared (`unknown`).
 

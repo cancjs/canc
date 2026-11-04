@@ -247,7 +247,11 @@ name: string
 ```text
 <T = void>(ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
 <T = void>(ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
+<T, F = never>(input: (() => Promise<T>) | Promise<T>, ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
 <T, F = never>(input: TTimedInput<T, INativeKind, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & INativeOptions): LazyPromise<T>
+<T, F = never>(input: (() => Promise<T>) | Promise<T>, ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
 <T, F = never>(input: TTimedInput<T, INativeKind, F>, ms: TDuration, options?: (INativeOptions & TCallDeps) | undefined): Promise<T>
 ```
 
@@ -321,7 +325,11 @@ name: string
 ## `retry` (const)
 
 ```text
+<T, F = never>(input: (attempt: number) => Promise<T>, options: ILazyOn & IRetryOptions<INativeKind>): LazyPromise<T>
+<T>(input: (attempt: number) => PromiseLike<T>, options: ILazyOn & IRetryOptions<INativeKind>): LazyPromise<T>
 <T, F = never>(input: (attempt: number) => Promise<T> | PromiseLike<T> | T, options: ILazyOn & IRetryOptions<INativeKind>): LazyPromise<T>
+<T, F = never>(input: (attempt: number) => Promise<T>, options?: IRetryOptions<INativeKind> | undefined): Promise<T>
+<T>(input: (attempt: number) => PromiseLike<T>, options?: IRetryOptions<INativeKind> | undefined): Promise<T>
 <T, F = never>(input: (attempt: number) => Promise<T> | PromiseLike<T> | T, options?: IRetryOptions<INativeKind> | undefined): Promise<T>
 ```
 

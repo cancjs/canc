@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
 import { ILazyOn, IToolboxDeps, TCallDeps, TLazyOf } from './deps';
@@ -44,10 +45,30 @@ export function delayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: IT
   function delay<T = void>(ms: TDuration, options: K['options'] & TCallDeps & ILazyOn): TLazyOf<K, T>;
   function delay<T = void>(ms: TDuration, options?: K['options'] & TCallDeps): TPromiseOf<K, T>;
   function delay<T, F = never>(
+    input: TPromiseOf<K, T, F> | (() => TPromiseOf<K, T, F>),
+    ms: TDuration,
+    options: K['options'] & TCallDeps & ILazyOn,
+  ): TLazyOf<K, T, F>;
+  function delay<T>(
+    input: PromiseLike<T> | (() => PromiseLike<T>),
+    ms: TDuration,
+    options: K['options'] & TCallDeps & ILazyOn,
+  ): TLazyOf<K, T, Unlisted>;
+  function delay<T, F = never>(
     input: TTimedInput<T, K, F>,
     ms: TDuration,
     options: K['options'] & TCallDeps & ILazyOn,
   ): TLazyOf<K, T, F>;
+  function delay<T, F = never>(
+    input: TPromiseOf<K, T, F> | (() => TPromiseOf<K, T, F>),
+    ms: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, T, F>;
+  function delay<T>(
+    input: PromiseLike<T> | (() => PromiseLike<T>),
+    ms: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, T, Unlisted>;
   function delay<T, F = never>(
     input: TTimedInput<T, K, F>,
     ms: TDuration,
