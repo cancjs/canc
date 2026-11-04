@@ -53,7 +53,9 @@ coroutines to class methods. See the
 npm install @cancjs/promise
 ```
 
-This package is core tier: it follows strict semver, so the default caret pin, `^1`, is safe. See
+This package is core tier: it never removes a public name outside a major release, so the default caret pin,
+`^1`, never loses something you call. A core minor can still fix behavior that was wrong; when a fix can break
+working code, the changelog entry for that minor opens with a `**Breaking:**` note. See
 [Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
 
 ### Usage
@@ -555,6 +557,30 @@ plain-promise API at its source, use
 [`cancelify` or `promisify`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox#adapters)
 from the toolbox.
 
+### Using canc promises in a library
+
+A library that returns or accepts canc promises should list `@cancjs/promise` as a `peerDependency`, so the
+application installs one shared copy. When two copies do end up side by side, for example a library's and the
+application's at different versions, their `CancelablePromise` types are still assignable to each other and a
+declared failure type carries over, because the type is structural: only public members, and a string key for
+the declared failure.
+
+For a parameter, accept the narrowest shape the code needs: `PromiseLike<T>` when it only awaits the value, or
+`ICancelable<T>` when it also calls `cancel()`. Both take a promise from any copy, a native promise or another
+cancelable implementation, and `makeCancelable` turns the value into a `CancelablePromise` of your own copy.
+
+```ts
+import { ICancelable, makeCancelable } from '@cancjs/promise';
+
+export function withRetry<T>(work: () => ICancelable<T>) {
+  return makeCancelable(work());
+}
+```
+
+With `"module": "nodenext"`, an ES module application and a library typed for CommonJS resolve the same installed
+copy to two declaration files, `index.d.mts` and `index.d.ts`. The structural type keeps promises from the two
+compatible.
+
 ### Pluggable implementation
 
 > **Deprecated.** The registry is kept through 1.x for published siblings and removed in the next major. Use `CancelablePromise` directly, or pass `impl` per call.
@@ -581,17 +607,17 @@ otherwise `setPromiseImpl` throws a `TypeError` (the native `Promise` is rejecte
 #### Troubleshooting: registration seems to be ignored
 
 The registry is module state in this package. It works app-wide because ecosystem packages declare
-`@cancjs/promise` as a `peerDependency`, so the package manager installs a single shared copy. If
-two different versions end up in the same dependency tree, each carries its own registry: a
-`setPromiseImpl` call made through one copy is invisible to code reading through the other, and
-the second copy silently falls back to its built-in default.
+`@cancjs/promise` as a `peerDependency`, so the package manager installs a single shared copy. If two copies
+end up in the same process (two versions in the dependency tree, or both the CommonJS and the ES build of one
+version loaded), each carries its own registry: a `setPromiseImpl` call made through one copy is invisible to
+code reading through the other, and the second copy silently falls back to its built-in default.
 
 Symptoms: `setPromiseImpl` runs without error but a consumer still uses `CancelablePromise`, or
 `getPromiseImpl()` returns a different value than the one that was set.
 
-Fixes: keep `@cancjs/promise` deduplicated to one version, and run `npm ls @cancjs/promise` to
-confirm a single copy. When a single copy cannot be guaranteed, pass the implementation through
-per-call options or a class static instead of relying on the registry.
+Fixes: load one module format of `@cancjs/promise`, keep it deduplicated to one version, and run `npm ls
+@cancjs/promise` to confirm a single copy. When a single copy cannot be guaranteed, pass the implementation
+through per-call options or a class static instead of relying on the registry.
 
 ## API
 
