@@ -98,7 +98,7 @@ CancelToken: CancelTokenStatic
 CanceledError?: any
 HttpStatusCode?: any
 readonly VERSION: string
-all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
+all: <V>(values: readonly V[]) => CancelablePromise<Awaited<V>[], FailureOf<V>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
@@ -167,7 +167,7 @@ CancelToken: CancelTokenStatic
 CanceledError?: any
 HttpStatusCode?: any
 readonly VERSION: string
-all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
+all: <V>(values: readonly V[]) => CancelablePromise<Awaited<V>[], FailureOf<V>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
@@ -208,7 +208,7 @@ CancelToken: CancelTokenStatic
 CanceledError?: any
 HttpStatusCode?: any
 readonly VERSION: string
-all: <T>(values: (PromiseLike<T> | T)[]) => CancelablePromise<T[], FailureOf<T>>
+all: <V>(values: readonly V[]) => CancelablePromise<Awaited<V>[], FailureOf<V>>
 readonly axios: IAxiosInstanceLike
 create: (config?: AxiosRequestConfig) => ICancelableAxiosInstance
 defaults: Omit<AxiosDefaults<any>, "headers"> & { headers: HeadersDefaults & { [key: string]: AxiosHeaderValue; }; }
