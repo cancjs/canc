@@ -125,13 +125,22 @@ export function abandonIfHeadersSent(c: ICancelContext): boolean {
 }
 
 /**
- * Headers for a response handed back behind a reply the route already wrote itself. On
- * `@hono/node-server` the marker header makes it skip writing, where a bare response would make it
- * write headers on a finished reply and log the failure. A Web runtime has no such reply and gets
- * none.
+ * The response handed back behind a reply the route already wrote itself. On `@hono/node-server`
+ * the marker header makes it skip writing, where a bare response would make it write headers on a
+ * finished reply and log the failure. A Web runtime has no such reply and gets a plain response.
  */
-export function alreadySentHeaders(c: ICancelContext): Record<string, string> | undefined {
-  return getNodeBindings(c.env) ? { 'x-hono-already-sent': 'true' } : undefined;
+export function alreadySentResponse(c: ICancelContext, status: number): Response {
+  if (!getNodeBindings(c.env)) {
+    return new Response(null, { status });
+  }
+
+  const response = new Response(null, { headers: { 'x-hono-already-sent': 'true' }, status });
+
+  // node-server answers a response it still caches without looking at the marker, and drops that
+  // cache the first time the body is read
+  void response.body;
+
+  return response;
 }
 
 function ensureWebRequestState(request: Request, options?: ICancelableHandlerOptions): IRequestCancelState {

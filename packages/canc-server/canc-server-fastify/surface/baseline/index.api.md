@@ -99,7 +99,7 @@ number | { ms: number; status?: number; message?: string; headers?: Record<strin
 ## `createShutdown` (function)
 
 ```text
-(app: FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
+(app: FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>, options?: IShutdownOptions | undefined): (options?: IShutdownOptions | undefined) => Promise<IShutdownResult>
 ```
 
 ## `getRequestSignal` (function)

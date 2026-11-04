@@ -60,15 +60,15 @@ app.get('/invoices/:id', cancServer.cancelableHandler(function* (request) {
 await app.listen({ port: 3000 });
 ```
 
-If the client hangs up while the payment lookup is in flight, the handler unwinds at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
+If the client hangs up while the payment lookup is in flight, the handler stops at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
 
-Shutting down, with the shutdown created right after `app.listen()` so it knows every connection:
+Shutting down needs nothing more than fastify's own `app.close()`: the plugin drains the server inside it, so in-flight requests finish and the ones still running at `cancelAfter` are canceled. To pick the windows, or to read what happened, create the shutdown before `app.listen()`:
 
 ```js
-const shutdown = cancServer.createShutdown(app);
+const shutdown = cancServer.createShutdown(app, { cancelAfter: 10_000 });
 
 process.on('SIGTERM', async () => {
-  const { canceled, completed, timedOut } = await shutdown({ cancelAfter: 10_000 });
+  const { canceled, completed, timedOut } = await shutdown();
 
   console.log(`shut down: ${completed} finished, ${canceled} canceled, gave up: ${timedOut}`);
 });
@@ -126,7 +126,7 @@ A cancellation the request does not own, such as your own `CancelError` or a tim
 
 ### Handler kinds
 
-A generator handler is driven as a coroutine and is canceled at its next suspension point. Anything else runs signal-only: the request signal still fires, and a cancelable promise the handler returns is canceled, but a plain `async` body has no suspension point to unwind and runs to completion. Use a generator when mid-flight cancellation is the point.
+A generator handler is driven as a coroutine and is canceled at its next suspension point. Anything else runs signal-only: the request signal still fires, and a cancelable promise the handler returns is canceled, but a plain `async` body has nothing to stop at, so it runs to completion. Use a generator when mid-flight cancellation is the point.
 
 ### Options
 
@@ -151,9 +151,17 @@ Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error
 
 ### Shutting down
 
-`createShutdown` takes the Fastify instance, not `app.server`, and returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(app, o)`: call `createShutdown(app)(o)`.
+`createShutdown` takes the Fastify instance, not `app.server`, and returns the function that runs the shutdown. It replaces the prerelease `shutdown(app, o)`: call `createShutdown(app)(o)`.
 
-The shutdown closes the server to new connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. A `keep-alive` the app sets on the reply is overridden as well, except when it is set through fastify's reply headers, which this shutdown cannot reach.
+The shutdown runs inside fastify's own close, as a `preClose` hook that `cancelPlugin` registers, so `app.close()`, a close-with-grace helper or a framework built on fastify shuts down gracefully without calling anything from this package. The hook uses the options given to `createShutdown(app, options)`, or the defaults; calling `createShutdown` again with new options replaces the ones a later plain `app.close()` uses. The returned `shutdown(options)` lays its own options over those and runs `app.close()`, resolving with its counts. Called before `app.listen()` without the plugin, `createShutdown` registers the same hook. Hooks run in registration order, and the shutdown holds its hook until it ends, so register `cancelPlugin` after plugins whose `preClose` hooks end long-lived connections, such as a websocket server. A `preClose` hook inside an encapsulated plugin runs after the root ones, so after the shutdown.
+
+A request that arrives on a kept-alive connection during the close is fastify's to answer: it sends `503` while `return503OnClosing` is on, its default. Set `return503OnClosing: false` to serve such requests instead.
+
+Fastify gives every `preClose` hook `pluginTimeout` to finish, 10 s by default, and rejects `app.close()` with `AVV_ERR_READY_TIMEOUT` when one runs longer. The default windows would pass it (`cancelAfter` 10 s, `closeAfter` 11 s), so inside fastify's close the shutdown lowers its windows to end just under `pluginTimeout` and logs that once through `app.log.warn`. This applies to an `Infinity` window as well: with the default `pluginTimeout` a `cancelAfter` or `closeAfter` of `Infinity` is lowered like any other, so the request is canceled shortly before the limit. Raise `pluginTimeout` to keep longer windows, or set it to `0` to turn the limit off and keep an `Infinity` window unbounded.
+
+Fastify takes no hook once the instance has started. Created after `app.listen()` without the plugin, `createShutdown` drains the server first, then calls `app.close()`, so a late request on a kept-alive connection is served rather than refused. The options given to `createShutdown(app, options)` apply on that path as well.
+
+The shutdown closes the server to new connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. A `keep-alive` the app sets on the reply is overridden as well, except when it is set through fastify's reply headers, which this shutdown cannot reach.
 
 When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. A request still open then runs until it finishes or `closeAfter`, and connections still busy at `closeAfter` are closed. Shutdown resolves as soon as nothing is open. On Kubernetes, keep `closeAfter` at or below `terminationGracePeriodSeconds` minus the preStop sleep, less a margin for the process to exit, or the kubelet kills the process before the window ends. A `cancelAfter` greater than `closeAfter` throws a `RangeError` synchronously; negative values clamp to 0 before that check. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
 
@@ -165,15 +173,15 @@ To add a header to a shutdown answer, set `err.headers` in your own error middle
 
 Pass `cancelAfter: 0` to cancel handlers as soon as the shutdown starts instead, which suits long-lived responses such as server-sent events or long polling that would otherwise hold the whole window.
 
-Created late, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when `closeAfter` ends. That response goes out without `Connection: close`.
+Created after `app.listen()` without the plugin, it finishes correctly but slower, because a connection opened before the call is unknown to it. If that connection has not sent a request yet, or its request is still in flight and neither `cancelPlugin` nor a wrapped handler recorded it, the connection is closed only when `closeAfter` ends. That response goes out without `Connection: close`.
 
 A second call while the first is still running joins it rather than starting over, and calling `createShutdown` again with the same instance returns the same function.
 
 Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` becomes `cancelAfter: 0`, and without `closeAfter` the window is then 1 s instead of 10 s, so pass `closeAfter` to keep a longer one. The value is set once per server, so an app that mixes long-lived streams with ordinary routes ends its own streams when the shutdown starts and keeps the default for the rest.
 
-A `cancelAfter` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+A `cancelAfter` of `Infinity` waits for the responses however long they take only where nothing lowers it: after `app.listen()` without the plugin, or inside fastify's close with `pluginTimeout: 0`. A finite one past about 24.8 days is held at that limit.
 
-Pass `closeServer: false` to leave the instance open, in which case `app.close()` is not called. Otherwise it awaits `app.close()` once the in-flight requests have finished, so `onClose` hooks and plugin teardown run against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
+Pass `closeServer: false` to drain the server without closing the instance, in which case `app.close()` is not called. Otherwise `onClose` hooks and plugin teardown run once the shutdown has ended, against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned. With `closeServer: false` the windows are the caller's and are not lowered, and a plain `app.close()` that starts while such a shutdown is still running is not protected either: when the shutdown outlives `pluginTimeout`, that close rejects with `AVV_ERR_READY_TIMEOUT`, though the request is still answered `503`.
 
 ## API
 
@@ -188,11 +196,11 @@ Pass `closeServer: false` to leave the instance open, in which case `app.close()
 
 ### Registration
 
-| Export               | Signature                                         |
-| -------------------- | ------------------------------------------------- |
-| `cancelPlugin`       | `FastifyPluginAsync<ICancelableHandlerOptions>`   |
-| `cancelErrorHandler` | `(options?) => TCancelErrorHandler`               |
-| `createShutdown`     | `(app) => (options?) => Promise<IShutdownResult>` |
+| Export               | Signature                                                   |
+| -------------------- | ----------------------------------------------------------- |
+| `cancelPlugin`       | `FastifyPluginAsync<ICancelableHandlerOptions>`             |
+| `cancelErrorHandler` | `(options?) => TCancelErrorHandler`                         |
+| `createShutdown`     | `(app, options?) => (options?) => Promise<IShutdownResult>` |
 
 ### Reasons
 
@@ -204,7 +212,7 @@ Pass `closeServer: false` to leave the instance open, in which case `app.close()
 
 ### Readiness and websockets
 
-Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. An upgraded socket still open when the shutdown finishes is destroyed without a close frame, which the client sees as code `1006` (abnormal closure), as it does for any socket still open at `closeAfter`. Close your websockets yourself when shutdown starts, with code `1001` (going away), and let the shutdown wait for them:
+Node does not list a websocket as a connection once it is upgraded, so `shutdown()` cannot close it with a close frame. An upgraded socket still open when the shutdown finishes is destroyed without a close frame, which the client sees as code `1006` (abnormal closure), as it does for any socket still open at `closeAfter`. Close your websockets yourself when shutdown starts, with code `1001` (going away), from a `preClose` hook registered before `cancelPlugin`, or alongside the shutdown:
 
 ```ts
 await Promise.all([closeWebSockets(1001), shutdown({ cancelAfter: 5_000 })]);

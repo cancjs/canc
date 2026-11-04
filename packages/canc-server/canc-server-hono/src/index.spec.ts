@@ -51,12 +51,17 @@ function tick(times = 3): Promise<void> {
   return chain;
 }
 
-let server: ServerType | undefined;
+// every server a spec starts, so one that starts several leaves none open
+const servers: ServerType[] = [];
 const sockets: Socket[] = [];
+
+function current(): ServerType {
+  return servers[servers.length - 1];
+}
 
 function listen(app: Hono): Promise<number> {
   return new Promise((resolve) => {
-    server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 }, (info) => resolve(info.port));
+    servers.push(serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 }, (info) => resolve(info.port)));
   });
 }
 
@@ -101,16 +106,17 @@ function open(port: number, path: string): http.ClientRequest {
 afterEach(async () => {
   // a spy a failed expectation left behind would stay on the console for the next spec
   jest.restoreAllMocks();
-  const instance = server;
+  const instances = servers.splice(0);
 
-  server = undefined;
-
-  if (instance) {
-    await new Promise<void>((resolve) => {
-      instance.close(() => resolve());
-      (instance as http.Server).closeAllConnections();
-    });
-  }
+  await Promise.all(
+    instances.map(
+      (instance) =>
+        new Promise<void>((resolve) => {
+          instance.close(() => resolve());
+          (instance as http.Server).closeAllConnections();
+        }),
+    ),
+  );
 });
 
 describe('client disconnect on node', () => {
@@ -468,7 +474,7 @@ describe('error handler', () => {
     const port = await listen(app);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(server!)({ cancelAfter: 200 });
+    await createShutdown(current())({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(500);
   });
@@ -582,7 +588,7 @@ describe('error handler', () => {
 
       expect(response.statusCode).toBe(500);
       expect(response.body).toBe('Internal Server Error');
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[@cancjs/server-hono]'), failure);
+      expect(errorSpy).toHaveBeenCalledWith(failure);
     } finally {
       errorSpy.mockRestore();
     }
@@ -776,7 +782,7 @@ describe('shutdown cancel status', () => {
     app.get('/plain', (c) => c.text('ok'));
 
     const port = await listen(app);
-    const shutdown = createShutdown(server!);
+    const shutdown = createShutdown(current());
     const pending = send(port, '/plain');
     await started.promise;
 
@@ -811,7 +817,7 @@ describe('shutdown cancel status', () => {
     const port = await listen(app);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(server!)({ cancelAfter: 200 });
+    await createShutdown(current())({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(503);
   });
@@ -835,7 +841,7 @@ describe('shutdown cancel status', () => {
     const port = await listen(app);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(server!)({ cancelAfter: 200 });
+    await createShutdown(current())({ cancelAfter: 200 });
 
     expect((await pending).statusCode).toBe(502);
   });
@@ -859,7 +865,7 @@ describe('shutdown cancel status', () => {
     const port = await listen(app);
     const pending = send(port, '/hang');
     await started.promise;
-    await createShutdown(server!)({ cancelAfter: 200, status: 504 });
+    await createShutdown(current())({ cancelAfter: 200, status: 504 });
 
     expect((await pending).statusCode).toBe(504);
   });
@@ -916,7 +922,7 @@ describe('shutdown cancel status', () => {
     const pending = [send(port, '/hang'), send(port, '/hang')];
 
     await bothStarted.promise;
-    await createShutdown(server!)({ cancelAfter: 200 });
+    await createShutdown(current())({ cancelAfter: 200 });
     await Promise.all(pending);
 
     expect(errors).toHaveLength(2);
@@ -938,13 +944,13 @@ describe('shutdown cancel status', () => {
 
     const port = await listen(app);
     // a connection opened before the drain starts is the only way to deliver a request while it runs
-    const accepted = once(server!, 'connection');
+    const accepted = once(current(), 'connection');
     const client = connect(port, '127.0.0.1');
     sockets.push(client);
     client.on('error', () => {});
     await accepted;
 
-    const shutdown = createShutdown(server!)({ cancelAfter: 0, closeAfter: 500 });
+    const shutdown = createShutdown(current())({ cancelAfter: 0, closeAfter: 500 });
     client.write('GET /late HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
 
     expect(await firstStatus(client)).toBe(503);
@@ -975,7 +981,7 @@ describe('shutdown cancel status', () => {
     const pending = send(port, '/signal');
     await reached.promise;
 
-    const shutdown = createShutdown(server!)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+    const shutdown = createShutdown(current())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
       events.push('resolved');
       return result;
     });
@@ -1010,7 +1016,7 @@ describe('shutdown cancel status', () => {
     const pending = send(port, '/cleanup');
     await started.promise;
 
-    const shutdown = createShutdown(server!)({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
+    const shutdown = createShutdown(current())({ cancelAfter: 50, closeAfter: 2_000 }).then((result) => {
       events.push('resolved');
       return result;
     });
@@ -1040,7 +1046,7 @@ describe('shutdown', () => {
     );
 
     const port = await listen(app);
-    const instance = server!;
+    const instance = current();
 
     const pending = send(port, '/hang');
     await started.promise;
@@ -1066,7 +1072,7 @@ describe('shutdown', () => {
 
     await listen(app);
 
-    const instance = server!;
+    const instance = current();
     const first = createShutdown(instance)({ cancelAfter: 1000 });
     const second = createShutdown(instance)({ cancelAfter: 1000 });
 
@@ -1279,44 +1285,58 @@ describe('request deadline', () => {
 
   it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
     const warnings = recordWarnings();
-    let closeListeners = -1;
-    let abortListeners = -1;
 
-    const app = new Hono();
+    // each count is what the wrapped chain adds to the response, read at finish: every layer has
+    // registered whatever it registers by then, none removed yet. The one-layer chain is the
+    // baseline, so whatever the node server attaches itself is in both and only growth shows
+    const measure = async (extraLayers: number): Promise<{ abort: number; close: number }> => {
+      let closeListeners = -1;
+      let abortListeners = -1;
 
-    // read at finish: every layer has registered whatever it registers by then, none removed yet
-    app.use(async (c, next) => {
-      const outgoing = (c.env as { outgoing: http.ServerResponse }).outgoing;
-      // counts only what the wrapped chain adds: Node's own close listeners vary by version
-      const before = outgoing.listenerCount('close');
+      const app = new Hono();
 
-      outgoing.on('finish', () => {
-        closeListeners = outgoing.listenerCount('close') - before;
+      app.use(async (c, next) => {
+        const outgoing = (c.env as { outgoing: http.ServerResponse }).outgoing;
+        // counts only what the wrapped chain adds: Node's own close listeners vary by version
+        const before = outgoing.listenerCount('close');
+
+        outgoing.on('finish', () => {
+          closeListeners = outgoing.listenerCount('close') - before;
+        });
+        await next();
       });
-      await next();
-    });
 
-    for (let layer = 0; layer < 11; layer += 1) {
-      app.use(passThrough());
-    }
+      for (let layer = 0; layer < extraLayers; layer += 1) {
+        app.use(passThrough());
+      }
 
-    app.get(
-      '/deep',
-      cancelableHandler(function* (c) {
-        abortListeners = getEventListeners(getRequestSignal(c), 'abort').length;
+      app.get(
+        '/deep',
+        cancelableHandler(function* (c) {
+          abortListeners = getEventListeners(getRequestSignal(c), 'abort').length;
 
-        return c.text('ok');
-      }),
-    );
+          return c.text('ok');
+        }),
+      );
 
-    const port = await listen(app);
+      const port = await listen(app);
 
-    expect((await send(port, '/deep')).body).toBe('ok');
-    await tick(5);
-    // the disconnect wiring, plus the request registry of a server met for the first time
-    expect(closeListeners).toBe(2);
+      expect((await send(port, '/deep')).body).toBe('ok');
+      await tick(5);
+
+      return { abort: abortListeners, close: closeListeners };
+    };
+
+    const shallow = await measure(0);
+    const deep = await measure(11);
+
+    // the disconnect wiring and the request registry of a server met for the first time, plus the
+    // close handler @hono/node-server 2 attaches once the response is written
+    expect(shallow.close).toBeGreaterThan(0);
+    expect(deep.close).toBe(shallow.close);
     // read inside the route, the one in-flight forwarder however many layers
-    expect(abortListeners).toBe(1);
+    expect(deep.abort).toBe(1);
+    expect(shallow.abort).toBe(1);
     expect(warnings.stop()).toEqual([]);
   });
 });
@@ -1533,13 +1553,13 @@ describe('cancel answers without a mounted error handler', () => {
 
     const port = await listen(app);
     // a connection opened before the drain is the only way to deliver a request during it
-    const accepted = once(server!, 'connection');
+    const accepted = once(current(), 'connection');
     const client = connect(port, '127.0.0.1');
     sockets.push(client);
     client.on('error', () => {});
     await accepted;
 
-    const shutdown = createShutdown(server!)({ cancelAfter: 0, closeAfter: 500 });
+    const shutdown = createShutdown(current())({ cancelAfter: 0, closeAfter: 500 });
     client.write('GET /plain HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n');
 
     const [chunk] = await once(client, 'data');
@@ -1564,7 +1584,7 @@ describe('cancel answers without a mounted error handler', () => {
     const port = await listen(app);
     const pending = send(port, '/plain');
     await new Promise((resolve) => setTimeout(resolve, 30));
-    const shutdown = createShutdown(server!);
+    const shutdown = createShutdown(current());
 
     await shutdown({ cancelAfter: 0 });
     expect((await pending).statusCode).toBe(503);
@@ -1843,7 +1863,7 @@ describe('cancel answers without a mounted error handler', () => {
         response.on('error', () => resolve({ body, complete: false }));
         // the head is out, so the shutdown cancel lands while the body is still open
         setTimeout(() => {
-          void createShutdown(server!)({ cancelAfter: 0, closeAfter: 500 });
+          void createShutdown(current())({ cancelAfter: 0, closeAfter: 500 });
         }, 20);
       });
 

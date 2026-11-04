@@ -1904,3 +1904,374 @@ describe('cancelErrorHandler cut log on a finished response', () => {
     expect(log.error).not.toHaveBeenCalled();
   });
 });
+
+describe('drain inside the fastify close', () => {
+  function statuses(client: Socket): Promise<number[]> {
+    return new Promise((resolve) => {
+      let text = '';
+
+      client.on('data', (chunk: Buffer) => {
+        text += String(chunk);
+      });
+      client.on('close', () => resolve([...text.matchAll(/HTTP\/1\.1 (\d{3})/g)].map((match) => Number(match[1]))));
+    });
+  }
+
+  // the drain closes the listener first, so this is the point the close reached the canc hook
+  async function drainStarted(instance: FastifyInstance): Promise<void> {
+    while (instance.server.listening) {
+      await tick(1);
+    }
+  }
+
+  function gatedRoute(instance: FastifyInstance, arrived: IDeferred<void>, gate: IDeferred<void>): void {
+    instance.get('/slow', async () => {
+      arrived.resolve();
+      await gate.promise;
+
+      return 'slow-done';
+    });
+  }
+
+  function hangingHandler(started: IDeferred<void>): ReturnType<typeof cancelableHandler> {
+    return cancelableHandler(function* () {
+      started.resolve();
+      yield new Promise(() => undefined);
+    });
+  }
+
+  // a missing drain leaves the close waiting on the hung request, so fail fast instead
+  function withinMs<T>(promise: Promise<T>, ms: number): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`still pending after ${ms}ms`)), ms);
+    });
+
+    return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+  }
+
+  it('serves an in-flight request through a plain app.close() and closes its connection', async () => {
+    const arrived = deferred();
+    const gate = deferred();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    gatedRoute(instance, arrived, gate);
+
+    const port = await listen(instance);
+    // a raw HTTP/1.1 connection stays open after its response unless told to close
+    const client = await rawRequest(port, 'GET /slow HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    let text = '';
+    client.on('data', (chunk: Buffer) => {
+      text += String(chunk);
+    });
+    const clientClosed = once(client, 'close');
+    await arrived.promise;
+
+    const startedAt = Date.now();
+    const closing = instance.close();
+    app = undefined;
+    await drainStarted(instance);
+    gate.resolve();
+
+    await clientClosed;
+    await closing;
+
+    expect(text).toMatch(/^HTTP\/1\.1 200 /);
+    expect(text).toMatch(/\r\nconnection: close\r\n/i);
+    expect(text).toMatch(/slow-done$/);
+    // a response without Connection: close leaves fastify waiting on the idle kept-alive socket
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+  });
+
+  it('cancels at the cancelAfter stored before listen and runs onClose after the drain', async () => {
+    const order: string[] = [];
+    const started = deferred();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    createShutdown(instance, { cancelAfter: 100 });
+    instance.addHook('onClose', async () => {
+      order.push('onClose');
+    });
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        try {
+          started.resolve();
+          yield new Promise(() => undefined);
+        } finally {
+          order.push('finally');
+        }
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+    await instance.close();
+
+    expect((await pending).statusCode).toBe(503);
+    expect(order).toEqual(['finally', 'onClose']);
+  });
+
+  it('resolves shutdown() with the drain outcome of the close it runs', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    const shutdown = createShutdown(instance);
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        started.resolve();
+        yield new Promise(() => undefined);
+      }),
+    );
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    expect(await shutdown({ cancelAfter: 100 })).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect((await pending).statusCode).toBe(503);
+    expect(instance.server.listening).toBe(false);
+  });
+
+  it('throws a bad option to the shutdown caller before closing the instance', async () => {
+    const instance = Fastify();
+    const shutdown = createShutdown(instance);
+    await listen(instance);
+
+    expect(() => shutdown({ cancelAfter: 200, closeAfter: 100 })).toThrow(RangeError);
+    expect(instance.server.listening).toBe(true);
+  });
+
+  it('only drains with closeServer false', async () => {
+    const instance = Fastify();
+    const shutdown = createShutdown(instance);
+    await listen(instance);
+    const closeSpy = jest.spyOn(instance, 'close');
+
+    expect(await shutdown({ closeServer: false })).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(closeSpy).not.toHaveBeenCalled();
+    expect(instance.server.listening).toBe(true);
+  });
+
+  it.each([
+    ['answers a late pipelined request with fastify 503 by default', undefined, [200, 503]],
+    ['serves a late pipelined request with return503OnClosing false', false, [200, 200]],
+  ])('%s', async (_name, return503OnClosing, expected) => {
+    const arrived = deferred();
+    const gate = deferred();
+    const instance = Fastify(return503OnClosing === undefined ? {} : { return503OnClosing });
+    await instance.register(cancelPlugin);
+    gatedRoute(instance, arrived, gate);
+    instance.get('/late', async () => 'late-done');
+
+    const port = await listen(instance);
+    const client = await rawRequest(port, 'GET /slow HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    const seen = statuses(client);
+    await arrived.promise;
+
+    const closing = instance.close();
+    app = undefined;
+    await drainStarted(instance);
+    client.write('GET /late HTTP/1.1\r\nHost: localhost\r\n\r\n');
+    await tick();
+    gate.resolve();
+
+    expect(await seen).toEqual(expected);
+    await closing;
+  });
+
+  it('holds a preClose hook registered after the plugin until the drain has finished', async () => {
+    const order: string[] = [];
+    const arrived = deferred();
+    const gate = deferred();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.addHook('preClose', async () => {
+      order.push('later hook');
+    });
+    instance.addHook('onResponse', async () => {
+      order.push('answered');
+    });
+    gatedRoute(instance, arrived, gate);
+
+    const port = await listen(instance);
+    const pending = send(port, '/slow');
+    await arrived.promise;
+
+    const closing = instance.close();
+    app = undefined;
+    await drainStarted(instance);
+    await tick();
+    gate.resolve();
+
+    expect((await pending).statusCode).toBe(200);
+    await closing;
+    expect(order).toEqual(['answered', 'later hook']);
+  });
+
+  it('cancels at the stored cancelAfter on a plain app.close() without the plugin', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    createShutdown(instance, { cancelAfter: 100 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    const startedAt = Date.now();
+    await withinMs(instance.close(), 2_000);
+
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('lays shutdown() options over large stored options', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance, { cancelAfter: 60_000, closeAfter: 60_000 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    expect(await withinMs(shutdown({ cancelAfter: 100 }), 2_000)).toEqual({
+      canceled: 1,
+      completed: 0,
+      timedOut: false,
+    });
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('uses the stored options for a bare shutdown()', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance, { cancelAfter: 100 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    expect(await withinMs(shutdown(), 2_000)).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('applies the options given after listen without the plugin', async () => {
+    const started = deferred();
+    const instance = Fastify();
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const shutdown = createShutdown(instance, { cancelAfter: 100 });
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    const startedAt = Date.now();
+
+    expect(await withinMs(shutdown(), 2_000)).toEqual({ canceled: 1, completed: 0, timedOut: false });
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+    expect((await pending).statusCode).toBe(503);
+  });
+
+  it('fits the default windows under pluginTimeout and logs that once', async () => {
+    const started = deferred();
+    const instance = Fastify({ pluginTimeout: 2_000 });
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance);
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    await expect(instance.close()).resolves.toBeUndefined();
+    expect((await pending).statusCode).toBe(503);
+    await shutdown();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends the lowered default windows a margin under pluginTimeout', async () => {
+    const instance = Fastify({ pluginTimeout: 4_000 });
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance);
+    await listen(instance);
+    app = undefined;
+
+    await shutdown();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toEqual({ cancelAfter: 2_600, closeAfter: 3_600, pluginTimeout: 4_000 });
+  });
+
+  it('keeps the windows when pluginTimeout is 0', async () => {
+    const started = deferred();
+    const instance = Fastify({ pluginTimeout: 0 });
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    createShutdown(instance, { cancelAfter: 200 });
+    instance.get('/hang', hangingHandler(started));
+
+    const port = await listen(instance);
+    const pending = send(port, '/hang');
+    await started.promise;
+    app = undefined;
+
+    await expect(withinMs(instance.close(), 2_000)).resolves.toBeUndefined();
+    expect((await pending).statusCode).toBe(503);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('logs no lowering for shutdown() windows that already fit pluginTimeout', async () => {
+    const instance = Fastify();
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance);
+    await listen(instance);
+    app = undefined;
+
+    await shutdown({ cancelAfter: 0, closeAfter: 2_000 });
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('drains first and closes after when created after listen without the plugin', async () => {
+    const order: string[] = [];
+    const arrived = deferred();
+    const gate = deferred();
+    const instance = Fastify();
+    instance.addHook('preClose', async () => {
+      order.push('preClose');
+    });
+    instance.addHook('onResponse', async () => {
+      order.push('answered');
+    });
+    gatedRoute(instance, arrived, gate);
+
+    const port = await listen(instance);
+    const shutdownAfterListen = createShutdown(instance);
+    const pending = send(port, '/slow');
+    await arrived.promise;
+    app = undefined;
+
+    const shutdown = shutdownAfterListen({ cancelAfter: 1_000 });
+    gate.resolve();
+    await pending;
+
+    expect(await shutdown).toEqual({ canceled: 0, completed: 1, timedOut: false });
+    expect(order).toEqual(['answered', 'preClose']);
+  });
+});

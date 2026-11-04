@@ -607,7 +607,8 @@ describe('framework headers on a cancel answer', () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(response.status).toBe(500);
-    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('CancelError'));
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(String(consoleError.mock.calls[0][0])).toContain('CancelError');
 
     consoleError.mockRestore();
   });

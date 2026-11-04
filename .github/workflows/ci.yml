@@ -204,3 +204,29 @@ jobs:
       - run: node scripts/check-package-validation.js
       - run: npm run surface:check
 
+
+  server-framework-matrix:
+    # The server adapters declare open ended peer ranges, so a framework release can change what they
+    # do without a line of the repo changing. Runs the parity spec and the server suites on the oldest
+    # framework versions the peer ranges admit and on the versions the lockfile holds (the newest).
+    # The floor versions come from scripts/install-server-framework-floor.js and are installed into a
+    # scratch directory, so the workspace install stays untouched.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: [floor, latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+      - run: npm ci
+      - name: Install the floor versions
+        if: matrix.framework == 'floor'
+        run: node scripts/install-server-framework-floor.js
+      - name: Run the parity spec and the server suites
+        run: >-
+          node scripts/install-server-framework-floor.js --run --no-install
+          ${{ matrix.framework == 'latest' && '--latest' || '' }}

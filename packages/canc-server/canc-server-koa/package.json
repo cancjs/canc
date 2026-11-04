@@ -67,7 +67,7 @@
     "@cancjs/coroutine": "1.1.0-beta.1",
     "@cancjs/promise": "1.1.0-beta.1",
     "@types/koa": "3.0.3",
-    "koa": "3.2.1"
+    "koa": "3.3.0"
   },
   "peerDependencies": {
     "@cancjs/coroutine": ">=1.0.0 || >=1.1.0-0",
