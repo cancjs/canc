@@ -6,4 +6,4 @@
 
 `cancelPlugin` now drains the server inside fastify's own close, so a plain `await app.close()` lets in-flight requests finish with `Connection: close` and cancels the ones still running at `cancelAfter`, instead of resetting them or waiting on idle kept-alive connections. `createShutdown(app, options)` takes the options that close uses, and its `shutdown()` runs `app.close()`. Created after `app.listen()` without the plugin, it drains first and closes after, as before.
 
-Fastify cuts the close off at `pluginTimeout` (10 s by default), which the default windows would pass, so inside fastify's close the shutdown lowers `cancelAfter` and `closeAfter` to end just under it and logs that once through `app.log.warn`. Raise `pluginTimeout` to keep longer windows.
+Fastify cuts the close off at `pluginTimeout` (10 s by default), which the default windows would pass, so inside fastify's close the shutdown lowers `cancelAfter` and `closeAfter` to end just under it and logs that once through `app.log.warn`. An `Infinity` window is lowered too. Raise `pluginTimeout` to keep longer windows, or set it to `0` to keep an `Infinity` window unbounded.

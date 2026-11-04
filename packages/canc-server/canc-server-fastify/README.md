@@ -157,7 +157,7 @@ The shutdown runs inside fastify's own close, as a `preClose` hook that `cancelP
 
 A request that arrives on a kept-alive connection during the close is fastify's to answer: it sends `503` while `return503OnClosing` is on, its default. Set `return503OnClosing: false` to serve such requests instead.
 
-Fastify gives every `preClose` hook `pluginTimeout` to finish, 10 s by default, and rejects `app.close()` with `AVV_ERR_READY_TIMEOUT` when one runs longer. The default windows would pass it (`cancelAfter` 10 s, `closeAfter` 11 s), so inside fastify's close the shutdown lowers its windows to end just under `pluginTimeout` and logs that once through `app.log.warn`. Raise `pluginTimeout` to keep longer windows, or set it to `0` to turn the limit off.
+Fastify gives every `preClose` hook `pluginTimeout` to finish, 10 s by default, and rejects `app.close()` with `AVV_ERR_READY_TIMEOUT` when one runs longer. The default windows would pass it (`cancelAfter` 10 s, `closeAfter` 11 s), so inside fastify's close the shutdown lowers its windows to end just under `pluginTimeout` and logs that once through `app.log.warn`. This applies to an `Infinity` window as well: with the default `pluginTimeout` a `cancelAfter` or `closeAfter` of `Infinity` is lowered like any other, so the request is canceled shortly before the limit. Raise `pluginTimeout` to keep longer windows, or set it to `0` to turn the limit off and keep an `Infinity` window unbounded.
 
 Fastify takes no hook once the instance has started. Created after `app.listen()` without the plugin, `createShutdown` drains the server first, then calls `app.close()`, so a late request on a kept-alive connection is served rather than refused. The options given to `createShutdown(app, options)` apply on that path as well.
 
@@ -179,9 +179,9 @@ A second call while the first is still running joins it rather than starting ove
 
 Migrating from `timeout`: rename it to `cancelAfter`. `cancelOnStart: true` becomes `cancelAfter: 0`, and without `closeAfter` the window is then 1 s instead of 10 s, so pass `closeAfter` to keep a longer one. The value is set once per server, so an app that mixes long-lived streams with ordinary routes ends its own streams when the shutdown starts and keeps the default for the rest.
 
-A `cancelAfter` of `Infinity` waits for the responses however long they take, and a finite one past about 24.8 days is held at that limit.
+A `cancelAfter` of `Infinity` waits for the responses however long they take only where nothing lowers it: after `app.listen()` without the plugin, or inside fastify's close with `pluginTimeout: 0`. A finite one past about 24.8 days is held at that limit.
 
-Pass `closeServer: false` to drain the server without closing the instance, in which case `app.close()` is not called. Otherwise `onClose` hooks and plugin teardown run once the shutdown has ended, against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned.
+Pass `closeServer: false` to drain the server without closing the instance, in which case `app.close()` is not called. Otherwise `onClose` hooks and plugin teardown run once the shutdown has ended, against a server that has already finished with its handlers. A failing `onClose` hook is logged, and the counts are still returned. With `closeServer: false` the windows are the caller's and are not lowered, and a plain `app.close()` that starts while such a shutdown is still running is not protected either: when the shutdown outlives `pluginTimeout`, that close rejects with `AVV_ERR_READY_TIMEOUT`, though the request is still answered `503`.
 
 ## API
 
