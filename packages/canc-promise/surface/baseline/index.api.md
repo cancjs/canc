@@ -206,7 +206,7 @@ resolve: (value: PromiseLike<TResult> | TResult) => void
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, MatchedError<M[number]>>] extends [never] ? MatchedError<M[number]> : Extract<TError, MatchedError<M[number]>>
 ```
 
@@ -269,7 +269,7 @@ ISettledFulfilled<T> | ISettledRejected
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -437,7 +437,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, Exclude<TFailure, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>] extends [never] ? (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) : Extract<TError, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>
 ```
 
@@ -445,7 +445,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure, O extends ICatchSuppressOptions = {}>(promise: CancelablePromise<TResult, TFailure>, options?: O | undefined): CancelablePromise<CancelError | TResolutionFlags<O> | TResult, Exclude<TFailure, TSubtractionFlags<O>>>
-<TResult, O extends ICatchSuppressOptions = {}>(promise: PromiseLike<TResult>, options?: O | undefined): CancelablePromise<CancelError | TResolutionFlags<O> | TResult, never>
+<TResult, O extends ICatchSuppressOptions = {}>(promise: PromiseLike<TResult>, options?: O | undefined): CancelablePromise<CancelError | TResolutionFlags<O> | TResult, Unlisted>
 <TError, O extends ICatchSuppressOptions = {}>(error: TError, options?: O | undefined): CancelError | TError
 ```
 
@@ -453,7 +453,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure, M extends readonly TErrorMatcher[]>(promise: CancelablePromise<TResult, TFailure>, ...matchers: M): CancelablePromise<MatchedOf<M> | TResult, Exclude<TFailure, SubtractedOf<M>>>
-<TResult, M extends readonly TErrorMatcher[]>(promise: PromiseLike<TResult>, ...matchers: M): CancelablePromise<MatchedOf<M> | TResult, never>
+<TResult, M extends readonly TErrorMatcher[]>(promise: PromiseLike<TResult>, ...matchers: M): CancelablePromise<MatchedOf<M> | TResult, Unlisted>
 <M extends readonly TErrorMatcher[]>(error: unknown, ...matchers: M): asserts error is MatchedOf<M>
 ```
 
@@ -461,7 +461,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, Exclude<TFailure, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>] extends [never] ? (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) : Extract<TError, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>
 ```
 
@@ -630,7 +630,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -638,7 +638,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure, O extends ICatchSuppressOptions = {}>(promise: CancelablePromise<TResult, TFailure>, options?: O | undefined): CancelablePromise<TResult | void, Exclude<TFailure, TSubtractionFlags<O>>>
-<TResult, O extends ICatchSuppressOptions = {}>(promise: PromiseLike<TResult>, options?: O | undefined): CancelablePromise<TResult | void, never>
+<TResult, O extends ICatchSuppressOptions = {}>(promise: PromiseLike<TResult>, options?: O | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError, O extends ICatchSuppressOptions = {}>(error: TError, options?: O | undefined): void
 ```
 
@@ -646,7 +646,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure, M extends readonly TErrorMatcher[]>(promise: CancelablePromise<TResult, TFailure>, ...matchers: M): CancelablePromise<TResult | void, Exclude<TFailure, SubtractedOf<M>>>
-<TResult, M extends readonly TErrorMatcher[]>(promise: PromiseLike<TResult>, ...matchers: M): CancelablePromise<TResult | void, never>
+<TResult, M extends readonly TErrorMatcher[]>(promise: PromiseLike<TResult>, ...matchers: M): CancelablePromise<TResult | void, Unlisted>
 <M extends readonly TErrorMatcher[]>(error: unknown, ...matchers: M): asserts error is MatchedOf<M>
 ```
 
@@ -654,7 +654,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 

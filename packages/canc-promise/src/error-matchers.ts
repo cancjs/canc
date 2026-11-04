@@ -1,4 +1,4 @@
-import type { AbortError, TimeoutError } from '../../_util';
+import type { AbortError, TimeoutError, Unlisted } from '../../_util';
 import type {
   MatchedError,
   MatchedOf,
@@ -36,7 +36,7 @@ export interface ISuppressErrorFn<M extends readonly TErrorMatcher[] = readonly 
   <TResult>(
     promise: PromiseLike<TResult>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TResult | void, never>;
+  ): CancelablePromise<TResult | void, Unlisted>;
   <TError>(error: TError, options?: ICancelablePromiseOptions): void | never;
 }
 
@@ -52,7 +52,7 @@ export interface ICatchErrorFn<M extends readonly TErrorMatcher[] = readonly TEr
   <TResult>(
     promise: PromiseLike<TResult>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TResult | MatchedOf<M>, never>;
+  ): CancelablePromise<TResult | MatchedOf<M>, Unlisted>;
   // Extraction is empty unless the argument's type overlaps the matcher list, and an unmatched
   // error is rethrown rather than returned, so the matched set is the honest fallback
   <TError>(
@@ -129,7 +129,7 @@ export function catchErrors<TResult, TFailure, M extends readonly TErrorMatcher[
 export function catchErrors<TResult, M extends readonly TErrorMatcher[]>(
   promise: PromiseLike<TResult>,
   ...matchers: M
-): CancelablePromise<TResult | MatchedOf<M>, never>;
+): CancelablePromise<TResult | MatchedOf<M>, Unlisted>;
 export function catchErrors<M extends readonly TErrorMatcher[]>(
   error: unknown,
   ...matchers: M
@@ -149,7 +149,7 @@ export function suppressErrors<TResult, TFailure, M extends readonly TErrorMatch
 export function suppressErrors<TResult, M extends readonly TErrorMatcher[]>(
   promise: PromiseLike<TResult>,
   ...matchers: M
-): CancelablePromise<TResult | void, never>;
+): CancelablePromise<TResult | void, Unlisted>;
 export function suppressErrors<M extends readonly TErrorMatcher[]>(
   error: unknown,
   ...matchers: M
