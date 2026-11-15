@@ -86,7 +86,7 @@ function _declaredFailures(): void {
   const _deferDeclaresNothing: Eq<typeof _deferred.promise, CancelablePromise<number, never>> = true;
 
   const _promisified = promisify((cb: (err: unknown, value: number) => void) => cb(null, 1));
-  const _promisifyDeclaresNothing: Eq<ReturnType<typeof _promisified>, CancelablePromise<any, never>> = true;
+  const _promisifyIsOpen: Eq<ReturnType<typeof _promisified>, CancelablePromise<any, Unlisted>> = true;
 
   // Both wrap work and neither carries its declared set, which is why the docs say so.
   const _cancelified = cancelify((_ctx, id: string) => callWork(id));
@@ -131,7 +131,7 @@ function _declaredFailures(): void {
     _limitReasonReadsName,
     _bareDelayDeclaresNothing,
     _deferDeclaresNothing,
-    _promisifyDeclaresNothing,
+    _promisifyIsOpen,
     _cancelifyDropsWorkFailure,
     _lazyDeclaresNothing,
     _timeoutDeclaresTimeout,
@@ -179,7 +179,7 @@ describe('failure type specs', () => {
     const _throttleOfPlainWorkIsOpen: Eq<ReturnType<typeof _throttled>, CancelablePromise<void, Unlisted>> = true;
 
     const promisified = promisify((cb: (err: unknown, value: number) => void) => cb(null, 1));
-    const _promisifyDeclaresNothing: Eq<ReturnType<typeof promisified>, CancelablePromise<any, never>> = true;
+    const _promisifyIsOpen: Eq<ReturnType<typeof promisified>, CancelablePromise<any, Unlisted>> = true;
 
     const deferred = defer();
     const _deferDeclaresNothing: Eq<typeof deferred.promise, CancelablePromise<void, never>> = true;
@@ -209,7 +209,7 @@ describe('failure type specs', () => {
       _minDelayOfPlainInputDeclaresNothing,
       _debounceOfPlainWorkIsOpen,
       _throttleOfPlainWorkIsOpen,
-      _promisifyDeclaresNothing,
+      _promisifyIsOpen,
       _deferDeclaresNothing,
       _timeoutDeclaresTimeout,
       _waitForDeclaresTimeout,

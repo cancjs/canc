@@ -434,7 +434,11 @@ stack?: string | undefined
 ```text
 <T = void>(ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, never>
 <T = void>(ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, never>
+<T, F = never>(input: (() => CancelablePromise<T, F>) | CancelablePromise<T, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, F>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, Unlisted>
 <T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, F>
+<T, F = never>(input: (() => CancelablePromise<T, F>) | CancelablePromise<T, F>, ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, F>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, Unlisted>
 <T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, F>
 ```
 
@@ -489,14 +493,16 @@ stack?: string | undefined
 ## `minDelay` (const)
 
 ```text
+<T, F = never>(input: (() => CancelablePromise<T, F>) | CancelablePromise<T, F>, ms: TDuration, options?: TEagerToolboxOptions | undefined): CancelablePromise<T, F>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options?: TEagerToolboxOptions | undefined): CancelablePromise<T, Unlisted>
 <T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options?: TEagerToolboxOptions | undefined): CancelablePromise<T, F>
 ```
 
 ## `promisify` (const)
 
 ```text
-(fn: TCallbackFn, options: ILazyOn & IPromisifyOptions): (...args: Array<any>) => LazyPromise<any, never>
-(fn: TCallbackFn, options?: IPromisifyOptions | undefined): (...args: Array<any>) => CancelablePromise<any, never>
+(fn: TCallbackFn, options: ILazyOn & IPromisifyOptions): (...args: Array<any>) => LazyPromise<any, Unlisted>
+(fn: TCallbackFn, options?: IPromisifyOptions | undefined): (...args: Array<any>) => CancelablePromise<any, Unlisted>
 ```
 
 ## `promisifyAll` (const)
@@ -508,7 +514,11 @@ stack?: string | undefined
 ## `retry` (const)
 
 ```text
+<T, F = never>(input: (attempt: number) => CancelablePromise<T, F>, options: ILazyOn & IRetryOptions<ICancelableKind>): LazyPromise<T, F>
+<T>(input: (attempt: number) => PromiseLike<T>, options: ILazyOn & IRetryOptions<ICancelableKind>): LazyPromise<T, Unlisted>
 <T, F = never>(input: (attempt: number) => CancelablePromise<T, F> | PromiseLike<T> | T, options: ILazyOn & IRetryOptions<ICancelableKind>): LazyPromise<T, F>
+<T, F = never>(input: (attempt: number) => CancelablePromise<T, F>, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, F>
+<T>(input: (attempt: number) => PromiseLike<T>, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, Unlisted>
 <T, F = never>(input: (attempt: number) => CancelablePromise<T, F> | PromiseLike<T> | T, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, F>
 ```
 
