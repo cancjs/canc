@@ -1,5 +1,5 @@
 import { cancAwait } from '@cancjs/coroutine';
-import type { CancelablePromise } from '@cancjs/promise';
+import type { CancelablePromise, Unlisted } from '@cancjs/promise';
 import { CancelablePromise as Cancelable, isCancelError, suppressCancel } from '@cancjs/promise';
 
 import type { TPromiseCtor } from '../../../_toolbox/async-iter';
@@ -450,8 +450,8 @@ describe('terminal typing', () => {
       asyncIter.reduce((carried: string[], order) => carried.concat(String(order.total)), []),
     );
 
-    assertExact<typeof totals, CancelablePromise<number>>(true);
-    assertExact<typeof labels, CancelablePromise<string[]>>(true);
+    assertExact<typeof totals, CancelablePromise<number, Unlisted>>(true);
+    assertExact<typeof labels, CancelablePromise<string[], Unlisted>>(true);
     await expect(totals).resolves.toBe(15);
     await expect(labels).resolves.toEqual(['10', '5']);
   });
@@ -470,8 +470,8 @@ describe('terminal typing', () => {
       }),
     );
 
-    assertExact<typeof summed, CancelablePromise<number>>(true);
-    assertExact<typeof counted, CancelablePromise<number | IOrder>>(true);
+    assertExact<typeof summed, CancelablePromise<number, Unlisted>>(true);
+    assertExact<typeof counted, CancelablePromise<number | IOrder, Unlisted>>(true);
     await expect(summed).resolves.toBe(6);
     await expect(counted).resolves.toBe(15);
   });

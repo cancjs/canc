@@ -1,4 +1,4 @@
-import type { CancelablePromise } from '@cancjs/promise';
+import type { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { map } from '../../../_toolbox/async-iter/operators';
 import * as asyncIter from './index';
@@ -407,7 +407,7 @@ describe('source typing', () => {
 
     assertExact<TElement<typeof awaited>, number>(true);
     assertExact<TElement<typeof joined>, number>(true);
-    assertExact<typeof piped, CancelablePromise<string[]>>(true);
+    assertExact<typeof piped, CancelablePromise<string[], Unlisted>>(true);
     await expect(asyncIter.toArray()(awaited)).resolves.toEqual([1, 2]);
     await expect(asyncIter.toArray()(joined)).resolves.toEqual([1, 2, 3, 4]);
     await expect(piped).resolves.toEqual(['a']);

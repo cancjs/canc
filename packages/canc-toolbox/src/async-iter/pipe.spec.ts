@@ -1,4 +1,4 @@
-import type { CancelablePromise } from '@cancjs/promise';
+import type { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import { filter, map, take } from '../../../_toolbox/async-iter/operators';
 import { isPipeable } from '../../../_toolbox/async-iter/types';
@@ -43,14 +43,14 @@ describe('pipe typing', () => {
   it('threads the element type through a group and into a trailing terminal', () => {
     const grouped = pipe(typedSource, [map(toLabel), filter(isLongLabel)], toArray());
 
-    assertExact<typeof grouped, CancelablePromise<string[]>>(true);
+    assertExact<typeof grouped, CancelablePromise<string[], Unlisted>>(true);
     expect(typeof grouped.then).toBe('function');
   });
 
   it('threads through nested groups', () => {
     const nested = pipe(typedSource, [[map(toLabel)], [filter(isLongLabel)]], toArray());
 
-    assertExact<typeof nested, CancelablePromise<string[]>>(true);
+    assertExact<typeof nested, CancelablePromise<string[], Unlisted>>(true);
     expect(typeof nested.then).toBe('function');
   });
 
