@@ -1,4 +1,4 @@
-import type { CancelablePromise } from '@cancjs/promise';
+import type { CancelablePromise, Unlisted } from '@cancjs/promise';
 import type { ICancelablePipeable } from '@cancjs/toolbox/async-iter';
 import {
   concat,
@@ -55,7 +55,7 @@ async function testOverloadLadder() {
     map((x: number) => String(x)),
     toArray(),
   );
-  type _tTerm = Expect<Equal<typeof terminalPromise, CancelablePromise<string[]>>>;
+  type _tTerm = Expect<Equal<typeof terminalPromise, CancelablePromise<string[], Unlisted>>>;
 
   // 3. pipe(src, toArray(), map(f)) is a compile error (terminal not last)
   // prettier-ignore
@@ -74,7 +74,7 @@ async function testOverloadLadder() {
       filter((s: string) => s.length > 0),
       toArray(),
     );
-  type _tChained = Expect<Equal<typeof chained, CancelablePromise<string[]>>>;
+  type _tChained = Expect<Equal<typeof chained, CancelablePromise<string[], Unlisted>>>;
 
   void lazy;
   void terminalPromise;
@@ -84,11 +84,11 @@ async function testOverloadLadder() {
 async function testArrayGroupedForm() {
   // 1. pipe(src, [map(named), filter(namedGuard)], toArray()) infers CancelablePromise<O[]>
   const grouped = pipe(things, [map(toLabel), filter(isLongLabel)], toArray());
-  type _tGrouped = Expect<Equal<typeof grouped, CancelablePromise<string[]>>>;
+  type _tGrouped = Expect<Equal<typeof grouped, CancelablePromise<string[], Unlisted>>>;
 
   // 2. Nested arrays flatten and still thread
   const nested = pipe(things, [[map(toLabel)], [filter(isLongLabel)]], toArray());
-  type _tNested = Expect<Equal<typeof nested, CancelablePromise<string[]>>>;
+  type _tNested = Expect<Equal<typeof nested, CancelablePromise<string[], Unlisted>>>;
 
   // 3. Type mismatch between two adjacent ops resolves never
   function toId(thing: IThing): number {
@@ -131,14 +131,14 @@ async function testOperatorInference() {
     numbers,
     reduce((acc: number, val: number) => acc + val, 0),
   );
-  type _tReducedWithInit = Expect<Equal<typeof reducedWithInit, CancelablePromise<number>>>;
+  type _tReducedWithInit = Expect<Equal<typeof reducedWithInit, CancelablePromise<number, Unlisted>>>;
 
   // reduce without init
   const reducedNoInit = pipe(
     numbers,
     reduce((acc: number, val: number) => acc + val),
   );
-  type _tReducedNoInit = Expect<Equal<typeof reducedNoInit, CancelablePromise<number>>>;
+  type _tReducedNoInit = Expect<Equal<typeof reducedNoInit, CancelablePromise<number, Unlisted>>>;
 
   // from<T> reads T from source
   const fromAwaited = from([Promise.resolve(1), Promise.resolve(2)]);
@@ -152,28 +152,28 @@ async function testOperatorInference() {
     numbers,
     find((x: number) => x > 1),
   );
-  type _tFound = Expect<Equal<typeof found, CancelablePromise<number | undefined>>>;
+  type _tFound = Expect<Equal<typeof found, CancelablePromise<number | undefined, Unlisted>>>;
 
   const somed = pipe(
     numbers,
     some((x: number) => x > 1),
   );
-  type _tSomed = Expect<Equal<typeof somed, CancelablePromise<boolean>>>;
+  type _tSomed = Expect<Equal<typeof somed, CancelablePromise<boolean, Unlisted>>>;
 
   const everyed = pipe(
     numbers,
     every((x: number) => x > 1),
   );
-  type _tEveryed = Expect<Equal<typeof everyed, CancelablePromise<boolean>>>;
+  type _tEveryed = Expect<Equal<typeof everyed, CancelablePromise<boolean, Unlisted>>>;
 
   const each = pipe(
     numbers,
     forEach((_x: number) => {}),
   );
-  type _tEach = Expect<Equal<typeof each, CancelablePromise<void>>>;
+  type _tEach = Expect<Equal<typeof each, CancelablePromise<void, Unlisted>>>;
 
   const inc = pipe(numbers, includes(1));
-  type _tInc = Expect<Equal<typeof inc, CancelablePromise<boolean>>>;
+  type _tInc = Expect<Equal<typeof inc, CancelablePromise<boolean, Unlisted>>>;
 
   const dropped = pipe(numbers, drop<number>(1));
   type _tDropped = Expect<Equal<typeof dropped, ICancelablePipeable<number>>>;
