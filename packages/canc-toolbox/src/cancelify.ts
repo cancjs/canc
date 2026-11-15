@@ -1,4 +1,10 @@
-import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import {
+  CancelablePromise,
+  CancelError,
+  ICancelablePromiseOptions,
+  isCancelError,
+  TAbortSignal,
+} from '@cancjs/promise';
 
 import { createCancelSignalSource } from '../../_toolbox';
 import { setFnName } from '../../_util';
@@ -32,14 +38,14 @@ export interface ICancelifyContext {
    * was canceled returns an already aborted signal.
    * @deprecated Use `signal`.
    */
-  getSignal: () => any;
+  getSignal: () => TAbortSignal;
   handleCancel: THandleCancel;
   /**
    * The outbound signal `getSignal()` returns, created on first read. The property is an inherited
    * non-enumerable getter, so spread and `JSON.stringify` neither copy it nor create the
    * controller. Destructuring it (`({ signal }, ...args) => ...`) reads it once.
    */
-  readonly signal: any;
+  readonly signal: TAbortSignal;
 }
 
 // a plain constructor so every context shares one map and inherits the signal getter
