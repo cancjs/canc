@@ -746,6 +746,16 @@ describe('cancAsync', () => {
       await expect(co()).resolves.toBe(3);
     });
   });
+  it('treats a null context like an omitted one', async () => {
+    const holder = {
+      name: 'holder',
+      run: cancAsync(function* (this: any) {
+        return this.name;
+      }, null),
+    };
+
+    await expect(holder.run()).resolves.toBe('holder');
+  });
 });
 
 describe('cancel/dispose contract', () => {

@@ -297,7 +297,7 @@ type TCoroutineYield<TFn extends IGeneratorLikeFn, TReturn = ReturnType<TFn>> =
  * after such a call.
  *
  * @param genFn Generator function defining the coroutine body.
- * @param ctx Optional `this` context bound to the generator function.
+ * @param ctx Optional `this` context bound to the generator function. `null` and `undefined` both leave the call's own `this`.
  * @param options Coroutine and promise execution options.
  */
 export function cancAsync<
@@ -315,7 +315,7 @@ export function cancAsync<
     throw new TypeError('Argument is already a coroutine');
   }
 
-  const isCtx = ctx !== undefined;
+  const isCtx = ctx != null;
   const promiseOptions = toPromiseOptions(options);
 
   // Per-step wrappers carry only flag options; the signal lives on `coroutinePromise`.

@@ -789,7 +789,7 @@ lookup and cannot be overridden from a subclass through the prototype chain.
 
 `options` are
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
-and configure the promise the coroutine returns. `ctx` sets `this` for the generator body.
+and configure the promise the coroutine returns. `ctx` sets `this` for the generator body; `null` and `undefined` leave the call's own `this`.
 
 ### `@cancjs/coroutine/gen`
 
