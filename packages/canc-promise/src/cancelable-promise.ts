@@ -14,12 +14,10 @@ import { isCancelError, isCancPromise } from './helpers';
 export const CANCEL_PROMISE_BRAND = Symbol.for('@cancjs/promise:CancelablePromise');
 
 /**
- * Phantom key. Never assigned at runtime; it exists so the declared failure set is part of the
- * type.
- * A second declaration of this symbol anywhere would be a different type even though the
- * runtime symbol is the same, so this is the only one.
+ * Phantom key for the declared failure set. A string key lets separate copies of this package
+ * declare the same property and carry the declared failure set across copies.
  */
-export const FAILURE: unique symbol = Symbol.for('@cancjs/promise:failure') as symbol as typeof FAILURE;
+export const FAILURE = '_cancFailure';
 
 // cancellation is a separate outcome, never part of the declared set
 export interface Failing<TFailure> {
