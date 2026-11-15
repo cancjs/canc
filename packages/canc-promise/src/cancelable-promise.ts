@@ -136,14 +136,14 @@ export interface IExecutorContext<TResult = any, TFailure = unknown> {
    * returns an already aborted signal.
    * @deprecated Use `signal`.
    */
-  getSignal(this: void): IAbortSignal;
+  getSignal(this: void): TAbortSignal;
   /**
    * The AbortSignal returned by `getSignal()`. Reading it creates the AbortController on first access, exactly as
    * the first `getSignal()` call does. The property is an inherited non-enumerable getter, so `Object.keys`, spread
    * and `JSON.stringify` neither copy it nor create the controller. Destructuring it in the executor
    * (`(resolve, reject, { signal }) => ...`) reads it once.
    */
-  readonly signal: IAbortSignal;
+  readonly signal: TAbortSignal;
 }
 
 export type TCancelablePromiseExecutor<TResult, TFailure = unknown> = (
@@ -217,12 +217,20 @@ export interface ICancelableHelperOptions extends ICancelablePromiseOptions {
   CancelablePromise?: typeof CancelablePromise;
 }
 
-interface IAbortSignal {
+/** The least an abort signal must offer to be accepted as a `signal` option. */
+export interface IAbortSignal {
   readonly aborted: boolean;
   readonly reason?: any;
   addEventListener(type: 'abort', listener: any, options?: unknown): void;
   removeEventListener(type: 'abort', listener: any, options?: unknown): void;
 }
+
+/**
+ * The signal type an executor context hands out: the `AbortSignal` of the TypeScript lib in use
+ * (DOM or Node types), so it can be passed to `fetch` and other platform APIs, or the minimal
+ * {@link IAbortSignal} shape when no lib declares one.
+ */
+export type TAbortSignal = typeof globalThis extends { AbortSignal: { prototype: infer S } } ? S : IAbortSignal;
 
 interface IAbortControllerLike {
   abort(reason?: unknown): void;
@@ -568,7 +576,7 @@ const ExecutorContext = function ExecutorContext(
 // one shared getter: a per-context getter closure turns every context into a dictionary
 Object.defineProperty(ExecutorContext.prototype, 'signal', {
   configurable: true,
-  get: function (this: IExecutorContext): IAbortSignal {
+  get: function (this: IExecutorContext): TAbortSignal {
     return this.getSignal();
   },
 });
@@ -1550,7 +1558,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
             return instance.handleCancel(onCancel);
           }
 
-          function getSignal(): IAbortSignal {
+          function getSignal(): TAbortSignal {
             if (!_ac) {
               const ac = new AbortController() as unknown as IAbortControllerLike;
               if (instance.canceled) {
@@ -1561,7 +1569,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
               }
               _ac = ac;
             }
-            return _ac.signal;
+            return _ac.signal as TAbortSignal;
           }
 
           this._resolve = resolve;
