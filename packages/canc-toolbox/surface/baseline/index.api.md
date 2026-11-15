@@ -55,7 +55,7 @@ displayName?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, MatchedError<M[number]>>] extends [never] ? MatchedError<M[number]> : Extract<TError, MatchedError<M[number]>>
 ```
 
@@ -182,7 +182,7 @@ shouldRetry?: ((reason: any, ctx: IRetryContext) => PromiseLike<boolean> | boole
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -381,7 +381,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, Exclude<TFailure, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>] extends [never] ? (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) : Extract<TError, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>
 ```
 
@@ -389,7 +389,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, Exclude<TFailure, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>] extends [never] ? (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) : Extract<TError, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>
 ```
 
@@ -516,7 +516,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -524,7 +524,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
