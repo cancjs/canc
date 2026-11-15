@@ -163,7 +163,7 @@ export interface ICancelableAxiosStatic extends ICancelableAxiosInstance {
   /** Unlike axios.all this composes with CancelablePromise.all. Canceling the aggregate cancels the
    * requests nothing else consumes. A request that is also consumed elsewhere keeps running and
    * completes for its other consumers. */
-  all<T>(values: (T | PromiseLike<T>)[]): CancelablePromise<T[], FailureOf<T>>;
+  all<V>(values: readonly V[]): CancelablePromise<Awaited<V>[], FailureOf<V>>;
 
   AxiosError?: any;
   CanceledError?: any;
