@@ -37,12 +37,10 @@ export const isCancelError = (error: any): error is CancelError => isBrandedCanc
 // matcher list built from one subtracts that kind from a declared failure set
 
 // kept exported for published sibling packages, removal only in a major
-/** @internal */
 export const _isAbortLike = isAbortLike(isCancelError) as (
   error: any,
 ) => error is AbortError | (CancelError & { readonly aborted: true });
 // kept exported for published sibling packages, removal only in a major
-/** @internal */
 export const _isTimeoutLike = isTimeoutLike(isCancelError) as (
   error: any,
 ) => error is TimeoutError | (CancelError & { readonly timedOut: true });

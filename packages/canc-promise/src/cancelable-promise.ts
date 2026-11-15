@@ -599,9 +599,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   // Broken species downgrades then-derived promises to plain native Promises
   declare static readonly [Symbol.species]: PromiseConstructor;
 
+  /** @internal */
   protected static _pendingInternalCall = false;
 
   /** @internal Exposed for coroutine cancel override to read the active collector. */
+  /** @internal */
   protected static get _activeCollector(): any[] | undefined {
     return _activeCollector;
   }
@@ -1081,6 +1083,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     });
   }
 
+  /** @internal */
   protected static _getOptions(options?: ICancelablePromiseOptions) {
     const mergedOptions: ICancelablePromiseOptions & Required<ICancelablePromiseFlagOptions> = {
       ...this.defaultOptions,
@@ -1122,6 +1125,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * dispatch. Any other input (raw value, native thenable, reconfigured canc promise) falls back to
    * a direct construction. Combinators pass `INPUT_OPTIONS`: their own options apply to the result only.
    */
+  /** @internal */
   protected static _adopt<T>(
     value: T | PromiseLike<T>,
     normalizedOptions: ICancelablePromiseOptions,
@@ -1143,6 +1147,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     }, normalizedOptions);
   }
 
+  /** @internal */
   protected static _checkOptionsChanged(
     instance: ICancelablePromiseOptions,
     options?: ICancelablePromiseOptions,
@@ -1178,6 +1183,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   declare readonly [Symbol.toStringTag]: string;
 
   // `declare`: assigned once on prototype at module load so all instances inherit same brand
+  /** @internal */
   declare readonly [CANCEL_PROMISE_BRAND]: true;
   declare readonly [FAILURE]?: Exclude<TFailure, CancelError>;
 
@@ -1203,38 +1209,53 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   // A plain resolved/rejected promise therefore carries
   // none of these as own slots.
   // Layout summary and rationale in the memory note above.
+  /** @internal */
   declare protected _chainsCount: number;
+  /** @internal */
   declare protected _completedChainsCount: number;
+  /** @internal */
   declare protected _pendingSyncCancel: boolean;
+  /** @internal */
   declare protected _pendingSyncCancelReason: any;
+  /** @internal */
   declare protected _canceledReason: any;
+  /** @internal */
   declare protected _isCanceledReasonSet: boolean;
 
   // Always own properties (per-instance): the settlement wrappers, the state machine, the packed
   // flags.
   // These differ per promise, so a prototype default would not help.
+  /** @internal */
   protected _resolve!: (value?: any) => void;
+  /** @internal */
   protected _reject!: (reason?: any) => void;
   // Initialized eagerly (not declare-only): the executor's resolve/reject wrappers read
   // `_internalState` on `tempThis` while it still runs synchronously, before the constructor's
   // copy block migrates it to the real instance, so the PENDING default must exist up front.
+  /** @internal */
   protected _internalState: TCancelablePromiseStates = 'PENDING';
+  /** @internal */
   protected _flags!: number;
 
   // lazily allocated on first handleCancel() registration to keep common case lean
+  /** @internal */
   protected _cancelHandlers?: TOnCancel[];
   // Listener management for abort signals: maps each signal to its registered listener
   // function to allow removal on settle.
   // Lazily allocated only when a signal is wired
   // (the common case has no signal, so both stay undefined).
+  /** @internal */
   protected _abortSignals?: IAbortSignal[];
+  /** @internal */
   protected _abortListeners?: Map<IAbortSignal, any>;
   // Bound `cancel`, created lazily only when a detached reference is requested (withResolvers).
+  /** @internal */
   protected _boundCancel?: CancelablePromise<TResult, TFailure>['cancel'];
 
   // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
   // Cleanup collector stored on the instance so async bubbles (bubbleOnComplete .then()) can
   // read it after _activeCollector has been restored.
+  /** @internal */
   protected _collector?: any[];
 
   /**
@@ -1762,6 +1783,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     this._setFlag(FLAG_SHIELD, v);
   }
 
+  /** @internal */
   private _setFlag(bit: number, value: boolean): void {
     if (value) {
       this._flags |= bit;
@@ -2053,6 +2075,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * Protected cancel implementation. All cancel logic lives here; `cancel()` is a thin wrapper
    * that decides whether to allocate a collector (initiator) or thread an existing one (cascade).
    */
+  /** @internal */
   protected _cancel(reason?: any, disposing?: boolean, collector?: any[]): void {
     if (this.shield && this.cancelable) {
       if (this.strict && !disposing) {
@@ -2117,6 +2140,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * and cached as an own property so every promise no longer pays for a per-instance bound `cancel`;
    * the normal `p.cancel(...)` method call stays prototype-dispatched and allocates nothing.
    */
+  /** @internal */
   protected _getBoundCancel(): CancelablePromise<TResult, TFailure>['cancel'] {
     let bound = this._boundCancel;
     if (!bound) {
@@ -2134,6 +2158,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @returns The handler-settlement promise in asyncCancel mode (so `[Symbol.asyncDispose]` and
    * `await using` can await cleanup); otherwise undefined.
    */
+  /** @internal */
   protected _dispose(): void | CancelablePromise<ISettledResult<unknown>[], never> {
     // Route through the instance's (possibly overridden) cancel so subclasses like the coroutine
     // finally-drain govern disposal too. `_disposing` suppresses the strict throw and marks the
@@ -2155,6 +2180,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * after the last handler. Only a direct `cancel()` call lets it reach a caller, every other
    * path drops it.
    */
+  /** @internal */
   protected _runCancellation(reason?: any, collector?: any[]): void {
     this._canceledReason = reason;
     this._isCanceledReasonSet = true;
@@ -2237,6 +2263,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * Settlement side effects run whenever the promise settles (any way: FULFILLED, REJECTED, CANCELED).
    * Currently: clean up abort-signal listeners to prevent unbounded listener accumulation.
    */
+  /** @internal */
   protected _runSettlementEffects(): void {
     // release settlement wrappers once settled to free closed-over executor scope
     // `withResolvers` already captured its own references at construction time, so nulling
@@ -2262,6 +2289,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     }
   }
 
+  /** @internal */
   protected _then<TResult1 = TResult, TResult2 = never>(
     onFulfilled?: ((value: TResult) => TResult1) | null,
     onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
@@ -2308,6 +2336,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * inside that job. The deferred job joins the active cleanup collector, so an awaited `cancel()`
    * of the child also waits for this cleanup.
    */
+  /** @internal */
   protected _addChainRef(bubbleOnComplete?: boolean): (() => void) | undefined {
     if (!this.cancelable) {
       return undefined;
@@ -2401,6 +2430,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @internal
    */
   // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
+  /** @internal */
   protected _retainRef(settleTiming?: boolean): (() => void) | undefined {
     const onComplete = this._addChainRef(settleTiming);
     if (!onComplete) {
@@ -2426,6 +2456,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * never returned to a caller nor chained.
    */
   // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
+  /** @internal */
   protected _subscribe(
     onFulfilled?: ((value: TResult) => any) | null,
     onRejected?: ((reason: any) => any) | null,
@@ -2439,6 +2470,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @param bubbleOnComplete Makes the cancellation bubble on completion of the child promise, e.g. race()
    */
   // cross-copy contract: fixed meaning, an incompatible change takes a new suffixed name
+  /** @internal */
   protected _chain(childPromise: CancelablePromise<any, any>, bubbleOnComplete?: boolean): void {
     const onComplete = this._addChainRef(bubbleOnComplete);
     if (!onComplete) {
