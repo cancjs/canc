@@ -145,7 +145,7 @@ export function catchCancel<TResult, TFailure, O extends ICatchSuppressOptions =
 export function catchCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
   options?: O,
-): CancelablePromise<TResult | CancelError | TResolutionFlags<O>, never>;
+): CancelablePromise<TResult | CancelError | TResolutionFlags<O>, Unlisted>;
 export function catchCancel<TError, O extends ICatchSuppressOptions = {}>(
   error: TError,
   options?: O,
@@ -164,7 +164,7 @@ export function suppressCancel<TResult, TFailure, O extends ICatchSuppressOption
 export function suppressCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
   options?: O,
-): CancelablePromise<TResult | void, never>;
+): CancelablePromise<TResult | void, Unlisted>;
 export function suppressCancel<TError, O extends ICatchSuppressOptions = {}>(error: TError, options?: O): void | never;
 export function suppressCancel<TResult, TError, O extends ICatchSuppressOptions = {}>(
   errorOrPromise: PromiseLike<TResult> | TError,

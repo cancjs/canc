@@ -385,7 +385,7 @@ A failure set is open when it includes `Unlisted`. `CancelablePromise<User, Http
 
 Library authors write `X | Unlisted` when they know one failure a call produces but cannot promise it is the only one. A timeout helper is the typical case: it rejects with `TimeoutError`, and with whatever the work it waits on rejects with.
 
-A native promise and a foreign thenable are open as well, since nothing states what they reject with. `FailureOf<Promise<number>>` is `Unlisted`, and `makeCancelable(native)` returns `CancelablePromise<T, Unlisted>`. A cancelable promise passed to `makeCancelable` keeps its own set.
+A native promise and a foreign thenable are open as well, since nothing states what they reject with. `FailureOf<Promise<number>>` is `Unlisted`, `makeCancelable(native)` returns `CancelablePromise<T, Unlisted>`, and the catch and suppress helpers over a native input do the same: `catchCancel(native)` returns `CancelablePromise<T | CancelError, Unlisted>`. A cancelable promise passed to `makeCancelable` keeps its own set.
 
 ```ts
 declare const declared: CancelablePromise<number, HttpError>;
