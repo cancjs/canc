@@ -270,15 +270,38 @@ describe('combinators', () => {
       expect(p3.isCanceled).toBe(false);
     });
 
-    it('surfaces the iterable throw synchronously via rejection', async () => {
+    it('rejects, without throwing, when the iterable throws', async () => {
       const boom = new Error('spread boom');
       const badIterable: Iterable<any> = {
         [Symbol.iterator]() {
           throw boom;
         },
       };
-      // allSettled spreads via [...values]; the throw becomes a synchronous throw.
-      expect(() => CancelablePromise.allSettled(badIterable)).toThrow(boom);
+      let result: CancelablePromise<unknown> | undefined;
+
+      expect(() => {
+        result = CancelablePromise.allSettled(badIterable);
+      }).not.toThrow();
+      expect(result).toBeInstanceOf(CancelablePromise);
+      await expect(result).rejects.toBe(boom);
+    });
+
+    it('rejects when the iterable throws mid-iteration', async () => {
+      const boom = new Error('iterator boom');
+      const badIterable: Iterable<any> = {
+        [Symbol.iterator]() {
+          let step = 0;
+          return {
+            next() {
+              step++;
+              if (step === 1) return { value: CancelablePromise.resolve(1), done: false };
+              throw boom;
+            },
+          };
+        },
+      };
+
+      await expect(CancelablePromise.allSettled(badIterable)).rejects.toBe(boom);
     });
   });
 
