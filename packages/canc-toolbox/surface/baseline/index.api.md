@@ -549,9 +549,9 @@ stack?: string | undefined
 ```text
 (ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<never, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
 (ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<never, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
-<P extends PromiseLike<unknown>>(input: (() => P) | P, ms: TDuration | undefined, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<TValueOf<P>, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P> | Unlisted>
-<P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<TValueOf<P>, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P> | Unlisted>
-<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F | Unlisted>
+<P extends PromiseLike<unknown>>(input: (() => P) | P, ms: TDuration | undefined, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<TValueOf<P>, TOrUnlisted<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P>>>
+<P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<TValueOf<P>, TOrUnlisted<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P>>>
+<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, TOrUnlisted<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F>>
 ```
 
 ## `toAbortSignal` (function)
