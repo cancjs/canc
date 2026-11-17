@@ -262,6 +262,127 @@ describe('cancAsync', () => {
     });
   });
 
+  describe('cancel handler results', () => {
+    it('waits for its handlers and reports their results in registration order', async () => {
+      const release = CancelablePromise.withResolvers<string>();
+      const failure = new Error('handler failed');
+      const co = cancAsync(function* () {
+        yield new CancelablePromise<void>(() => {});
+      })();
+      const throws = jest.fn(() => {
+        throw failure;
+      });
+      const waits = jest.fn(() => release.promise);
+      co.handleCancel(throws).handleCancel(waits);
+
+      const cancellation = co.cancel('stop');
+      const settled = jest.fn();
+      void Promise.resolve(cancellation).then(settled, settled);
+      await expect(co).rejects.toBeInstanceOf(CancelError);
+      await flush();
+      expect(throws).toHaveBeenCalledTimes(1);
+      expect(waits).toHaveBeenCalledTimes(1);
+      expect(settled).not.toHaveBeenCalled();
+
+      release.resolve('released');
+      const results = await cancellation;
+      expect(results).toEqual([
+        { status: 'rejected', reason: failure },
+        { status: 'fulfilled', value: 'released' },
+      ]);
+      expect(results?.[0]?.status === 'rejected' && results[0].reason).toBe(failure);
+    });
+
+    it('reports an empty result without handlers', async () => {
+      const co = cancAsync(function* () {
+        yield new CancelablePromise<void>(() => {});
+      })();
+
+      expect(await co.cancel()).toEqual([]);
+      await expect(co).rejects.toBeInstanceOf(CancelError);
+    });
+
+    it('reports an empty result when cleanup rejects before handlers run', async () => {
+      const failure = new Error('cleanup failed');
+      const handler = jest.fn();
+      const co = cancAsync(function* () {
+        try {
+          yield new CancelablePromise<void>(() => {});
+        } finally {
+          throw failure;
+        }
+      })().handleCancel(handler);
+      const rejection = expect(co).rejects.toBe(failure);
+
+      expect(await co.cancel()).toEqual([]);
+      await rejection;
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('reports handlers dispatched by a CancelError thrown during cleanup', async () => {
+      const failure = new CancelError('cleanup canceled');
+      const handler = jest.fn(() => Promise.resolve('own cleanup'));
+      const co = cancAsync(function* () {
+        try {
+          yield new CancelablePromise<void>(() => {});
+        } finally {
+          throw failure;
+        }
+      })().handleCancel(handler);
+      const rejection = expect(co).rejects.toBe(failure);
+
+      expect(await co.cancel()).toEqual([{ status: 'fulfilled', value: 'own cleanup' }]);
+      await rejection;
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports handlers after deferred cancellation reaches the end of the body', async () => {
+      const release = CancelablePromise.withResolvers<void>({ shield: true });
+      const co = cancAsync(function* () {
+        yield release.promise;
+      })().handleCancel(() => Promise.resolve('own cleanup'));
+      const cancellation = co.cancel();
+
+      release.resolve();
+      expect(await cancellation).toEqual([{ status: 'fulfilled', value: 'own cleanup' }]);
+      await expect(co).rejects.toBeInstanceOf(CancelError);
+    });
+
+    it('returns undefined immediately when a synchronous cancel handler throws', async () => {
+      const failure = new Error('handler failed');
+      const handler = jest.fn(() => {
+        throw failure;
+      });
+      const co = cancAsync(
+        function* () {
+          yield new CancelablePromise<void>(() => {});
+        },
+        undefined,
+        { asyncCancel: false },
+      )().handleCancel(handler);
+
+      expect(co.cancel()).toBeUndefined();
+      await expect(co).rejects.toBeInstanceOf(CancelError);
+      expect(handler).toHaveBeenCalledTimes(1);
+    });
+
+    it('excludes the results of a promise canceled by a handler', async () => {
+      const childHandler = jest.fn(() => Promise.resolve('child cleanup'));
+      const child = new CancelablePromise<void>(() => {}).handleCancel(childHandler);
+      const co = cancAsync(function* () {
+        yield new CancelablePromise<void>(() => {});
+      })().handleCancel(() => {
+        void child.cancel();
+        return Promise.resolve('own cleanup');
+      });
+
+      expect(await co.cancel()).toEqual([{ status: 'fulfilled', value: 'own cleanup' }]);
+      await expect(co).rejects.toBeInstanceOf(CancelError);
+      await expect(child).rejects.toBeInstanceOf(CancelError);
+      expect(childHandler).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('cancel between steps: every gap (fake timers)', () => {
     const STEPS = 4;
 

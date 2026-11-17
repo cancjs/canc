@@ -1,4 +1,12 @@
-import { AggregateError, CancelablePromise, Failing, ICancelablePromiseOptions, ISettledResult } from '@cancjs/promise';
+import type { TOnCancel } from '@cancjs/promise';
+import {
+  AggregateError,
+  CancelablePromise,
+  Failing,
+  ICancelablePromiseOptions,
+  isCancelError,
+  ISettledResult,
+} from '@cancjs/promise';
 
 import {
   assertGeneratorResult,
@@ -58,6 +66,14 @@ interface ICountedSource {
   _subscribe(onFulfilled: (value: any) => unknown, onRejected: (reason: any) => unknown): void;
   _retainRef(): (() => void) | undefined;
 }
+
+interface ICoroutineCancelCore {
+  _cancel(reason: unknown, disposing: boolean): void;
+  _cancelHandlers?: TOnCancel[];
+  _collector?: unknown[];
+}
+
+type TCancelResults = ISettledResult<unknown>[];
 
 const RETURN_UNWIND = Symbol.for('@cancjs/coroutine:returnUnwind');
 
@@ -390,10 +406,39 @@ export function cancAsync<
       // Loop handles opened by this invocation, so two calls of one coroutine never share sources
       const pendingCleanups: ILoopRegistry = Object.assign([], { _entries: 0 });
 
-      let drainDeferred: { promise: CancelablePromise<any>; resolve: (v?: any) => void } | undefined;
-      const settleDrain = () => {
-        if (drainDeferred) {
-          drainDeferred.resolve();
+      let drainDeferred: ReturnType<typeof CancelablePromise.withResolvers<TCancelResults, never>> | undefined;
+      let resolveCascade: (() => void) | undefined;
+      const settleDrain = (results: TCancelResults) => {
+        const drain = drainDeferred;
+        drainDeferred = undefined;
+        drain?.resolve(results);
+      };
+      const settleCascade = () => {
+        const resolve = resolveCascade;
+        resolveCascade = undefined;
+        resolve?.();
+      };
+
+      const core = coroutinePromise as unknown as ICoroutineCancelCore;
+      const collectOwnHandlers = (handlers: TOnCancel[]) => {
+        // wrap only this promise's handlers so a nested cancel stays in the core collector
+        const owned: PromiseLike<unknown>[] = [];
+        for (let i = 0; i < handlers.length; i++) {
+          const handler = handlers[i];
+          handlers[i] = (reason) => {
+            const result = CancelablePromise.try(handler, reason);
+            owned.push(result);
+            return result;
+          };
+        }
+        return owned;
+      };
+
+      const settleOwnedHandlers = (owned: PromiseLike<unknown>[]) => {
+        if (owned.length) {
+          void CancelablePromise.allSettled(owned).then(settleDrain);
+        } else {
+          settleDrain([]);
         }
       };
 
@@ -401,8 +446,12 @@ export function cancAsync<
       // settles as canceled
       const rejectDrained = (error: any) => {
         finishCleanups(pendingCleanups, shieldOptions, () => {
+          // a CancelError rejection still dispatches the promise's registered handlers
+          const handlers = core._cancelHandlers;
+          const owned = drainDeferred && handlers && isCancelError(error) ? collectOwnHandlers(handlers) : [];
           reject(error);
-          settleDrain();
+          settleOwnedHandlers(owned);
+          settleCascade();
         });
       };
 
@@ -410,14 +459,47 @@ export function cancAsync<
       // rejection follows the core reason rule
       const settleCanceled = () => {
         if (!coroutinePromise.cancelable) {
+          settleDrain([]);
+          settleCascade();
           return;
         }
 
-        try {
-          (coroutinePromise as any)._cancel(canceledReason, disposing);
-        } catch (_e) {
-          // the drain has no caller to receive a handler error
+        const handlers = core._cancelHandlers;
+        if (!drainDeferred || !handlers?.length) {
+          try {
+            core._cancel(canceledReason, disposing);
+          } catch {
+            // the drain has no caller to receive a handler error
+          }
+          settleDrain([]);
+          settleCascade();
+          return;
         }
+
+        const owned = collectOwnHandlers(handlers);
+        let cascade: void | CancelablePromise<TCancelResults, never>;
+        try {
+          cascade = CancelablePromise.prototype.cancel.call(coroutinePromise, canceledReason, disposing);
+        } catch {
+          // the drain has no caller to receive a handler error
+          cascade = undefined;
+        }
+
+        const collector = core._collector;
+        const finishCascade = () => {
+          // older peers leave the collector on the canceled promise
+          if (collector && core._collector === collector) {
+            core._collector = undefined;
+          }
+          settleCascade();
+        };
+        if (cascade) {
+          void cascade.then(finishCascade, finishCascade);
+        } else {
+          finishCascade();
+        }
+
+        settleOwnedHandlers(owned);
       };
 
       // Delegates guards to prototype semantics before draining.
@@ -428,7 +510,7 @@ export function cancAsync<
         // Returns the same awaitable on re-cancel.
         // Bypasses strict throw on second cancel.
         if (canceled && !genDone) {
-          return self.asyncCancel ? drainDeferred!.promise : undefined;
+          return drainDeferred?.promise;
         }
 
         if (self.shield && self.cancelable) {
@@ -451,15 +533,17 @@ export function cancAsync<
         disposing = _disposing === true;
         rejectAfterCancel = rejectDrained;
 
-        if (self.asyncCancel) {
-          const d = CancelablePromise.withResolvers<any>({ shield: true });
-          drainDeferred = { promise: d.promise, resolve: d.resolve as (v?: any) => void };
+        const drain =
+          self.asyncCancel ? CancelablePromise.withResolvers<TCancelResults, never>({ shield: true }) : undefined;
+        drainDeferred = drain;
 
-          // Participate in cleanup collector: if this cancel is part of a cascade,
-          // push the drain promise so the initiator's allSettled covers coroutine cleanup.
-          const collector = (CancelablePromise as any)._activeCollector as any[] | undefined;
+        if (drain) {
+          const collector = (CancelablePromise as unknown as { _activeCollector?: unknown[] })._activeCollector;
           if (collector) {
-            collector.push(d.promise);
+            // a parent cancel waits for the full cascade, including the coroutine drain
+            const cascade = CancelablePromise.withResolvers<void, never>({ shield: true });
+            resolveCascade = cascade.resolve;
+            collector.push(cascade.promise);
           }
         }
 
@@ -469,7 +553,7 @@ export function cancAsync<
           drainFinally();
         }
 
-        return self.asyncCancel ? drainDeferred!.promise : undefined;
+        return drain?.promise;
       };
 
       // a deferred cancel unwinds once the body yields something unshielded
@@ -505,10 +589,7 @@ export function cancAsync<
           } else if (cancelDeferred) {
             // the body returned before any unshielded step, the accepted cancel still decides
             cancelDeferred = false;
-            finishCleanups(pendingCleanups, shieldOptions, () => {
-              settleCanceled();
-              settleDrain();
-            });
+            finishCleanups(pendingCleanups, shieldOptions, settleCanceled);
           }
         } else {
           if (canceled && !cancelDeferred) {
@@ -689,10 +770,7 @@ export function cancAsync<
       const pumpFinally = (result: IteratorResult<any>) => {
         if (result.done) {
           genDone = true;
-          finishCleanups(pendingCleanups, shieldOptions, () => {
-            settleCanceled();
-            settleDrain();
-          });
+          finishCleanups(pendingCleanups, shieldOptions, settleCanceled);
           return;
         }
 

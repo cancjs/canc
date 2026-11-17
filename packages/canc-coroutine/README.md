@@ -148,6 +148,12 @@ flag is still `false`; it turns `true` when the cleanup is done and the promise 
 handlers run at that point too, and they receive the reason passed to `cancel()`, not the
 `CancelError`.
 
+In async mode, `cancel()` waits for the drain and returns the coroutine's own cancel handler
+results in registration order. Each record is fulfilled with the handler's value or rejected with
+its error. If no handlers ran, including when the drain threw before reaching them, the result is
+an empty array. The coroutine's rejection is separate. With `asyncCancel: false`, `cancel()`
+returns `undefined` immediately.
+
 When the canceled step awaits another coroutine or a `CancelablePromise`, the body's `finally`
 runs only after that step's own cleanup has finished, so the inner levels of a nest clean up
 before the levels that await them. The wait relies on the step's `cancel()` returning a cleanup
