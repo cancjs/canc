@@ -1082,6 +1082,7 @@ interface ILoopHandle extends ICancForAwaitLoop<any> {
   _async: boolean;
   _current: IteratorResult<any>;
   _stale: boolean;
+  _advancedThisTurn: boolean;
   _used: boolean;
   _finished: boolean;
   _disposing: boolean;
@@ -1098,6 +1099,7 @@ function disposeLoop(loop: ILoopHandle): PromiseLike<void> | undefined {
     loop._finished = true;
     // final turn relies on this to avoid throwing IterationError on exhaustion
     loop._stale = false;
+    loop._advancedThisTurn = false;
 
     const cleanup = returnStepIterator(loop._it);
     loop._disposed = isThenable(cleanup) ? (cleanup as PromiseLike<void>) : undefined;
@@ -1194,6 +1196,15 @@ function* pullNextItem(loop: ILoopHandle): Generator<unknown, void, any> {
   loop._stale = false;
 }
 
+function* advanceLoop(loop: ILoopHandle): Generator<unknown, void, any> {
+  if (loop._advancedThisTurn) {
+    throw new IterationError('A forAwait loop handle can advance only once per turn');
+  }
+  const inTurn = loop._stale;
+  yield* pullNextItem(loop);
+  loop._advancedThisTurn = inTurn;
+}
+
 function* returnLoop(loop: ILoopHandle): Generator<unknown, void, any> {
   const cleanup = disposeLoop(loop);
 
@@ -1210,6 +1221,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
     _async: async,
     _current: DONE_RESULT,
     _stale: false,
+    _advancedThisTurn: false,
     _used: false,
     _finished: false,
     _disposing: false,
@@ -1232,6 +1244,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
             throw new IterationError('A forAwait loop body must advance the handle with yield* loop.next() every turn');
           }
 
+          loop._advancedThisTurn = false;
           if (loop._current.done) {
             return DONE_RESULT;
           }
@@ -1258,7 +1271,7 @@ function createLoopHandle(it: any, async: boolean): ILoopHandle {
     },
 
     next(): Generator<unknown, void, any> {
-      return pullNextItem(loop);
+      return advanceLoop(loop);
     },
 
     return(): Generator<unknown, void, any> {
@@ -1373,7 +1386,7 @@ cancForAwait.next = function* next(): Generator<unknown, void, any> {
   if (!isObject(loop) || !isObject((loop as any)._it)) {
     throw new IterationError('No active forAwait loop; canc.forAwait.next() requires a loop in the body');
   }
-  yield* pullNextItem(loop);
+  yield* advanceLoop(loop);
 } as ICancForAwait['next'];
 
 function findDescriptor(instance: any, key: string): PropertyDescriptor | undefined {

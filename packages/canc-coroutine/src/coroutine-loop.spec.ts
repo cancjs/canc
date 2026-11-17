@@ -249,6 +249,45 @@ describe('cancForAwait handle form', () => {
     expect(log).toEqual(['cleanup']);
   });
 
+  it.each([
+    ['explicit then sugar', true],
+    ['sugar then explicit', false],
+  ])('rejects a second advance: %s', async (_name, explicitFirst) => {
+    const log: string[] = [];
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(makeLoggedSource([1, 2, 3], log));
+
+      for (const value of loop) {
+        seen.push(value);
+        if (value === 1) {
+          if (explicitFirst) {
+            yield* loop.next();
+          } else {
+            yield* cancForAwait.next();
+          }
+          log.push('first advance returned');
+          if (explicitFirst) {
+            yield* cancForAwait.next();
+          } else {
+            yield* loop.next();
+          }
+        } else {
+          yield* loop.next();
+        }
+      }
+
+      return 'done';
+    });
+
+    const result = co();
+    await expect(result).rejects.toBeInstanceOf(IterationError);
+    await expect(result).rejects.toMatchObject({ message: 'A forAwait loop handle can advance only once per turn' });
+    expect(seen).toEqual([1]);
+    expect(log).toEqual(['first advance returned', 'cleanup']);
+  });
+
   it('keeps two loops running in one coroutine independent of each other', async () => {
     const seenA: number[] = [];
     const seenB: string[] = [];

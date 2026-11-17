@@ -549,6 +549,9 @@ The advance-first default avoids hidden runtime bugs. An advance-last loop that 
 `continue` branch without advancing will throw `IterationError` on the following turn. Because error
 and skip branches are often rarely exercised in tests, advance-first is the safer default.
 
+Advancing twice in one loop turn throws `IterationError`. This also applies when you mix `loop.next()`
+and `canc.forAwait.next()`.
+
 A handle iterates once; calling `[Symbol.iterator]()` a second time on the same handle throws
 `IterationError`.
 
