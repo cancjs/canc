@@ -558,19 +558,19 @@ from the toolbox.
 ### Using canc promises in a library
 
 A library that returns or accepts canc promises should list `@cancjs/promise` as a `peerDependency`, so the
-application installs one shared copy. When two copies do end up side by side, for example a library's and the
-application's at different versions, their `CancelablePromise` types are still assignable to each other and a
-declared failure type carries over, because the type is structural: only public members, and a string key for
-the declared failure.
+application installs one shared copy. The structural declarations in 1.1 make `CancelablePromise` types from
+two 1.1 copies assignable to each other, and a declared failure type carries over. The type uses public members
+and a string key for the declared failure.
 
-For a parameter, accept the narrowest shape the code needs: `PromiseLike<T>` when it only awaits the value, or
-`ICancelable<T>` when it also calls `cancel()`. Both take a promise from any copy, a native promise or another
-cancelable implementation, and `makeCancelable` turns the value into a `CancelablePromise` of your own copy.
+For a parameter, accept the narrowest shape the code needs. Use `PromiseLike<T>` when you only await the value;
+it accepts native promises and promises from any copy. Use `ICancelable<T>` when you also call `cancel()`;
+native promises do not have that method, but cancelable promises from another copy do. `makeCancelable` turns a
+promise-like value into a `CancelablePromise` of your own copy.
 
 ```ts
-import { ICancelable, makeCancelable } from '@cancjs/promise';
+import { makeCancelable } from '@cancjs/promise';
 
-export function withRetry<T>(work: () => ICancelable<T>) {
+export function withCancelable<T>(work: () => PromiseLike<T>) {
   return makeCancelable(work());
 }
 ```
