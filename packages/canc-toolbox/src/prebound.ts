@@ -1,6 +1,8 @@
-import { CancelablePromise, ISettledResult, Unlisted } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
 import * as tb from '../../_toolbox';
+import type { ISettledResult } from '../../_toolbox/settled-result';
+import type { Unlisted } from '../../_util';
 import { deps, ICancelableKind } from './deps';
 import { TEagerToolboxOptions } from './options';
 
