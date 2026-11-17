@@ -892,6 +892,9 @@ function createYielder<TProduce, TSend>(
   };
 }
 
+declare const THROW_STEP: unique symbol;
+type ThrowStep<F> = Failing<F> & { readonly [THROW_STEP]: true };
+
 /**
  * `throw`, as a yieldable step. Runtime: a generator that throws on its first `next()`, so `yield*`
  * propagates it at the call site and ordinary try/catch/finally behaves exactly as with a bare
@@ -902,8 +905,8 @@ function createYielder<TProduce, TSend>(
  * gives TS2355 ("A function whose declared type is neither 'undefined', 'void', nor 'any' must return
  * a value"). Use `return yield* canc.throw(e)` instead, as `never` widens to any return type.
  */
-export function cancThrow<TFailure>(error: TFailure): Generator<Failing<TFailure>, never, any> {
-  return (function* (): Generator<Failing<TFailure>, never, any> {
+export function cancThrow<TFailure>(error: TFailure): Generator<ThrowStep<TFailure>, never, any> {
+  return (function* (): Generator<ThrowStep<TFailure>, never, any> {
     throw error;
   })();
 }
