@@ -106,14 +106,15 @@ export function createCancelSignal(reason?: any) {
 
 export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
   /**
-   * Also match a plain AbortSignal-driven abort: a raw AbortError, or a CancelError whose
-   * `aborted` getter is true (its cause is an AbortError). Default false: only a genuine
-   * CancelError is matched.
+   * Also match a plain AbortSignal-driven abort: a raw AbortError. A CancelError whose `aborted`
+   * getter is true (its cause is an AbortError) is a cancellation and matches without this option.
+   * Default false.
    */
   abort?: boolean;
   /**
-   * Also match a plain timeout: a raw TimeoutError, or a CancelError whose `timedOut` getter is
-   * true (its cause is a TimeoutError). Default false: only a genuine CancelError is matched.
+   * Also match a plain timeout: a raw TimeoutError, or a CancelError whose `timedOut` getter is true
+   * (its cause is a TimeoutError). Default false: such a CancelError is not matched and keeps
+   * rejecting (the bare-error form rethrows it), because a timeout is not an ordinary cancellation.
    * Independent of `abort` - each option widens the match for its own kind only.
    */
   timeout?: boolean;
