@@ -434,11 +434,11 @@ export function cancAsync<
         return owned;
       };
 
-      const settleOwnedHandlers = (owned: PromiseLike<unknown>[]) => {
+      const settleOwnedHandlers = (owned: PromiseLike<unknown>[], settle = settleDrain) => {
         if (owned.length) {
-          void CancelablePromise.allSettled(owned).then(settleDrain);
+          void CancelablePromise.allSettled(owned).then(settle);
         } else {
-          settleDrain([]);
+          settle([]);
         }
       };
 
@@ -450,8 +450,10 @@ export function cancAsync<
           const handlers = core._cancelHandlers;
           const owned = drainDeferred && handlers && isCancelError(error) ? collectOwnHandlers(handlers) : [];
           reject(error);
-          settleOwnedHandlers(owned);
-          settleCascade();
+          settleOwnedHandlers(owned, (results) => {
+            settleDrain(results);
+            settleCascade();
+          });
         });
       };
 

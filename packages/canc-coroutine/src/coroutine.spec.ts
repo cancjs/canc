@@ -336,6 +336,36 @@ describe('cancAsync', () => {
       expect(handler).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps the parent cancellation pending for handlers dispatched by a cleanup CancelError', async () => {
+      const cleanup = CancelablePromise.withResolvers<void>();
+      const release = CancelablePromise.withResolvers<string>();
+      const failure = new CancelError('cleanup canceled');
+      const handler = jest.fn(() => release.promise);
+      const co = cancAsync(function* () {
+        try {
+          yield new CancelablePromise<void>(() => {});
+        } finally {
+          yield cleanup.promise;
+          throw failure;
+        }
+      })().handleCancel(handler);
+      const parent = new CancelablePromise<void>(() => {}).handleCancel(() => {
+        void co.cancel();
+      });
+      const canceled = parent.cancel();
+      const settled = jest.fn();
+      void Promise.resolve(canceled).then(settled, settled);
+
+      cleanup.resolve();
+      await expect(co).rejects.toBe(failure);
+      await flush(24);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(settled).not.toHaveBeenCalled();
+
+      release.resolve('own cleanup');
+      await expect(canceled).resolves.toEqual(expect.any(Array));
+    });
+
     it('reports handlers after deferred cancellation reaches the end of the body', async () => {
       const release = CancelablePromise.withResolvers<void>({ shield: true });
       const co = cancAsync(function* () {
