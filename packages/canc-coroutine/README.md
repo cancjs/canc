@@ -588,8 +588,10 @@ Canceling a pending step (`iterator.next().cancel()`) or aborting the signal pas
 cancels the producer the same way `canc.async` cancels a coroutine. Its `finally` blocks run to
 the end with shielded steps, the canceled step stays pending until they finish, and an error thrown
 by that cleanup rejects the step. The signal is watched from the producer's first pull until it ends, so an
-abort between two pulls cleans it up too. The `finally` that a consumer `return()` or `break` runs
-is protected the same way, so a cancel landing during that cleanup waits for it.
+abort between two pulls cleans it up too. Cleanup started by a consumer `return()` or `break` is
+shielded as well. If the producer's signal aborts during that cleanup, the active return completes
+with its normal result or rejects with the cleanup error. Explicitly canceling the return step still
+cancels it after cleanup.
 
 ### Class methods
 

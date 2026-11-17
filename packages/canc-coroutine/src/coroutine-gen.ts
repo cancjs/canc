@@ -308,6 +308,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     let returning = false;
     // value of the consumer return() in flight, handed back when a helper asks to return again
     let returnValue: any;
+    let preservedReturnStep: TAsyncGeneratorStep | undefined;
     let unsubscribe: (() => void) | undefined;
 
     const asyncGen = {
@@ -337,7 +338,8 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
       watching = true;
       unsubscribe = subscribeAbort(signal, (reason) => {
-        cancelGen(reason, undefined, false);
+        const closingStep = returning && currentStep?.method === 'return' ? currentStep : undefined;
+        cancelGen(reason, undefined, false, closingStep);
       });
     }
 
@@ -450,7 +452,9 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
       if (canceled) {
         // canceled while the body ran: the cancel left the unwind to this call
-        if (call.threw) {
+        if (preservedReturnStep) {
+          pumpDrain(call);
+        } else if (call.threw) {
           finishDrain(true, call.error);
         } else {
           unwind();
@@ -477,33 +481,50 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
         stopListening();
       }
 
-      const rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
-      const isAwaitedValue = isAwaited(rawValue);
-      const settledValue = isAwaitedValue ? rawValue[awaitedSymbol] : rawValue;
+      let rawValue: unknown;
+      try {
+        rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
+      } catch (error) {
+        if (!preservedReturnStep) {
+          throw error;
+        }
+
+        pumpDrain(callGen('throw', error));
+        return;
+      }
+      const awaitedValue = isAwaited(rawValue) ? rawValue : undefined;
+      const settledValue = awaitedValue ? awaitedValue[awaitedSymbol] : rawValue;
 
       if (result.done) {
-        pendingSource = CancelablePromise.resolve(settledValue);
-        pendingSource.then(
-          (value) => {
-            if (canceled) return;
-            pendingSource = undefined;
-            settle('return', value);
-          },
-          (error) => {
-            if (canceled) return;
-            pendingSource = undefined;
-            settle('throw', error);
-          },
-        );
+        adoptReturn(settledValue);
         return;
       }
 
-      if (isAwaitedValue) {
+      if (awaitedValue) {
         awaitStep(settledValue);
+      } else if (preservedReturnStep) {
+        pumpDrain(callGen('next', undefined));
       } else {
         // Plain yield: emit to the consumer as `{ value, done: false }`.
         settle('next', settledValue);
       }
+    }
+
+    function adoptReturn(value: unknown) {
+      const complete = (type: 'return' | 'throw', outcome: unknown) => {
+        if (preservedReturnStep) {
+          finishDrain(type === 'throw', outcome);
+        } else if (!canceled) {
+          pendingSource = undefined;
+          settle(type, outcome);
+        }
+      };
+
+      pendingSource = CancelablePromise.resolve(value);
+      pendingSource.then(
+        (result) => complete('return', result),
+        (error: unknown) => complete('throw', error),
+      );
     }
 
     function awaitStep(settledValue: any): boolean {
@@ -548,6 +569,11 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     // Drives the body after a deferred cancel: shielded awaits keep running, anything else unwinds
     function resumeDeferred(method: TGeneratorMethod, sentValue: any) {
       const call = callGen(method, sentValue);
+
+      if (preservedReturnStep) {
+        pumpDrain(call);
+        return;
+      }
 
       if (call.threw) {
         cancelDeferred = false;
@@ -601,7 +627,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       const outstanding = pendingSource;
       const release = releaseStepSource;
       clearStepSource();
-      const unwindBody = () => pumpDrain('return', undefined);
+      const unwindBody = () => pumpDrain(callGen('return', undefined));
       forwardCancel(
         () => {
           if (!release && outstanding?.cancelable) {
@@ -613,11 +639,9 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     }
 
     // Each finally step runs shielded, so a second cancel never cuts the cleanup short
-    function pumpDrain(method: TGeneratorMethod, sentValue: any) {
-      let call = callGen(method, sentValue);
-
+    function pumpDrain(call: IGenCall) {
       while (!call.threw && !call.result!.done && call.result!.value === GEN_RETURN_UNWIND) {
-        call = callGen('return', undefined);
+        call = callGen('return', preservedReturnStep ? returnValue : undefined);
       }
 
       if (call.threw) {
@@ -627,47 +651,66 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
 
       const result = call.result!;
 
-      if (result.done) {
+      if (result.done && !preservedReturnStep) {
         finishDrain(false, undefined);
         return;
       }
 
-      let rawValue: any;
+      let rawValue: unknown;
       try {
         rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
       } catch (error) {
-        pumpDrain('throw', error);
+        if (result.done) {
+          finishDrain(true, error);
+        } else {
+          pumpDrain(callGen('throw', error));
+        }
+        return;
+      }
+
+      const awaitedValue = isAwaited(rawValue) ? rawValue : undefined;
+
+      if (result.done) {
+        adoptReturn(awaitedValue ? awaitedValue[awaitedSymbol] : rawValue);
         return;
       }
 
       // nobody consumes an emit any more, so it is dropped and the body moves on
-      const pending = isAwaited(rawValue) ? rawValue[awaitedSymbol] : undefined;
-
-      CancelablePromise.resolve(pending, shieldOptions).then(
-        (value) => pumpDrain('next', value),
-        (error) => pumpDrain('throw', error),
+      CancelablePromise.resolve(awaitedValue?.[awaitedSymbol], shieldOptions).then(
+        (value) => pumpDrain(callGen('next', value)),
+        (error) => pumpDrain(callGen('throw', error)),
       );
     }
 
-    function finishDrain(failed: boolean, error: any) {
+    function finishDrain(failed: boolean, outcome: unknown) {
       drained = true;
       done = true;
+      cancelDeferred = false;
       clearStepSource();
 
       let step: TAsyncGeneratorStep | null = currentStep || queuedStep;
+      const returned = preservedReturnStep;
       currentStep = null;
       queuedStep = null;
+      preservedReturnStep = undefined;
 
       // a cleanup error rejects the canceled step, else the first one still waiting
       let errorTarget: TAsyncGeneratorStep | null = null;
-      if (failed) {
-        errorTarget = canceledStep?.promise?.cancelable ? canceledStep : step;
-      }
-
-      if (errorTarget) {
-        errorTarget.reject(error);
+      if (returned && returned === step) {
+        step = returned.next;
+        returnValue = undefined;
+        if (failed) {
+          returned.reject(outcome);
+        } else {
+          returned.resolve({ value: outcome, done: true });
+        }
       } else if (failed) {
-        cleanupFailure = { error };
+        errorTarget = canceledStep?.promise?.cancelable ? canceledStep : step;
+        if (errorTarget) {
+          errorTarget.reject(outcome);
+        } else {
+          cleanupFailure = { error: outcome };
+        }
       }
 
       while (step) {
@@ -704,7 +747,12 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       }
     }
 
-    function cancelGen(reason: any, step: TAsyncGeneratorStep | undefined, disposing: boolean) {
+    function cancelGen(
+      reason: any,
+      step: TAsyncGeneratorStep | undefined,
+      disposing: boolean,
+      closingStep?: TAsyncGeneratorStep,
+    ) {
       if (canceled) {
         return drain!.promise;
       }
@@ -718,6 +766,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       cancelReason = reason;
       cancelDisposing = disposing;
       canceledStep = step;
+      preservedReturnStep = closingStep;
       stopListening();
 
       const deferred = CancelablePromise.withResolvers<any>({ shield: true });
@@ -733,7 +782,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
         return drain.promise;
       }
 
-      if (pendingShielded) {
+      if (pendingShielded || preservedReturnStep) {
         cancelDeferred = true;
       } else {
         unwind();

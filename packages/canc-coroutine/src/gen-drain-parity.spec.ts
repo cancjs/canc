@@ -346,6 +346,69 @@ describe('cancGenAsync generator lifetime under cancel', () => {
     expect(ran).toBe(false);
   });
 
+  it('preserves a consumer return when the producer signal aborts during cleanup', async () => {
+    const controller = new AbortController();
+    const release = controlled<void>();
+    const cleanupStarted = jest.fn();
+    const it = cancGenAsync(
+      function* () {
+        try {
+          yield 1;
+          return 'finished';
+        } finally {
+          cleanupStarted();
+          yield* cancGenAwait(release.promise);
+        }
+      },
+      { signal: controller.signal },
+    )();
+
+    await it.next();
+    const returned = it.return('closed');
+    const queued = describeOutcome(it.next());
+    const settled = jest.fn();
+    void returned.then(settled, settled);
+    expect(cleanupStarted).toHaveBeenCalledTimes(1);
+
+    controller.abort('stop');
+    await flush();
+    expect(settled).not.toHaveBeenCalled();
+    expect(release.canceledCount()).toBe(0);
+
+    release.resolve();
+    await expect(returned).resolves.toEqual({ value: 'closed', done: true });
+    await expect(queued).resolves.toBe('canceled');
+    expect(getEventListeners(controller.signal, 'abort')).toHaveLength(0);
+  });
+
+  it('rejects a consumer return with its cleanup error after the producer signal aborts', async () => {
+    const controller = new AbortController();
+    const release = controlled<void>();
+    const failure = new Error('cleanup failed');
+    const cleanupStarted = jest.fn();
+    const it = cancGenAsync(
+      function* () {
+        try {
+          yield 1;
+          return 'finished';
+        } finally {
+          cleanupStarted();
+          yield* cancGenAwait(release.promise);
+          throw failure;
+        }
+      },
+      { signal: controller.signal },
+    )();
+
+    await it.next();
+    const returned = it.return('closed');
+    expect(cleanupStarted).toHaveBeenCalledTimes(1);
+    controller.abort('stop');
+
+    release.resolve();
+    await expect(returned).rejects.toBe(failure);
+  });
+
   it('lets a canceled consumer return() finish its cleanup', async () => {
     const release = controlled<void>();
     const log: string[] = [];
