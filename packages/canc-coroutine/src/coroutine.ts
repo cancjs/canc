@@ -1200,9 +1200,8 @@ function* advanceLoop(loop: ILoopHandle): Generator<unknown, void, any> {
   if (loop._advancedThisTurn) {
     throw new IterationError('A forAwait loop handle can advance only once per turn');
   }
-  const inTurn = loop._stale;
+  loop._advancedThisTurn = loop._stale;
   yield* pullNextItem(loop);
-  loop._advancedThisTurn = inTurn;
 }
 
 function* returnLoop(loop: ILoopHandle): Generator<unknown, void, any> {
