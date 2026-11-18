@@ -1,8 +1,12 @@
+import type { SocketOptions } from 'node:dgram';
 import { createSocket as nodeCreateSocket } from 'node:dgram';
+import { lookup as nodeLookup } from 'node:dns';
 
 import { isCancelError } from '@cancjs/promise';
 
 import { bind, connect, createSocket, send } from './index';
+
+const UNRESOLVABLE_HOST = 'no-such-host.invalid';
 
 describe('dgram', () => {
   describe('send', () => {
@@ -194,9 +198,20 @@ describe('dgram', () => {
     });
 
     it('rejects with the lookup error for an unresolvable host and leaves the socket unconnected', async () => {
-      const client = createSocket('udp4');
+      // stubbed lookup: the system resolver's timing depends on the network
+      const failedLookups: string[] = [];
+      const failingLookup: NonNullable<SocketOptions['lookup']> = (hostname, options, callback) => {
+        if (hostname === UNRESOLVABLE_HOST) {
+          failedLookups.push(hostname);
+          callback(Object.assign(new Error(`getaddrinfo ENOTFOUND ${hostname}`), { code: 'ENOTFOUND' }), '', 4);
+          return;
+        }
+        nodeLookup(hostname, options, callback);
+      };
+      const client = createSocket({ type: 'udp4', lookup: failingLookup });
       try {
-        await expect(connect(client, 53, 'no-such-host.invalid')).rejects.toMatchObject({ code: 'ENOTFOUND' });
+        await expect(connect(client, 53, UNRESOLVABLE_HOST)).rejects.toMatchObject({ code: 'ENOTFOUND' });
+        expect(failedLookups).toEqual([UNRESOLVABLE_HOST]);
         expect(() => client.remoteAddress()).toThrow();
       } finally {
         client.close();
