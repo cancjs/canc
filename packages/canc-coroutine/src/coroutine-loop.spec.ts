@@ -249,6 +249,89 @@ describe('cancForAwait handle form', () => {
     expect(log).toEqual(['cleanup']);
   });
 
+  it.each([
+    ['explicit then sugar', true],
+    ['sugar then explicit', false],
+  ])('rejects a second advance: %s', async (_name, explicitFirst) => {
+    const log: string[] = [];
+    const seen: number[] = [];
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(makeLoggedSource([1, 2, 3], log));
+
+      for (const value of loop) {
+        seen.push(value);
+        if (value === 1) {
+          if (explicitFirst) {
+            yield* loop.next();
+          } else {
+            yield* cancForAwait.next();
+          }
+          log.push('first advance returned');
+          if (explicitFirst) {
+            yield* cancForAwait.next();
+          } else {
+            yield* loop.next();
+          }
+        } else {
+          yield* loop.next();
+        }
+      }
+
+      return 'done';
+    });
+
+    const result = co();
+    await expect(result).rejects.toBeInstanceOf(IterationError);
+    await expect(result).rejects.toMatchObject({ message: 'A forAwait loop handle can advance only once per turn' });
+    expect(seen).toEqual([1]);
+    expect(log).toEqual(['first advance returned', 'cleanup']);
+  });
+
+  it('rejects another advance after a source item rejects', async () => {
+    const failure = new Error('source item failed');
+    const pulls: number[] = [];
+    const seen: number[] = [];
+    let caught: unknown;
+    let cleanups = 0;
+
+    function* source() {
+      try {
+        pulls.push(1);
+        yield 1;
+        pulls.push(2);
+        yield Promise.reject(failure);
+        pulls.push(3);
+        yield 3;
+      } finally {
+        cleanups++;
+      }
+    }
+
+    const co = cancAsync(function* () {
+      const loop = yield* cancForAwait(source());
+      for (const value of loop) {
+        seen.push(value);
+        if (value === 1) {
+          try {
+            yield* loop.next();
+          } catch (error) {
+            caught = error;
+          }
+          yield* cancForAwait.next();
+        } else {
+          yield* loop.next();
+        }
+      }
+    });
+
+    await expect(co()).rejects.toBeInstanceOf(IterationError);
+    expect(caught).toBe(failure);
+    expect(seen).toEqual([1]);
+    expect(pulls).toEqual([1, 2]);
+    expect(cleanups).toBe(1);
+  });
+
   it('keeps two loops running in one coroutine independent of each other', async () => {
     const seenA: number[] = [];
     const seenB: string[] = [];

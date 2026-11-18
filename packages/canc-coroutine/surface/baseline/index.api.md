@@ -138,7 +138,7 @@ toArray: <T>(source: TEachSource<T>) => Generator<Failing<BreakError>, T[], any>
 ## `cancThrow<TFailure>` (function)
 
 ```text
-<TFailure>(error: TFailure): Generator<Failing<TFailure>, never, any>
+<TFailure>(error: TFailure): Generator<ThrowStep<TFailure>, never, any>
 ```
 
 ## `forAwait` (const)
@@ -159,5 +159,5 @@ toArray: <T>(source: TEachSource<T>) => Generator<Failing<BreakError>, T[], any>
 ## `throw<TFailure>` (function)
 
 ```text
-<TFailure>(error: TFailure): Generator<Failing<TFailure>, never, any>
+<TFailure>(error: TFailure): Generator<ThrowStep<TFailure>, never, any>
 ```

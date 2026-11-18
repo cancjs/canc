@@ -1,4 +1,10 @@
-import { CancelablePromise, CancelError, ICancelablePromiseOptions, isCancelError } from '@cancjs/promise';
+import {
+  CancelablePromise,
+  CancelError,
+  ICancelablePromiseOptions,
+  IExecutorContext,
+  isCancelError,
+} from '@cancjs/promise';
 
 import { createCancelSignalSource } from '../../_toolbox';
 import { setFnName } from '../../_util';
@@ -6,6 +12,8 @@ import { IExecutorCtx, THandleCancel } from './options';
 
 /** Structural AbortController, so no dependency on the ambient DOM/Node type in envs that polyfill it. */
 type AbortControllerCtor = new () => { abort(reason?: any): void; signal: any };
+type TCancelifySignal =
+  typeof globalThis extends { AbortSignal: { prototype: infer S } } ? S : ReturnType<IExecutorContext['getSignal']>;
 
 /**
  * Normalize an arbitrary cancel reason into a branded CancelError, matching cancel() and the core
@@ -32,14 +40,14 @@ export interface ICancelifyContext {
    * was canceled returns an already aborted signal.
    * @deprecated Use `signal`.
    */
-  getSignal: () => any;
+  getSignal: () => TCancelifySignal;
   handleCancel: THandleCancel;
   /**
    * The outbound signal `getSignal()` returns, created on first read. The property is an inherited
    * non-enumerable getter, so spread and `JSON.stringify` neither copy it nor create the
    * controller. Destructuring it (`({ signal }, ...args) => ...`) reads it once.
    */
-  readonly signal: any;
+  readonly signal: TCancelifySignal;
 }
 
 // a plain constructor so every context shares one map and inherits the signal getter

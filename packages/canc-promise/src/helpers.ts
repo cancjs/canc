@@ -37,12 +37,10 @@ export const isCancelError = (error: any): error is CancelError => isBrandedCanc
 // matcher list built from one subtracts that kind from a declared failure set
 
 // kept exported for published sibling packages, removal only in a major
-/** @internal */
 export const _isAbortLike = isAbortLike(isCancelError) as (
   error: any,
 ) => error is AbortError | (CancelError & { readonly aborted: true });
 // kept exported for published sibling packages, removal only in a major
-/** @internal */
 export const _isTimeoutLike = isTimeoutLike(isCancelError) as (
   error: any,
 ) => error is TimeoutError | (CancelError & { readonly timedOut: true });
@@ -108,14 +106,15 @@ export function createCancelSignal(reason?: any) {
 
 export interface ICatchSuppressOptions extends ICancelablePromiseOptions {
   /**
-   * Also match a plain AbortSignal-driven abort: a raw AbortError, or a CancelError whose
-   * `aborted` getter is true (its cause is an AbortError). Default false: only a genuine
-   * CancelError is matched.
+   * Also match a plain AbortSignal-driven abort: a raw AbortError. A CancelError whose `aborted`
+   * getter is true (its cause is an AbortError) is a cancellation and matches without this option.
+   * Default false.
    */
   abort?: boolean;
   /**
-   * Also match a plain timeout: a raw TimeoutError, or a CancelError whose `timedOut` getter is
-   * true (its cause is a TimeoutError). Default false: only a genuine CancelError is matched.
+   * Also match a plain timeout: a raw TimeoutError, or a CancelError whose `timedOut` getter is true
+   * (its cause is a TimeoutError). Default false: such a CancelError is not matched and keeps
+   * rejecting (the bare-error form rethrows it), because a timeout is not an ordinary cancellation.
    * Independent of `abort` - each option widens the match for its own kind only.
    */
   timeout?: boolean;
@@ -145,7 +144,7 @@ export function catchCancel<TResult, TFailure, O extends ICatchSuppressOptions =
 export function catchCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
   options?: O,
-): CancelablePromise<TResult | CancelError | TResolutionFlags<O>, never>;
+): CancelablePromise<TResult | CancelError | TResolutionFlags<O>, Unlisted>;
 export function catchCancel<TError, O extends ICatchSuppressOptions = {}>(
   error: TError,
   options?: O,
@@ -164,7 +163,7 @@ export function suppressCancel<TResult, TFailure, O extends ICatchSuppressOption
 export function suppressCancel<TResult, O extends ICatchSuppressOptions = {}>(
   promise: PromiseLike<TResult>,
   options?: O,
-): CancelablePromise<TResult | void, never>;
+): CancelablePromise<TResult | void, Unlisted>;
 export function suppressCancel<TError, O extends ICatchSuppressOptions = {}>(error: TError, options?: O): void | never;
 export function suppressCancel<TResult, TError, O extends ICatchSuppressOptions = {}>(
   errorOrPromise: PromiseLike<TResult> | TError,

@@ -53,7 +53,7 @@ coroutines to class methods. See the
 npm install @cancjs/promise
 ```
 
-This package is core tier: it follows strict semver, so the default caret pin, `^1`, is safe. See
+This package is core tier: it never removes a public name outside a major release, so the default caret pin, `^1`, never loses something you call. A core minor can still fix behavior that was wrong; when a fix can break working code, the changelog entry for that minor opens with a `**Breaking:**` note. See
 [Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
 
 ### Usage
@@ -385,7 +385,7 @@ A failure set is open when it includes `Unlisted`. `CancelablePromise<User, Http
 
 Library authors write `X | Unlisted` when they know one failure a call produces but cannot promise it is the only one. A timeout helper is the typical case: it rejects with `TimeoutError`, and with whatever the work it waits on rejects with.
 
-A native promise and a foreign thenable are open as well, since nothing states what they reject with. `FailureOf<Promise<number>>` is `Unlisted`, and `makeCancelable(native)` returns `CancelablePromise<T, Unlisted>`. A cancelable promise passed to `makeCancelable` keeps its own set.
+A native promise and a foreign thenable are open as well, since nothing states what they reject with. `FailureOf<Promise<number>>` is `Unlisted`, `makeCancelable(native)` returns `CancelablePromise<T, Unlisted>`, and the catch and suppress helpers over a native input do the same: `catchCancel(native)` returns `CancelablePromise<T | CancelError, Unlisted>`. A cancelable promise passed to `makeCancelable` keeps its own set.
 
 ```ts
 declare const declared: CancelablePromise<number, HttpError>;
@@ -518,12 +518,12 @@ const quotes = new CancelablePromise(executor, {
 });
 ```
 
-Inside the executor, `getSignal()` returns an `AbortSignal` that aborts when the promise is
-canceled, so signal-aware APIs can be connected directly:
+Inside the executor, `signal` is an `AbortSignal` that aborts when the promise is canceled, so
+signal-aware APIs can be connected directly. It is typed as the `AbortSignal` of your TypeScript lib:
 
 ```js
-const data = new CancelablePromise((resolve, reject, { getSignal }) => {
-  fetch('/api/data', { signal: getSignal() }).then(resolve, reject);
+const data = new CancelablePromise((resolve, reject, { signal }) => {
+  fetch('/api/data', { signal }).then(resolve, reject);
 });
 ```
 
@@ -555,6 +555,30 @@ plain-promise API at its source, use
 [`cancelify` or `promisify`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox#adapters)
 from the toolbox.
 
+### Using canc promises in a library
+
+A library that returns or accepts canc promises should list `@cancjs/promise` as a `peerDependency`, so the
+application installs one shared copy. The structural declarations in 1.1 make `CancelablePromise` types from
+two 1.1 copies assignable to each other, and a declared failure type carries over. The type uses public members
+and a string key for the declared failure.
+
+For a parameter, accept the narrowest shape the code needs. Use `PromiseLike<T>` when you only await the value;
+it accepts native promises and promises from any copy. Use `ICancelable<T>` when you also call `cancel()`;
+native promises do not have that method, but cancelable promises from another copy do. `makeCancelable` turns a
+promise-like value into a `CancelablePromise` of your own copy.
+
+```ts
+import { makeCancelable } from '@cancjs/promise';
+
+export function withCancelable<T>(work: () => PromiseLike<T>) {
+  return makeCancelable(work());
+}
+```
+
+With `"module": "nodenext"`, an ES module application and a library typed for CommonJS resolve the same installed
+copy to two declaration files, `index.d.mts` and `index.d.ts`. The structural type keeps promises from the two
+entry points compatible.
+
 ### Pluggable implementation
 
 > **Deprecated.** The registry is kept through 1.x for published siblings and removed in the next major. Use `CancelablePromise` directly, or pass `impl` per call.
@@ -582,14 +606,15 @@ otherwise `setPromiseImpl` throws a `TypeError` (the native `Promise` is rejecte
 
 The registry is module state in this package. It works app-wide because ecosystem packages declare
 `@cancjs/promise` as a `peerDependency`, so the package manager installs a single shared copy. If
-two different versions end up in the same dependency tree, each carries its own registry: a
+two copies end up in the same process (two versions in the dependency tree, or both the CommonJS and the ES build
+of one version loaded), each carries its own registry: a
 `setPromiseImpl` call made through one copy is invisible to code reading through the other, and
 the second copy silently falls back to its built-in default.
 
 Symptoms: `setPromiseImpl` runs without error but a consumer still uses `CancelablePromise`, or
 `getPromiseImpl()` returns a different value than the one that was set.
 
-Fixes: keep `@cancjs/promise` deduplicated to one version, and run `npm ls @cancjs/promise` to
+Fixes: load one module format of `@cancjs/promise`, keep it deduplicated to one version, and run `npm ls @cancjs/promise` to
 confirm a single copy. When a single copy cannot be guaranteed, pass the implementation through
 per-call options or a class static instead of relying on the registry.
 
@@ -599,7 +624,7 @@ per-call options or a class static instead of relying on the registry.
 
 `new CancelablePromise(executor, options?)`, where `executor` is
 `(resolve, reject, context) => void`. The context object provides `handleCancel` for registering
-cleanup and `getSignal` for obtaining an `AbortSignal` tied to the promise. Also the default
+cleanup and `signal`, an `AbortSignal` tied to the promise (`getSignal()` is its deprecated form). Also the default
 export.
 
 Statics, each taking an optional trailing options argument: `all`, `allSettled`, `any`, `race`,

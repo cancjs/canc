@@ -38,9 +38,9 @@ resolve: (value?: PromiseLike<T> | T | undefined) => void
 ## `ICancelifyContext` (interface)
 
 ```text
-getSignal: () => any // @deprecated
+getSignal: () => TCancelifySignal // @deprecated
 handleCancel: THandleCancel
-readonly signal: any
+readonly signal: AbortSignal
 ```
 
 ## `ICancelifyOptions` (interface)
@@ -55,7 +55,7 @@ displayName?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<MatchedError<M[number]> | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, MatchedError<M[number]>>] extends [never] ? MatchedError<M[number]> : Extract<TError, MatchedError<M[number]>>
 ```
 
@@ -182,7 +182,7 @@ shouldRetry?: ((reason: any, ctx: IRetryContext) => PromiseLike<boolean> | boole
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, SubtractedError<M[number]>>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -237,9 +237,9 @@ static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyP
 static resolve: <V>(value?: PromiseLike<V> | V, options?: ILazyPromiseOptions) => LazyPromise<V>
 static try: <V, TArgs extends any[]>(fn: (...args: TArgs) => V, ...args: TArgs) => LazyPromise<Awaited<V>, FailureOf<V>>
 static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>
-readonly [FAILURE]?: Exclude<F, CancelError> | undefined
 readonly [LAZY_PROMISE_BRAND]: true
 _beforeSubscribe: () => PromiseLike<T> | undefined
+readonly _cancFailure?: Exclude<F, CancelError> | undefined
 _cancelError?: CancelError | undefined
 _canceledBeforeStart: boolean
 _consumers: number
@@ -381,7 +381,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, Exclude<TFailure, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>] extends [never] ? (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; }) : Extract<TError, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>
 ```
 
@@ -389,7 +389,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, Exclude<TFailure, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<(CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | TResult, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): [Extract<TError, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>] extends [never] ? (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) : Extract<TError, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>
 ```
 
@@ -434,7 +434,11 @@ stack?: string | undefined
 ```text
 <T = void>(ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, never>
 <T = void>(ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, never>
+<T, F = never>(input: (() => CancelablePromise<T, F>) | CancelablePromise<T, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, F>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, Unlisted>
 <T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<T, F>
+<T, F = never>(input: (() => CancelablePromise<T, F>) | CancelablePromise<T, F>, ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, F>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, Unlisted>
 <T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, F>
 ```
 
@@ -489,14 +493,16 @@ stack?: string | undefined
 ## `minDelay` (const)
 
 ```text
+<T, F = never>(input: (() => CancelablePromise<T, F>) | CancelablePromise<T, F>, ms: TDuration, options?: TEagerToolboxOptions | undefined): CancelablePromise<T, F>
+<T>(input: (() => PromiseLike<T>) | PromiseLike<T>, ms: TDuration, options?: TEagerToolboxOptions | undefined): CancelablePromise<T, Unlisted>
 <T, F = never>(input: TTimedInput<T, ICancelableKind, F>, ms: TDuration, options?: TEagerToolboxOptions | undefined): CancelablePromise<T, F>
 ```
 
 ## `promisify` (const)
 
 ```text
-(fn: TCallbackFn, options: ILazyOn & IPromisifyOptions): (...args: Array<any>) => LazyPromise<any, never>
-(fn: TCallbackFn, options?: IPromisifyOptions | undefined): (...args: Array<any>) => CancelablePromise<any, never>
+(fn: TCallbackFn, options: ILazyOn & IPromisifyOptions): (...args: Array<any>) => LazyPromise<any, Unlisted>
+(fn: TCallbackFn, options?: IPromisifyOptions | undefined): (...args: Array<any>) => CancelablePromise<any, Unlisted>
 ```
 
 ## `promisifyAll` (const)
@@ -508,7 +514,11 @@ stack?: string | undefined
 ## `retry` (const)
 
 ```text
+<T, F = never>(input: (attempt: number) => CancelablePromise<T, F>, options: ILazyOn & IRetryOptions<ICancelableKind>): LazyPromise<T, F>
+<T>(input: (attempt: number) => PromiseLike<T>, options: ILazyOn & IRetryOptions<ICancelableKind>): LazyPromise<T, Unlisted>
 <T, F = never>(input: (attempt: number) => CancelablePromise<T, F> | PromiseLike<T> | T, options: ILazyOn & IRetryOptions<ICancelableKind>): LazyPromise<T, F>
+<T, F = never>(input: (attempt: number) => CancelablePromise<T, F>, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, F>
+<T>(input: (attempt: number) => PromiseLike<T>, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, Unlisted>
 <T, F = never>(input: (attempt: number) => CancelablePromise<T, F> | PromiseLike<T> | T, options?: IRetryOptions<ICancelableKind> | undefined): CancelablePromise<T, F>
 ```
 
@@ -516,7 +526,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, (CancelError & { readonly aborted: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:AbortError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -524,7 +534,7 @@ stack?: string | undefined
 
 ```text
 <TResult, TFailure>(promise: CancelablePromise<TResult, TFailure>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Exclude<TFailure, (CancelError & { readonly timedOut: true; }) | (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; })>>
-<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, never>
+<TResult>(promise: PromiseLike<TResult>, options?: ICancelablePromiseOptions | undefined): CancelablePromise<TResult | void, Unlisted>
 <TError>(error: TError, options?: ICancelablePromiseOptions | undefined): void
 ```
 
@@ -539,9 +549,9 @@ stack?: string | undefined
 ```text
 (ms: TDuration, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<never, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
 (ms: TDuration, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<never, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | Unlisted>
-<P extends PromiseLike<unknown>>(input: (() => P) | P, ms: TDuration | undefined, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<TValueOf<P>, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P> | Unlisted>
-<P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<TValueOf<P>, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P> | Unlisted>
-<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, (ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F | Unlisted>
+<P extends PromiseLike<unknown>>(input: (() => P) | P, ms: TDuration | undefined, options: (ILazyOn & TCallDeps) & IToolboxOptions): LazyPromise<TValueOf<P>, TOrUnlisted<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P>>>
+<P extends PromiseLike<unknown>>(input: (() => P) | P, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<TValueOf<P>, TOrUnlisted<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | FailureOf<P>>>
+<T, F = never>(input: TTimedInput<T>, ms?: TDuration | undefined, options?: (IToolboxOptions & TCallDeps) | undefined): CancelablePromise<T, TOrUnlisted<(ICancError & { readonly _cancErrorBrand: "@cancjs/promise:TimeoutError"; }) | F>>
 ```
 
 ## `toAbortSignal` (function)

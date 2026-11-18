@@ -1,3 +1,4 @@
+import type { Unlisted } from '../_util';
 import { construct, IExecutorCtx } from './construct';
 import { IToolboxDeps, TCallDeps } from './deps';
 import { isDurationShaped, resolveDuration, TDuration } from './duration';
@@ -25,7 +26,22 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
    * cancelable is canceled directly, without a reason. The declared failure set is the input's: the floor delays a value
    * and passes a rejection straight through.
    */
-  return function minDelay<T, F = never>(
+  function minDelay<T, F = never>(
+    input: TPromiseOf<K, T, F> | (() => TPromiseOf<K, T, F>),
+    ms: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, T, F>;
+  function minDelay<T>(
+    input: PromiseLike<T> | (() => PromiseLike<T>),
+    ms: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, T, Unlisted>;
+  function minDelay<T, F = never>(
+    input: TTimedInput<T, K, F>,
+    ms: TDuration,
+    options?: K['options'] & TCallDeps,
+  ): TPromiseOf<K, T, F>;
+  function minDelay<T, F = never>(
     input: TTimedInput<T, K, F>,
     ms: TDuration,
     options?: K['options'] & TCallDeps,
@@ -89,5 +105,7 @@ export function minDelayFactory<K extends IPromiseKind = IPromiseLikeKind>(deps:
       },
       options,
     );
-  };
+  }
+
+  return minDelay;
 }

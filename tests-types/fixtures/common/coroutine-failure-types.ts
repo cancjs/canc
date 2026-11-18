@@ -76,6 +76,14 @@ type _coD3 = Assert<Eq<FailureOf<ReturnType<typeof coD3>>, FooError>>;
 type _coH = Assert<Eq<FailureOf<ReturnType<typeof coH>>, FooError | BarError>>;
 type _coH3 = Assert<Eq<FailureOf<ReturnType<typeof coH3>>, BarError>>;
 
+const coAllThrow = cancAsync(function* () {
+  yield* cancAwait.all([declared, nativeString] as const);
+  return yield* cancThrow(new TypeError());
+});
+type _coAllThrowKeepsDeclared = Assert<
+  Eq<Extract<FailureOf<ReturnType<typeof coAllThrow>>, { readonly foo: 1 }>, FooError>
+>;
+
 // throwing or awaiting a cancellation adds nothing to the declared set
 declare const declaredWithCancel: CancelablePromise<number, FooError | CancelError>;
 const coCancelThrow = cancAsync(function* () {

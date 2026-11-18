@@ -1,4 +1,4 @@
-import { CancelablePromise } from '@cancjs/promise';
+import { CancelablePromise, Unlisted } from '@cancjs/promise';
 
 import type { AnyIterable, ITermOp } from '../../../_toolbox/async-iter';
 import { markTermOp } from '../../../_toolbox/async-iter';
@@ -32,7 +32,7 @@ const deps = { Impl };
  * states the concrete promise the caller gets, so cancelling a drive needs no cast.
  */
 export interface ICancelableTermOp<I, R> extends ITermOp<I, R> {
-  (source: AnyIterable<I>): CancelablePromise<R>;
+  (source: AnyIterable<I>): CancelablePromise<R, Unlisted>;
 }
 
 const boundToArray = toArrayFactory(deps);

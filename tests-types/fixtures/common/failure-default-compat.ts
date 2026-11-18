@@ -220,10 +220,12 @@ const timeoutN = timeout(nativeNumber, 10);
 const waitForN = waitFor(() => true);
 const fetchN = cancelableFetch('x');
 const timeoutCaught = catchErrors(timeout(nativeNumber, 10), TimeoutError);
+const timeoutExplicitCaught = catchErrors(timeout<number, Unlisted>(nativeNumber, 10), TimeoutError);
 type _timeoutN = Assert<Eq<FailureOf<typeof timeoutN>, TimeoutError | Unlisted>>;
 type _waitForN = Assert<Eq<FailureOf<typeof waitForN>, TimeoutError | Unlisted>>;
 type _fetchN = Assert<Eq<FailureOf<typeof fetchN>, (TypeError & { readonly name: 'TypeError' }) | Unlisted>>;
 type _timeoutCaught = Assert<Eq<FailureOf<typeof timeoutCaught>, Unlisted>>;
+type _timeoutExplicitCaught = Assert<Eq<FailureOf<typeof timeoutExplicitCaught>, Unlisted>>;
 
 // timeout keeps the input failure next to its own
 const timeoutF = timeout(f, 1);

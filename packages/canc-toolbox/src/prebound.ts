@@ -1,6 +1,8 @@
-import { CancelablePromise, ISettledResult } from '@cancjs/promise';
+import { CancelablePromise } from '@cancjs/promise';
 
 import * as tb from '../../_toolbox';
+import type { ISettledResult } from '../../_toolbox/settled-result';
+import type { Unlisted } from '../../_util';
 import { deps, ICancelableKind } from './deps';
 import { TEagerToolboxOptions } from './options';
 
@@ -17,11 +19,23 @@ export const waitFor = tb.waitForFactory(deps);
  * The floor timer and the input both start on the call, so `lazy` has nothing to defer. The cast is
  * type-only: it drops that option from the signature so passing it fails to compile.
  */
-export const minDelay = tb.minDelayFactory(deps) as <T, F = never>(
-  input: tb.TTimedInput<T, ICancelableKind, F>,
-  ms: tb.TDuration,
-  options?: TEagerToolboxOptions,
-) => CancelablePromise<T, F>;
+export const minDelay = tb.minDelayFactory(deps) as {
+  <T, F = never>(
+    input: CancelablePromise<T, F> | (() => CancelablePromise<T, F>),
+    ms: tb.TDuration,
+    options?: TEagerToolboxOptions,
+  ): CancelablePromise<T, F>;
+  <T>(
+    input: PromiseLike<T> | (() => PromiseLike<T>),
+    ms: tb.TDuration,
+    options?: TEagerToolboxOptions,
+  ): CancelablePromise<T, Unlisted>;
+  <T, F = never>(
+    input: tb.TTimedInput<T, ICancelableKind, F>,
+    ms: tb.TDuration,
+    options?: TEagerToolboxOptions,
+  ): CancelablePromise<T, F>;
+};
 /**
  * Fulfill once `signal` aborts. This never rejects; the only rejection is a `CancelError` from an
  * explicit `cancel()` on the returned promise, since aborting is the awaited event, not a failure.

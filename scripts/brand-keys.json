@@ -1,5 +1,5 @@
 {
-  "$comment": "Authoritative registry of Symbol.for brand keys and _cancErrorBrand literals across @cancjs/* packages. Published keys never change. Pending keys are new in 1.1.",
+  "$comment": "Authoritative registry of Symbol.for brand keys and _cancErrorBrand literals across @cancjs/* packages. Published keys never change. Pending keys are new in 1.1. String keys are constants other copies read by value.",
   "published": [
     "@cancjs/coroutine:BreakError",
     "@cancjs/coroutine:awaited",
@@ -15,6 +15,7 @@
     "@cancjs/toolbox:Timer"
   ],
   "pending": [
+    "@cancjs/coroutine:GenReturnUnwind",
     "@cancjs/coroutine:IterationError",
     "@cancjs/coroutine:currentLoop",
     "@cancjs/coroutine:registerCleanup",
@@ -22,7 +23,6 @@
     "@cancjs/node:NotImplementedError",
     "@cancjs/node:ProcessExitError",
     "@cancjs/node:ProcessSpawnError",
-    "@cancjs/promise:failure",
     "@cancjs/server-fastify:CloseDrain",
     "@cancjs/server-node:RequestCancelState",
     "@cancjs/server-node:RequestRegistry",
@@ -39,6 +39,18 @@
   "markers": {
     "_cancUnlisted": {
       "literal": "true",
+      "state": "pending"
+    }
+  },
+  "stringKeys": {
+    "FAILURE": {
+      "file": "packages/canc-promise/src/cancelable-promise.ts",
+      "value": "_cancFailure",
+      "state": "pending"
+    },
+    "STOP_MESSAGE": {
+      "file": "packages/canc-node/src/worker-threads/run-task.ts",
+      "value": "@cancjs/node:stop",
       "state": "pending"
     }
   },

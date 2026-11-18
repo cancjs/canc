@@ -45,8 +45,7 @@ to class methods. See the [repository](https://github.com/cancjs/canc) for the f
 npm install @cancjs/coroutine @cancjs/promise
 ```
 
-`@cancjs/promise` is a peer dependency. This package is core tier: it follows strict semver, so
-the default caret pin, `^1`, is safe. See
+`@cancjs/promise` is a peer dependency. This package is core tier: it never removes a public name outside a major release, so the default caret pin, `^1`, never loses something you call. A core minor can still fix behavior that was wrong; when a fix can break working code, the changelog entry for that minor opens with a `**Breaking:**` note. See
 [Versioning](https://github.com/cancjs/canc/blob/master/docs/versioning.md) for the full policy.
 
 ### Usage
@@ -148,6 +147,12 @@ A coroutine stays pending while those `finally` steps run. Right after `cancel()
 flag is still `false`; it turns `true` when the cleanup is done and the promise rejects. Cancel
 handlers run at that point too, and they receive the reason passed to `cancel()`, not the
 `CancelError`.
+
+In async mode, `cancel()` waits for the drain and returns the coroutine's own cancel handler
+results in registration order. Each record is fulfilled with the handler's value or rejected with
+its error. If no handlers ran, including when the drain threw before reaching them, the result is
+an empty array. The coroutine's rejection is separate. With `asyncCancel: false`, `cancel()`
+returns `undefined` immediately.
 
 When the canceled step awaits another coroutine or a `CancelablePromise`, the body's `finally`
 runs only after that step's own cleanup has finished, so the inner levels of a nest clean up
@@ -544,6 +549,11 @@ The advance-first default avoids hidden runtime bugs. An advance-last loop that 
 `continue` branch without advancing will throw `IterationError` on the following turn. Because error
 and skip branches are often rarely exercised in tests, advance-first is the safer default.
 
+Advancing the same handle twice in one turn throws `IterationError`. The rule applies to
+`loop.next()` and `canc.forAwait.next()` when both target the same handle. After an inner loop
+is exhausted, `canc.forAwait.next()` targets the innermost open loop, which may be the outer
+loop. Use the explicit handle in nested loops when the target matters.
+
 A handle iterates once; calling `[Symbol.iterator]()` a second time on the same handle throws
 `IterationError`.
 
@@ -589,8 +599,10 @@ Canceling a pending step (`iterator.next().cancel()`) or aborting the signal pas
 cancels the producer the same way `canc.async` cancels a coroutine. Its `finally` blocks run to
 the end with shielded steps, the canceled step stays pending until they finish, and an error thrown
 by that cleanup rejects the step. The signal is watched from the producer's first pull until it ends, so an
-abort between two pulls cleans it up too. The `finally` that a consumer `return()` or `break` runs
-is protected the same way, so a cancel landing during that cleanup waits for it.
+abort between two pulls cleans it up too. Cleanup started by a consumer `return()` or `break` is
+shielded as well. If the producer's signal aborts during that cleanup, the active return completes
+with its normal result or rejects with the cleanup error. Explicitly canceling the return step still
+cancels it after cleanup.
 
 ### Class methods
 
@@ -789,7 +801,7 @@ lookup and cannot be overridden from a subclass through the prototype chain.
 
 `options` are
 [`CancelablePromise` options](https://github.com/cancjs/canc/tree/master/packages/canc-promise#options)
-and configure the promise the coroutine returns. `ctx` sets `this` for the generator body.
+and configure the promise the coroutine returns. `ctx` sets `this` for the generator body; `null` and `undefined` leave the call's own `this`.
 
 ### `@cancjs/coroutine/gen`
 

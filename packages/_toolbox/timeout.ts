@@ -1,4 +1,4 @@
-import type { Unlisted } from '../_util';
+import type { TOrUnlisted, Unlisted } from '../_util';
 import { isTimeoutError, TimeoutError } from '../_util';
 import { IExecutorCtx } from './construct';
 import { constructTimed } from './construct-timed';
@@ -39,17 +39,17 @@ export function timeoutFactory<K extends IPromiseKind = IPromiseLikeKind>(deps: 
     input: P | (() => P),
     ms: TDuration | undefined,
     options: K['options'] & TCallDeps & ILazyOn,
-  ): TLazyOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
+  ): TLazyOf<K, TValueOf<P>, TOrUnlisted<TFailureOf<K, P> | TimeoutError>>;
   function timeout<P extends PromiseLike<unknown>>(
     input: P | (() => P),
     ms?: TDuration,
     options?: K['options'] & TCallDeps,
-  ): TPromiseOf<K, TValueOf<P>, TFailureOf<K, P> | TimeoutError | Unlisted>;
+  ): TPromiseOf<K, TValueOf<P>, TOrUnlisted<TFailureOf<K, P> | TimeoutError>>;
   function timeout<T, F = never>(
     input: TTimedInput<T>,
     ms?: TDuration,
     options?: K['options'] & TCallDeps,
-  ): TPromiseOf<K, T, F | TimeoutError | Unlisted>;
+  ): TPromiseOf<K, T, TOrUnlisted<F | TimeoutError>>;
   function timeout<T, F = never>(
     ...rest: unknown[]
   ): TPromiseOf<K, T, F | TimeoutError | Unlisted> | TLazyOf<K, T, F | TimeoutError | Unlisted> {
