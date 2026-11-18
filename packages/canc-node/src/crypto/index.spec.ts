@@ -66,6 +66,23 @@ describe('@cancjs/node/crypto', () => {
     expect(unhandled).toBeUndefined();
   }, 10000);
 
+  it('scrypt resolves the RFC 7914 test vector for an empty password and salt', async () => {
+    const derived = await cryptoExports.scrypt('', '', 64, { N: 16, r: 1, p: 1 });
+
+    expect(derived).toBeInstanceOf(Buffer);
+    expect(derived.toString('hex')).toBe(
+      '77d6576238657b203b19ca42c18a0497f16b4844e3074ae8dfdffa3fede21442fcd0069ded0948f8326a753a0fc81f17e8d3e0fb2e0d3628cf35e20c38d18906',
+    );
+  });
+
+  it('canceling scrypt rejects CancelError', async () => {
+    const promise = cryptoExports.scrypt('password', 'salt', 64, { N: 16384, r: 8, p: 1 });
+    promise.cancel('stop');
+
+    const reason = await promise.catch((err: unknown) => err);
+    expect(isCancelError(reason)).toBe(true);
+  });
+
   it('the underlying callback still fires after cancel, exactly once, with no double settle', async () => {
     // synthetic callback fn built the same way the real crypto wrappers are: through this
     // module's own promisifyWrapped, so the assertion is about /crypto's wiring specifically,
