@@ -71,11 +71,11 @@ function run(cmd, args, opts = {}) {
   return execFileSync(cmd, finalArgs, { encoding: 'utf8', stdio: 'pipe', shell, ...opts });
 }
 
-function packPackages() {
+function packPackages(packages) {
   fs.rmSync(tarballsDir, { recursive: true, force: true });
   fs.mkdirSync(tarballsDir, { recursive: true });
   const tarballs = {};
-  for (const pkg of config.packages) {
+  for (const pkg of packages) {
     const pkgDir = path.join(repoRoot, 'packages', pkg);
     const pkgJson = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8'));
     const distTypes = path.join(pkgDir, 'dist', 'types', 'index.d.ts');
@@ -126,14 +126,20 @@ function copyCommonSources(dir) {
 
 const localSource = (p) => `./common/${path.basename(p)}`;
 
+// A lane packs and installs only the packages it lists, defaulting to the config-level list.
+const lanePackages = (version) => version.packages || config.packages;
+const packageName = (pkg) =>
+  JSON.parse(fs.readFileSync(path.join(repoRoot, 'packages', pkg, 'package.json'), 'utf8')).name;
+
 function writeFixture(version, tarballs) {
   const dir = path.join(fixturesDir, `ts-${version.id}`);
   resetFixtureDir(dir);
   fs.mkdirSync(dir, { recursive: true });
 
-  const deps = { typescript: version.typescript, ...(config.peerDependencies || {}) };
-  for (const [name, tarball] of Object.entries(tarballs)) {
-    deps[name] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
+  const deps = { typescript: version.typescript, ...(version.peerDependencies || config.peerDependencies || {}) };
+  for (const pkg of lanePackages(version)) {
+    const tarball = tarballs[packageName(pkg)];
+    deps[packageName(pkg)] = `file:${path.relative(dir, tarball).split(path.sep).join('/')}`;
   }
 
   fs.writeFileSync(
@@ -162,7 +168,8 @@ function writeFixture(version, tarballs) {
     }
   }
 
-  const files = (config.commonFixtures || ['../common/api-smoke.ts']).map(localSource);
+  const files =
+    version.commonFixtures === false ? [] : (config.commonFixtures || ['../common/api-smoke.ts']).map(localSource);
   if (version.fixtures) {
     for (const fixture of version.fixtures) files.push(`./${fixture.split(path.sep).join('/')}`);
   }
@@ -196,7 +203,7 @@ function writeFixture(version, tarballs) {
       lib: version.lib || ['es2022', 'dom'],
       esModuleInterop: true,
       forceConsistentCasingInFileNames: true,
-      types: [],
+      types: version.types || [],
     },
     files,
   };
@@ -273,8 +280,12 @@ function installFixture(dir) {
   // --legacy-peer-deps: tarball peer floors name a version pending changesets will produce
   // strict peers would check a release state that does not exist yet
   // peer correctness still enforced by check-package-validation.js and the peer-import gate
+  // npm run exports the root allowScripts as CLI config; fixture installs reject it
+  const installEnv = { ...process.env };
+  delete installEnv.npm_config_allow_scripts;
   run(npmCmd, ['install', '--no-package-lock', '--no-audit', '--no-fund', '--silent', '--legacy-peer-deps'], {
     cwd: dir,
+    env: installEnv,
   });
 }
 
@@ -308,8 +319,9 @@ function main() {
 
   pruneStaleFixtures();
 
-  console.log(bold(`TS matrix: packing ${config.packages.length} package(s)...`));
-  const tarballs = packPackages();
+  const packed = [...new Set(versions.flatMap(lanePackages))];
+  console.log(bold(`TS matrix: packing ${packed.length} package(s)...`));
+  const tarballs = packPackages(packed);
 
   const results = [];
   for (const version of versions) {

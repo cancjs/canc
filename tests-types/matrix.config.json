@@ -95,6 +95,33 @@
       "serverFastifyTypes": true,
       "serverHonoTypes": true,
       "serverKoaTypes": true
+    },
+    {
+      "id": "5.9-types-node-18",
+      "typescript": "5.9.3",
+      "moduleResolution": "bundler",
+      "lib": ["es2022", "dom"],
+      "types": ["node"],
+      "commonFixtures": false,
+      "packages": ["canc-promise", "canc-node"],
+      "peerDependencies": {
+        "@types/node": "18"
+      },
+      "fixtures": ["node/node-types.ts"]
+    },
+    {
+      "id": "5.9-types-node-latest",
+      "typescript": "5.9.3",
+      "moduleResolution": "bundler",
+      "lib": ["es2022", "dom"],
+      "types": ["node"],
+      "commonFixtures": false,
+      "packages": ["canc-promise", "canc-node"],
+      "peerDependencies": {
+        "@types/node": "latest"
+      },
+      "fixtures": ["node/node-types.ts"]
     }
-  ]
+  ],
+  "typesNodeComment": "Lanes whose id contains `types-node` vary @types/node instead of TypeScript: the default lanes pin one @types/node for every fixture, so a name some @types/node major removes could never fail them. `18` is the floor major (engines.node >= 18) and floats to the newest 18.x; `latest` is deliberately a dist-tag, so the next @types/node major turns this lane red before it reaches a user. A lane's own `peerDependencies` replace the config-level ones, `packages` limits what it packs, `commonFixtures: false` drops the shared fixtures, `types` lists the ambient type packages the project loads."
 }
