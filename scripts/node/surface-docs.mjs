@@ -133,10 +133,15 @@ function renderCancellationBehavior(cancelCategory) {
   return '-';
 }
 
+export function renderFloorVersion(floor) {
+  const parts = floor.split('.');
+  return `${parts[2] === '0' ? parts.slice(0, 2).join('.') : floor}+`;
+}
+
 function renderNodeVersion(exp) {
   const floors = GATE_FLOORS[exp.name];
   if (floors) {
-    return floors.map((floor) => `${floor.split('.').slice(0, 2).join('.')}+`).join(' / ');
+    return floors.map(renderFloorVersion).join(' / ');
   }
   if (exp.minMajor) {
     return `${exp.minMajor}+`;
