@@ -11,6 +11,9 @@ export const STOP_MESSAGE = '@cancjs/node:stop';
 
 const DEFAULT_GRACE_PERIOD = 5000;
 
+// eval source can hold secrets, so errors name it by this label
+const EVAL_COMMAND = '[eval]';
+
 export type TTerminateMode = 'graceful' | 'immediate';
 
 export interface IRunTaskOptions extends Omit<WorkerOptions, 'workerData'> {
@@ -114,7 +117,7 @@ export function runTask<TResult = unknown>(
         reject(
           new ProcessExitError(`Worker exited with code ${code} before posting a result`, {
             exitCode: code,
-            command: String(script),
+            command: workerOptions.eval ? EVAL_COMMAND : String(script),
           }),
         );
       });
