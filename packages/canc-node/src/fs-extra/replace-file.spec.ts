@@ -8,6 +8,21 @@ import { CancelError } from '@cancjs/promise';
 import { getFs, resetFs, setFs } from '../fs/registry';
 import { replaceFile, replaceFileSync } from './replace-file';
 
+// unprivileged Windows cannot create a file symlink, so the tests that need one skip visibly
+const canSymlinkFiles = (() => {
+  const probeDir = fsSync.mkdtempSync(join(tmpdir(), 'symlink-probe-'));
+  try {
+    fsSync.writeFileSync(join(probeDir, 'target'), '');
+    fsSync.symlinkSync(join(probeDir, 'target'), join(probeDir, 'link'), 'file');
+    return true;
+  } catch {
+    return false;
+  } finally {
+    fsSync.rmSync(probeDir, { recursive: true, force: true });
+  }
+})();
+const fileSymlinkTest = canSymlinkFiles ? it : it.skip;
+
 type TFsCall = (...args: unknown[]) => unknown;
 
 // registry members are typed uncallable on purpose, so the widening happens here and nowhere else
@@ -274,20 +289,12 @@ describe('replaceFile', () => {
     },
   );
 
-  it('a symlink target is REPLACED, not written through', async () => {
+  fileSymlinkTest('a symlink target is REPLACED, not written through', async () => {
     const realFile = join(root, 'real-target.txt');
     const linkFile = join(root, 'link-target.txt');
     await fs.writeFile(realFile, 'real content', 'utf8');
 
-    try {
-      await fs.symlink(realFile, linkFile);
-    } catch (e: any) {
-      if (process.platform === 'win32' && (e.code === 'EPERM' || e.code === 'EACCES')) {
-        // Windows unprivileged symlink skip
-        return;
-      }
-      throw e;
-    }
+    await fs.symlink(realFile, linkFile);
 
     await replaceFile(linkFile, 'new content via replaceFile', 'utf8');
 

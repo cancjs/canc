@@ -37,6 +37,21 @@ import {
   writeJsonSync,
 } from './index';
 
+// unprivileged Windows cannot create a file symlink, so the tests that need one skip visibly
+const canSymlinkFiles = (() => {
+  const probeDir = fsSync.mkdtempSync(join(tmpdir(), 'symlink-probe-'));
+  try {
+    fsSync.writeFileSync(join(probeDir, 'target'), '');
+    fsSync.symlinkSync(join(probeDir, 'target'), join(probeDir, 'link'), 'file');
+    return true;
+  } catch {
+    return false;
+  } finally {
+    fsSync.rmSync(probeDir, { recursive: true, force: true });
+  }
+})();
+const fileSymlinkTest = canSymlinkFiles ? it : it.skip;
+
 type TFsCall = (...args: unknown[]) => unknown;
 
 // registry members are typed uncallable on purpose, so the widening happens here and nowhere else
@@ -102,20 +117,12 @@ describe('fs-extra', () => {
     await expect(fs.readFile(dest, 'utf8')).resolves.toBe('content');
   });
 
-  it('ensureSymlink creates symlink and parent dirs', async () => {
+  fileSymlinkTest('ensureSymlink creates symlink and parent dirs', async () => {
     const src = join(root, 'src-sym.txt');
     await writeFile(src, 'sym-content');
     const dest = join(root, 'dest-sym/sub/sym.txt');
-    try {
-      await ensureSymlink(src, dest, 'file');
-      await expect(fs.readFile(dest, 'utf8')).resolves.toBe('sym-content');
-    } catch (e: any) {
-      if (process.platform === 'win32' && e.code === 'EPERM') {
-        // Windows unprivileged symlink skip
-        return;
-      }
-      throw e;
-    }
+    await ensureSymlink(src, dest, 'file');
+    await expect(fs.readFile(dest, 'utf8')).resolves.toBe('sym-content');
   });
 
   it('outputFile creates parents', async () => {
@@ -184,19 +191,12 @@ describe('fs-extra', () => {
     await expect(fs.readFile(dest, 'utf8')).resolves.toBe('content sync');
   });
 
-  it('ensureSymlinkSync creates symlink and parent dirs', async () => {
+  fileSymlinkTest('ensureSymlinkSync creates symlink and parent dirs', async () => {
     const src = join(root, 'src-sym-sync.txt');
     await writeFile(src, 'sym-content sync');
     const dest = join(root, 'dest-sym-sync/sub/sym.txt');
-    try {
-      ensureSymlinkSync(src, dest, 'file');
-      await expect(fs.readFile(dest, 'utf8')).resolves.toBe('sym-content sync');
-    } catch (e: any) {
-      if (process.platform === 'win32' && e.code === 'EPERM') {
-        return;
-      }
-      throw e;
-    }
+    ensureSymlinkSync(src, dest, 'file');
+    await expect(fs.readFile(dest, 'utf8')).resolves.toBe('sym-content sync');
   });
 
   it('outputFileSync creates missing parents then writes', async () => {
@@ -418,22 +418,11 @@ describe('fs-extra', () => {
     });
 
     describe('through a symlink', () => {
-      async function makeLink(target: string, link: string): Promise<boolean> {
-        try {
-          await fs.symlink(target, link, 'file');
-          return true;
-        } catch (e: any) {
-          // unprivileged win32 cannot create file symlinks
-          if (e.code === 'EPERM') return false;
-          throw e;
-        }
-      }
-
-      it('writeJson keeps the link and writes the target', async () => {
+      fileSymlinkTest('writeJson keeps the link and writes the target', async () => {
         const target = join(dir, 'target.json');
         const link = join(dir, 'link.json');
         await fs.writeFile(target, '{"old":true}');
-        if (!(await makeLink(target, link))) return;
+        await fs.symlink(target, link, 'file');
 
         await writeJson(link, { fresh: 1 });
 
@@ -442,11 +431,11 @@ describe('fs-extra', () => {
         expect(await fs.readdir(dir)).toEqual(['link.json', 'target.json']);
       });
 
-      it('outputJson keeps the link and writes the target', async () => {
+      fileSymlinkTest('outputJson keeps the link and writes the target', async () => {
         const target = join(dir, 'target.json');
         const link = join(dir, 'link.json');
         await fs.writeFile(target, '{"old":true}');
-        if (!(await makeLink(target, link))) return;
+        await fs.symlink(target, link, 'file');
 
         await outputJson(link, { fresh: 2 });
 
@@ -454,12 +443,12 @@ describe('fs-extra', () => {
         expect(await readJson(target)).toEqual({ fresh: 2 });
       });
 
-      it('writeJson canceled mid-write keeps the link and the target bytes', async () => {
+      fileSymlinkTest('writeJson canceled mid-write keeps the link and the target bytes', async () => {
         const target = join(dir, 'target.json');
         const link = join(dir, 'link.json');
         const original = '{"keep":"me"}\n';
         await fs.writeFile(target, original);
-        if (!(await makeLink(target, link))) return;
+        await fs.symlink(target, link, 'file');
 
         const pending = writeJson(link, largePayload);
         await new Promise<void>((done) => setImmediate(done));
@@ -471,10 +460,10 @@ describe('fs-extra', () => {
         expect(await fs.readdir(dir)).toEqual(['link.json', 'target.json']);
       });
 
-      it('writeJson on a dangling link keeps the link and creates the target', async () => {
+      fileSymlinkTest('writeJson on a dangling link keeps the link and creates the target', async () => {
         const target = join(dir, 'missing.json');
         const link = join(dir, 'dangling.json');
-        if (!(await makeLink(target, link))) return;
+        await fs.symlink(target, link, 'file');
 
         await writeJson(link, { fresh: 3 });
 
@@ -482,10 +471,10 @@ describe('fs-extra', () => {
         expect(await readJson(target)).toEqual({ fresh: 3 });
       });
 
-      it('writeJson on a link loop rejects ELOOP and leaves the links in place', async () => {
+      fileSymlinkTest('writeJson on a link loop rejects ELOOP and leaves the links in place', async () => {
         const a = join(dir, 'loop-a.json');
         const b = join(dir, 'loop-b.json');
-        if (!(await makeLink(b, a))) return;
+        await fs.symlink(b, a, 'file');
         await fs.symlink(a, b, 'file');
 
         await expect(writeJson(a, { fresh: 5 })).rejects.toMatchObject({ code: 'ELOOP' });
@@ -494,27 +483,29 @@ describe('fs-extra', () => {
         expect((await fs.lstat(b)).isSymbolicLink()).toBe(true);
       });
 
-      it('writeJson on a 41-link dangling chain rejects ELOOP and leaves every link in place', async () => {
-        const links = Array.from({ length: 41 }, (_, i) => join(dir, `chain-${i}.json`));
-        const missing = join(dir, 'chain-missing.json');
-        for (let i = 0; i < links.length; i++) {
-          const next = i + 1 < links.length ? links[i + 1] : missing;
-          if (i === 0 && !(await makeLink(next, links[i]))) return;
-          if (i > 0) await fs.symlink(next, links[i], 'file');
-        }
+      fileSymlinkTest(
+        'writeJson on a 41-link dangling chain rejects ELOOP and leaves every link in place',
+        async () => {
+          const links = Array.from({ length: 41 }, (_, i) => join(dir, `chain-${i}.json`));
+          const missing = join(dir, 'chain-missing.json');
+          for (let i = 0; i < links.length; i++) {
+            const next = i + 1 < links.length ? links[i + 1] : missing;
+            await fs.symlink(next, links[i], 'file');
+          }
 
-        await expect(writeJson(links[0], { fresh: 6 })).rejects.toMatchObject({ code: 'ELOOP' });
+          await expect(writeJson(links[0], { fresh: 6 })).rejects.toMatchObject({ code: 'ELOOP' });
 
-        for (const link of links) {
-          expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
-        }
-        await expect(fs.lstat(missing)).rejects.toMatchObject({ code: 'ENOENT' });
-      });
+          for (const link of links) {
+            expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+          }
+          await expect(fs.lstat(missing)).rejects.toMatchObject({ code: 'ENOENT' });
+        },
+      );
 
-      it('writeJsonSync on a dangling link keeps the link and creates the target', async () => {
+      fileSymlinkTest('writeJsonSync on a dangling link keeps the link and creates the target', async () => {
         const target = join(dir, 'missing-sync.json');
         const link = join(dir, 'dangling-sync.json');
-        if (!(await makeLink(target, link))) return;
+        await fs.symlink(target, link, 'file');
 
         writeJsonSync(link, { fresh: 4 });
 
