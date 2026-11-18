@@ -1,6 +1,11 @@
 import { isNotImplementedError } from './errors/classes';
 
 describe('version simulation', () => {
+  // a doMock outlives its isolateModules call and would serve the next case
+  afterEach(() => {
+    jest.dontMock('./features');
+  });
+
   it('does not throw when importing missing features and correctly handles rejections/throws', async () => {
     let importedCrypto: any;
     let importedZlib: any;
@@ -157,6 +162,42 @@ describe('version simulation', () => {
     }
     expect(isNotImplementedError(fErr)).toBe(true);
     expect(fErr).toMatchObject({ feature: 'glob', required: '22' });
+  });
+
+  it('handles duplexPair on a line between the floors (21.x throws) and past them (23.x native)', async () => {
+    const origNodeVersion = process.versions.node;
+
+    try {
+      await jest.isolateModulesAsync(async () => {
+        Object.defineProperty(process.versions, 'node', { value: '21.7.3', configurable: true });
+        const { duplexPair } = require('./stream/index');
+        let err: unknown;
+        try {
+          duplexPair();
+        } catch (e) {
+          err = e;
+        }
+        expect(isNotImplementedError(err)).toBe(true);
+        expect(err).toMatchObject({ feature: 'duplexPair', required: '20.17.0 / 22.6.0' });
+      });
+
+      await jest.isolateModulesAsync(async () => {
+        Object.defineProperty(process.versions, 'node', { value: '23.0.0', configurable: true });
+        jest.doMock('node:stream', () => {
+          const actual = jest.requireActual('node:stream');
+          return {
+            ...actual,
+            duplexPair: actual.duplexPair || (() => [new actual.Duplex(), new actual.Duplex()]),
+          };
+        });
+        const { duplexPair } = require('./stream/index');
+        const pair = duplexPair();
+        expect(Array.isArray(pair)).toBe(true);
+        expect(pair).toHaveLength(2);
+      });
+    } finally {
+      Object.defineProperty(process.versions, 'node', { value: origNodeVersion, configurable: true });
+    }
   });
 
   it('handles duplexPair across version boundaries (20.16 / 22.5 throw; 20.17 / 22.6 native)', async () => {

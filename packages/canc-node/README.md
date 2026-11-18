@@ -688,8 +688,8 @@ after 1 ms, and so do these functions, so split a longer wait into shorter ones.
 
 `pipeline` and `finished` wrap `node:stream/promises`, alongside the stream classes,
 `addAbortSignal`, `Readable.from`, `Duplex.from` and `duplexPair`, re-exported structurally so a
-caller does not need a second import to use the wrappers. `duplexPair` requires Node 20.17.0 or
-22.6.0 or later; older runtimes throw `NotImplementedError`. Canceling `pipeline` destroys every
+caller does not need a second import to use the wrappers. `duplexPair` needs a Node release that
+ships it (the stream support table above lists them); older runtimes throw `NotImplementedError`. Canceling `pipeline` destroys every
 stream in the chain, the same teardown node runs for its own aborted pipeline. Canceling `finished`
 removes the listeners it attached.
 
@@ -876,7 +876,7 @@ CommonJS and ESM are separate module instances; `instanceof` against root error 
 
 ### Feature detection
 
-- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasWorkerLocks`)
+- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasDuplexPair`, `hasWorkerLocks`)
 
 ## Compatibility
 

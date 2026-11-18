@@ -7,7 +7,8 @@ import { CancelablePromise } from '@cancjs/promise';
 
 import type { Unlisted } from '../../../_util';
 import streamJson from '../../surface/projected/stream.json';
-import { gated, hasDuplexPair } from '../gate';
+import { features, formatLineFloors, GATE_FLOORS } from '../features';
+import { gated } from '../gate';
 import {
   acceptsSignal,
   ICallerSignalCall,
@@ -20,9 +21,9 @@ import {
 } from '../signal';
 
 const duplexPairImpl = gated(
-  hasDuplexPair,
+  features.hasDuplexPair,
   'duplexPair',
-  '20.17.0 / 22.6.0',
+  formatLineFloors(GATE_FLOORS.duplexPair),
   () => (nodeStream as unknown as { duplexPair: (options?: DuplexOptions) => [Duplex, Duplex] }).duplexPair,
   'sync',
 );

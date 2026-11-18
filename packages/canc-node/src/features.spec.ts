@@ -1,10 +1,11 @@
 import * as events from 'node:events';
 import * as fsp from 'node:fs/promises';
 import { builtinModules } from 'node:module';
+import * as nodeStream from 'node:stream';
 import * as consumers from 'node:stream/consumers';
 import * as workerThreads from 'node:worker_threads';
 
-import { features } from './features';
+import { features, formatLineFloors, GATE_FLOORS, meetsLineFloors } from './features';
 
 describe('features', () => {
   it('is a frozen object', () => {
@@ -73,5 +74,40 @@ describe('features', () => {
       typeof (workerThreads as { locks?: unknown }).locks === 'object' &&
         (workerThreads as { locks?: unknown }).locks !== null,
     );
+  });
+
+  it('detects hasDuplexPair from the runtime function and the listed floors', () => {
+    expect(features.hasDuplexPair).toBe(
+      typeof (nodeStream as { duplexPair?: unknown }).duplexPair === 'function' &&
+        meetsLineFloors(features.nodeVersion, GATE_FLOORS.duplexPair),
+    );
+  });
+});
+
+describe('meetsLineFloors', () => {
+  const floors = ['20.17.0', '22.6.0'];
+
+  it.each([
+    ['18.20.4', false],
+    ['20.0.0', false],
+    ['20.16.9', false],
+    ['20.17.0', true],
+    ['20.99.0', true],
+    ['21.7.3', false],
+    ['22.5.9', false],
+    ['22.6.0', true],
+    ['22.99.0', true],
+    ['23.0.0', true],
+    ['26.1.0', true],
+    ['v22.6.0', true],
+  ])('answers %s with %s', (version, expected) => {
+    expect(meetsLineFloors(version, floors)).toBe(expected);
+  });
+});
+
+describe('formatLineFloors', () => {
+  it('joins the floors the way the gate error and the docs show them', () => {
+    expect(formatLineFloors(['20.17.0', '22.6.0'])).toBe('20.17.0 / 22.6.0');
+    expect(formatLineFloors(GATE_FLOORS.duplexPair)).toBe('20.17.0 / 22.6.0');
   });
 });
