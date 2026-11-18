@@ -105,6 +105,14 @@ describe('meetsLineFloors', () => {
   });
 });
 
+describe('patch-level line floors', () => {
+  it('rejects 22.6.0 and accepts 22.6.1 when patch floor advances', () => {
+    const floors = ['20.17.0', '22.6.1'];
+    expect(meetsLineFloors('22.6.0', floors)).toBe(false);
+    expect(meetsLineFloors('22.6.1', floors)).toBe(true);
+  });
+});
+
 describe('formatLineFloors', () => {
   it('joins the floors the way the gate error and the docs show them', () => {
     expect(formatLineFloors(['20.17.0', '22.6.0'])).toBe('20.17.0 / 22.6.0');
