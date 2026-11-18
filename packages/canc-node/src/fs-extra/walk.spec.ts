@@ -350,35 +350,26 @@ describe('walk and walkSync', () => {
     }
   });
 
-  const isWindows = process.platform === 'win32';
-  it(
-    isWindows ?
-      'a symlink cycle terminates with followSymlinks: true [skipped on Windows: unprivileged symlinks not supported]'
-    : 'a symlink cycle terminates with followSymlinks: true',
-    async () => {
-      if (isWindows) {
-        return;
-      }
-      const cycleRoot = join(tmpdir(), 'walk-cycle-test-' + Math.random().toString(36).slice(2));
-      try {
-        await fs.mkdir(cycleRoot, { recursive: true });
-        const dir1 = join(cycleRoot, 'dir1');
-        await fs.mkdir(dir1, { recursive: true });
-        // Create symlink dir1/loop -> cycleRoot
-        await fs.symlink(cycleRoot, join(dir1, 'loop'));
+  it('a symlink cycle terminates with followSymlinks: true', async () => {
+    const cycleRoot = join(tmpdir(), 'walk-cycle-test-' + Math.random().toString(36).slice(2));
+    try {
+      await fs.mkdir(cycleRoot, { recursive: true });
+      const dir1 = join(cycleRoot, 'dir1');
+      await fs.mkdir(dir1, { recursive: true });
+      // junction type: unprivileged on Windows, ignored elsewhere
+      await fs.symlink(cycleRoot, join(dir1, 'loop'), 'junction');
 
-        const entries: string[] = [];
-        for await (const entry of walk(cycleRoot, { followSymlinks: true })) {
-          entries.push(entry.path);
-        }
-        // Must terminate and not infinite loop
-        expect(entries.length).toBeGreaterThan(0);
-        expect(entries.length).toBeLessThan(20);
-      } finally {
-        await cleanDir(cycleRoot);
+      const entries: string[] = [];
+      for await (const entry of walk(cycleRoot, { followSymlinks: true })) {
+        entries.push(entry.path);
       }
-    },
-  );
+      // Must terminate and not infinite loop
+      expect(entries.length).toBeGreaterThan(0);
+      expect(entries.length).toBeLessThan(20);
+    } finally {
+      await cleanDir(cycleRoot);
+    }
+  });
 
   it('depth: 0 yields roots entries only and does not descend', async () => {
     const entries: string[] = [];
@@ -389,10 +380,11 @@ describe('walk and walkSync', () => {
     expect(entries.sort()).toEqual(expected.sort());
   });
 
-  it('cancel mid-walk calls return() on underlying source', async () => {
+  it('closes a directory handle once it is drained, so stopping after the first entry opens nothing further', async () => {
     const base = getFs();
     const closeSpy = jest.fn(async () => {});
     const returnSpy = jest.fn(async () => ({ done: true, value: undefined }));
+    const opened: string[] = [];
     const baseOpendir = asOpendir(base.promises?.opendir);
 
     setFs({
@@ -400,6 +392,7 @@ describe('walk and walkSync', () => {
       promises: {
         ...base.promises,
         opendir: async (dirPath: string, ...args: unknown[]) => {
+          opened.push(dirPath);
           const realDir = await baseOpendir(dirPath, ...args);
           return {
             path: realDir.path,
@@ -426,8 +419,17 @@ describe('walk and walkSync', () => {
       const generator = walk(root);
       const first = await generator.next();
       expect(first.done).toBe(false);
+
+      // the root is drained and closed before its first entry is handed out, so the close below
+      // does not come from stopping the walk
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+
       await generator.return();
-      expect(closeSpy).toHaveBeenCalled();
+
+      expect(closeSpy).toHaveBeenCalledTimes(1);
+      expect(returnSpy).not.toHaveBeenCalled();
+      expect(opened).toEqual([root]);
+      expect((await generator.next()).done).toBe(true);
     } finally {
       resetFs();
     }
