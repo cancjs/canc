@@ -55,8 +55,8 @@ describe('package error classes and guards', () => {
       expect(isNotImplementedError(crossRealmObject)).toBe(true);
     });
 
-    it('matches by name fallback', () => {
-      expect(isNotImplementedError({ name: 'NotImplementedError' })).toBe(true);
+    it('does not match a plain object that only carries the name', () => {
+      expect(isNotImplementedError({ name: 'NotImplementedError' })).toBe(false);
       expect(isNotImplementedError({ name: 'OtherError' })).toBe(false);
     });
   });
@@ -122,8 +122,8 @@ describe('package error classes and guards', () => {
       expect(isProcessExitError(crossRealmObject)).toBe(true);
     });
 
-    it('matches by name fallback', () => {
-      expect(isProcessExitError({ name: 'ProcessExitError' })).toBe(true);
+    it('does not match a plain object that only carries the name', () => {
+      expect(isProcessExitError({ name: 'ProcessExitError' })).toBe(false);
       expect(isProcessExitError({ name: 'OtherError' })).toBe(false);
     });
   });
@@ -169,8 +169,8 @@ describe('package error classes and guards', () => {
       expect(isProcessSpawnError(crossRealmObject)).toBe(true);
     });
 
-    it('matches by name fallback', () => {
-      expect(isProcessSpawnError({ name: 'ProcessSpawnError' })).toBe(true);
+    it('does not match a plain object that only carries the name', () => {
+      expect(isProcessSpawnError({ name: 'ProcessSpawnError' })).toBe(false);
       expect(isProcessSpawnError({ name: 'OtherError' })).toBe(false);
     });
   });
@@ -233,8 +233,8 @@ describe('package error classes and guards', () => {
       expect(isJsonParseError(crossRealmObject)).toBe(true);
     });
 
-    it('matches by name fallback', () => {
-      expect(isJsonParseError({ name: 'JsonParseError' })).toBe(true);
+    it('does not match a plain object that only carries the name', () => {
+      expect(isJsonParseError({ name: 'JsonParseError' })).toBe(false);
       expect(isJsonParseError({ name: 'OtherError' })).toBe(false);
     });
   });
