@@ -1,5 +1,5 @@
 // Runs by CI, cron, or hand.
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +13,9 @@ const SURFACE_DIR = join(NODE_PKG_DIR, 'surface');
 const README_PATH = join(NODE_PKG_DIR, 'README.md');
 const DOCS_DIR = join(NODE_PKG_DIR, 'docs');
 const RUNTIME_COMPAT_PATH = join(DOCS_DIR, 'runtime-compat.md');
+
+// same table the runtime gate reads, so the docs cannot drift from it
+const GATE_FLOORS = JSON.parse(readFileSync(join(NODE_PKG_DIR, 'src', 'gate-floors.json'), 'utf8'));
 
 const TRACKED_MAJORS = [18, 20, 22, 24, 26];
 
@@ -131,8 +134,9 @@ function renderCancellationBehavior(cancelCategory) {
 }
 
 function renderNodeVersion(exp) {
-  if (exp.name === 'duplexPair') {
-    return '20.17+ / 22.6+';
+  const floors = GATE_FLOORS[exp.name];
+  if (floors) {
+    return floors.map((floor) => `${floor.split('.').slice(0, 2).join('.')}+`).join(' / ');
   }
   if (exp.minMajor) {
     return `${exp.minMajor}+`;
