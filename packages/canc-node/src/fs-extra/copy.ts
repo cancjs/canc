@@ -39,12 +39,11 @@ export interface ICopyOptions {
 }
 
 /**
- * The call presently in flight, so a cancel reaches it directly instead of waiting for
- * the next checkpoint.
+ * The call presently in flight, so a cancel stops waiting on it at once instead of at the next
+ * checkpoint.
  * Single-slot register only safe because copyTree is strictly sequential.
- * Needed because node accepts signal for lstat/stat only; readdir, readlink, symlink,
- * unlink, copyFile, ensureDir have no signal, so canceling our inner promise is the only
- * way to interrupt them.
+ * The call itself keeps running: node gives readdir, readlink, symlink, unlink, copyFile and
+ * ensureDir no signal, so canceling our inner promise only ends the wait.
  */
 interface IActiveCall {
   current: CancelablePromise<unknown> | null;
