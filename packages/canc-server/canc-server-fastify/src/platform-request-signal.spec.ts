@@ -6,7 +6,7 @@ import { CLIENT_DISCONNECTED } from '../../../_server/reasons';
 import { getRequestSignal } from './handler';
 
 // pins fastify 5 today, a failure of the first case means upstream changed
-// the first fastify 5 releases have no request.signal, so each case skips its platform half there
+// the first fastify 5 releases have no request.signal, so there each case checks only its canc half
 
 interface IExchange {
   cancAborted: () => boolean;
@@ -91,6 +91,9 @@ describe('fastify platform request signal', () => {
     const hold = await exchange;
 
     if (hold.platformSignal === undefined) {
+      // no platform signal on this fastify release, so only the canc half is checked
+      expect(hold.cancAborted()).toBe(false);
+      expect(hold.socketDestroyed()).toBe(false);
       hold.release();
 
       return;
