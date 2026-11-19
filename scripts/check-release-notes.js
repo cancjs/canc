@@ -167,15 +167,21 @@ function hasBreakingListItem(summary) {
 
     if (indent - containerIndent >= 4) continue;
 
-    const marker = /^ {0,3}([-*+]|\d{1,9}[.)])( +)(.*)$/.exec(content);
     let prose = content;
-    if (marker) {
+    let contentIndent = containerIndent;
+    let hasMarker = false;
+    while (true) {
+      const marker = /^ {0,3}([-*+]|\d{1,9}[.)])( +)(.*)$/.exec(prose);
+      if (!marker) break;
       const markerWidth = marker[0].length - marker[3].length;
       if (marker[2].length > 4) {
-        listContentIndents.push(containerIndent + markerWidth - marker[2].length + 1);
-        continue;
+        listContentIndents.push(contentIndent + markerWidth - marker[2].length + 1);
+        prose = '';
+        break;
       }
-      listContentIndents.push(containerIndent + markerWidth);
+      contentIndent += markerWidth;
+      listContentIndents.push(contentIndent);
+      hasMarker = true;
       prose = marker[3];
     }
 
@@ -185,7 +191,7 @@ function hasBreakingListItem(summary) {
       continue;
     }
 
-    if (marker && /^\*\*Breaking:\*\*/.test(prose)) return true;
+    if (hasMarker && /^\*\*Breaking:\*\*/.test(prose)) return true;
   }
 
   return false;
