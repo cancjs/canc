@@ -2206,3 +2206,28 @@ describe('answer headers', () => {
 function cutLogs(spy: jest.SpyInstance): unknown[][] {
   return spy.mock.calls.filter((call) => call.length === 1 && isCancelError(call[0]));
 }
+
+describe('promise flag options', () => {
+  it('passes shield through, so a deadline does not cancel a shielded handler', async () => {
+    const app = new Hono();
+    app.use(cancelMiddleware());
+    app.get(
+      '/shielded',
+      cancelableHandler(
+        function* (c: Context) {
+          yield new CancelablePromise<void>((resolve) => {
+            setTimeout(resolve, 80);
+          });
+
+          return c.text('finished');
+        },
+        { shield: true, timeout: 20 },
+      ),
+    );
+
+    const response = await app.request('/shielded');
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('finished');
+  });
+});
