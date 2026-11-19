@@ -180,7 +180,7 @@ Node.js 18 and later, Deno, Bun and current browsers. TypeScript 4.2 and later, 
 
 ## Versions
 
-Core packages, `@cancjs/promise` and `@cancjs/coroutine`, follow strict semver and are safe on a caret pin, `^1`. Everything else, the toolbox and its native twin, `fetch`, decorators, axios, `@cancjs/unhandled-rejection`, `@cancjs/node` and the server adapters, releases on a shared minor release that can carry a breaking change, so pin it with a tilde, `~1.4` (pin the minor, not `~1.x`, which npm expands to the same range as `^1`). Full policy, including the deprecation and compatibility-floor rules: [Versioning](docs/versioning.md).
+Core packages, `@cancjs/promise` and `@cancjs/coroutine`, never remove a public name outside a major release, so a caret pin, `^1`, never loses something you call. A core minor can still fix behavior that was wrong. When a fix can break working code, the changelog entry for that minor opens with a `**Breaking:**` note, so read it before you take the minor. Everything else, the toolbox and its native twin, `fetch`, decorators, axios, `@cancjs/unhandled-rejection`, `@cancjs/node` and the server adapters, releases on a shared minor release that can carry a breaking change, so pin it with a tilde, `~1.4` (pin the minor, not `~1.x`, which npm expands to the same range as `^1`). Full policy, including the deprecation and compatibility-floor rules: [Versioning](docs/versioning.md).
 
 ## Naming Conventions
 
