@@ -1710,8 +1710,6 @@ describe('optional error handler', () => {
     });
     await tick();
 
-    app = undefined;
-
     expect(forwarded).toHaveLength(1);
     expect(isCancelError(forwarded[0])).toBe(true);
     expect(outcome).toEqual({ body: 'part1,-end', complete: true });
@@ -1764,8 +1762,6 @@ describe('optional error handler', () => {
       outgoing.on('error', () => resolve({ body: '', complete: false }));
     });
     await tick();
-
-    app = undefined;
 
     expect(outcome.complete).toBe(false);
     expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(1);
@@ -1822,8 +1818,6 @@ describe('optional error handler', () => {
       outgoing.on('error', () => resolve());
     });
     await tick();
-
-    app = undefined;
 
     expect(logged.filter((line) => line.includes('"level":50'))).toHaveLength(0);
   });
