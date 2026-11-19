@@ -82,7 +82,7 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
     const task = startTask(handler as TAnyFn, context, options, {
       args: [c],
       next,
-      onLateFailure: (error) => console.error('[@cancjs/server-hono] late failure', error),
+      onLateFailure: (error) => console.error(error),
     });
 
     return task.catch((error: unknown) => {
@@ -104,7 +104,7 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
       // response, so node does not write headers over the head
       // app.onError never sees it; this catch runs once per task, so the log is once per request
       if (owned && abandonIfHeadersSent(context)) {
-        console.error('[@cancjs/server-hono] response cut after its head was sent', error);
+        console.error(error);
 
         return alreadySentResponse(context, CLIENT_CLOSED_STATUS);
       }

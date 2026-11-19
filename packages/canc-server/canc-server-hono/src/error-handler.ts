@@ -62,7 +62,7 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
 
     // a head already sent cannot take a status: cut the socket, then answer as unreachable
     if (abandonIfHeadersSent(c)) {
-      console.error('[@cancjs/server-hono] response cut after its head was sent', error);
+      console.error(error);
     }
 
     if (isResponseUnreachable(c)) {
