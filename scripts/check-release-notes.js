@@ -139,9 +139,34 @@ function getChangedFiles(baseRef) {
   return [];
 }
 
+function getHtmlBlock(content, inParagraph) {
+  if (/^ {4}/.test(content)) return null;
+  const text = content.trimStart();
+  const rawTag = /^<(script|pre|style|textarea)(?:\s|>|$)/i.exec(text);
+  if (rawTag) return { end: new RegExp('</' + rawTag[1] + '\\s*>', 'i') };
+  if (text.startsWith('<!--')) return { end: /-->/ };
+  if (text.startsWith('<?')) return { end: /\?>/ };
+  if (text.startsWith('<![CDATA[')) return { end: /\]\]>/ };
+  if (/^<![A-Z]/.test(text)) return { end: />/ };
+  const tag = /^<\/?([a-z][a-z0-9-]*)(?:\s|\/?>|$)/i.exec(text);
+  const blockTags = (
+    'address article aside base basefont blockquote body caption center col colgroup dd details dialog dir div dl dt ' +
+    'fieldset figcaption figure footer form frame frameset h1 h2 h3 h4 h5 h6 head header hr html iframe legend li link ' +
+    'main menu menuitem nav noframes ol optgroup option p param search section summary table tbody td tfoot th thead ' +
+    'title tr track ul'
+  ).split(' ');
+  if (tag && blockTags.includes(tag[1].toLowerCase())) return { blank: true };
+  if (!inParagraph && /^<\/?[a-z][a-z0-9-]*(?:\s+[^<>]*)?\/?>\s*$/i.test(text)) {
+    return { blank: true };
+  }
+  return null;
+}
+
 function hasBreakingListItem(summary) {
   const containers = [];
   let fence = null;
+  let html = null;
+  let paragraph = null;
   let previousBlank = true;
 
   for (const rawLine of summary.split(/\r?\n/)) {
@@ -156,6 +181,7 @@ function hasBreakingListItem(summary) {
     for (const container of containers) {
       const lazy =
         !fence &&
+        !html &&
         !followsBlank &&
         content.trim() &&
         !/^ {0,3}(?:>|(?:[-*+]|\d{1,9}[.)])(?: +|$)|\x60{3,}|~{3,}|#{1,6}(?: +|$))/.test(content);
@@ -173,6 +199,18 @@ function hasBreakingListItem(summary) {
       matched++;
     }
     containers.length = matched;
+    if (
+      paragraph &&
+      (paragraph.length !== matched || !paragraph.every((entry, index) => containers[index] === entry))
+    ) {
+      paragraph = null;
+    }
+    if (html && !html.containers.every((entry, index) => containers[index] === entry)) html = null;
+    if (html) {
+      if (html.blank ? !content.trim() : html.end.test(content)) html = null;
+      previousBlank = !content.trim();
+      continue;
+    }
 
     if (fence && !fence.containers.every((container, index) => containers[index] === container)) {
       fence = null;
@@ -187,9 +225,16 @@ function hasBreakingListItem(summary) {
 
     let openedContainer = false;
     while (content.trim()) {
+      if (/^ {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})$/.test(content)) break;
+      if (paragraph && /^ {0,3}(?:=+|-+)\s*$/.test(content)) break;
       const quote = /^ {0,3}> ?/.exec(content);
       const marker = /^ {0,3}([-*+]|\d{1,9}[.)])(?: +(.*)|$)/.exec(content);
       if (!quote && !marker) break;
+      if (marker && paragraph && containers[containers.length - 1]?.type !== 'list') {
+        const text = content.slice(marker[0].indexOf(marker[1]) + marker[1].length).trim();
+        if (!text || (/^\d/.test(marker[1]) && parseInt(marker[1], 10) !== 1)) break;
+      }
+      paragraph = null;
       openedContainer = true;
 
       const parent = containers[containers.length - 1];
@@ -210,6 +255,7 @@ function hasBreakingListItem(summary) {
     }
     if (!content.trim()) {
       previousBlank = !openedContainer;
+      paragraph = null;
       continue;
     }
 
@@ -219,13 +265,26 @@ function hasBreakingListItem(summary) {
 
     if (/^ {4}/.test(content)) continue;
 
+    const htmlBlock = getHtmlBlock(content, Boolean(paragraph));
+    if (htmlBlock) {
+      paragraph = null;
+      if (htmlBlock.blank || !htmlBlock.end.test(content)) {
+        html = { ...htmlBlock, containers: containers.slice() };
+      }
+      continue;
+    }
+
     const opening = /^ {0,3}(\x60{3,}|~{3,})(.*)$/.exec(content);
     if (opening && (opening[1][0] !== '\x60' || !opening[2].includes('\x60'))) {
+      paragraph = null;
       fence = { marker: opening[1], containers: containers.slice() };
       continue;
     }
 
     if (pending && /^ {0,3}\*\*Breaking:\*\*/.test(content)) return true;
+    const heading = /^ {0,3}(?:#{1,6}(?:\s|$)|(?:=+|-+)\s*$)/.test(content);
+    const rule = /^ {0,3}(?:(?:\* *){3,}|(?:- *){3,}|(?:_ *){3,})$/.test(content);
+    paragraph = heading || rule ? null : containers.slice();
   }
 
   return false;
