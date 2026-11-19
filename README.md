@@ -144,6 +144,7 @@ A chain is cancelable only if it consists of `canc` promises. This requires canc
 | [`@cancjs/unhandled-rejection`](packages/canc-unhandled-rejection) | `unhandledrejection` listener                            | Global handler that silences CancelError rejections               |
 | [`@cancjs/toolbox`](packages/canc-toolbox)                         | [`@cancjs/toolbox-native`](packages/canc-toolbox-native) | Helper functions and adapters for cancellation-aware code         |
 | [`@cancjs/decorators`](packages/canc-decorators)                   | ✖                                                        | Class method decorators for coroutines: standard, legacy TS/Babel |
+| [`@cancjs/node`](packages/canc-node)                               | Node.js built-in modules                                 | Node built-in modules with cancelable promises and typed failures |
 
 ### Third-party integrations
 
