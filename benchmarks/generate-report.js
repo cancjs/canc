@@ -295,8 +295,8 @@ function main() {
       '(not the Node-lane source) so it also catches build/bundling regressions.',
     '',
     '**Baselines.** Only **native `Promise`** and **bluebird** (`cancellation: true`) are ' +
-      'benchmarked as baselines: c-promise2/p-cancelable/alkemics were dropped from bench deps per ' +
-      'decision. bluebird is not always a like-for-like comparison: a ' +
+      'benchmarked as baselines. c-promise2, p-cancelable and alkemics are no longer in the bench ' +
+      'dependencies. bluebird is not always a like-for-like comparison: a ' +
       'canceled bluebird promise never settles by design, so any flow that awaits a canceled chain ' +
       'to completion (e.g. the lifecycle macro) marks bluebird `lifecycleComparable: false` and its ' +
       'number reflects only the synchronous cancel call, not equivalent work; see the footnote on ' +

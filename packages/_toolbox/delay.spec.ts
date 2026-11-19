@@ -176,10 +176,7 @@ describe('delay (cancelable)', () => {
     expect(input.canceled).toBe(true);
   });
 
-  // Characterization: CancelablePromise already wires `signal` into a cancel with CancelError as
-  // its own constructor behavior. `delay` forwards `options` unchanged, so this is a control for
-  // the native twin's own `{ signal }` handling (which has no CancelablePromise underneath it to
-  // do this for free) - not new behavior added by this task.
+  // Constructor signal support is control for native twin signal handling
   it('control: an abort signal cancels with a CancelError whose aborted is true (characterization)', async () => {
     const controller = new AbortController();
     const promise = delay(1000, { signal: controller.signal });

@@ -2,16 +2,7 @@ import { CancelError } from './cancel-error';
 import { CancelablePromise, ICancelableHelperOptions } from './cancelable-promise';
 import { isCancPromise, makeCancelable } from './helpers';
 
-/**
- * Owner's rename pass: new primary names + deprecation aliases for the old names.
- *
- * Covers: canceled/cancelable getters (new primary + old alias still works), bubbled field on
- * CancelError (new primary + old alias getter/setter), options getter, Promise.try static,
- * isCancPromise duck-token helper, makeCancelable (renamed forceCancelable helper) + alias,
- * ICancelableHelperOptions custom-constructor injection.
- */
-
-describe('rename pass: CancelablePromise.canceled / .cancelable', () => {
+describe('renamed API: CancelablePromise.canceled / .cancelable', () => {
   it('canceled is the primary name and reflects state', async () => {
     const promise = new CancelablePromise(() => {
       /**/
@@ -67,7 +58,7 @@ describe('rename pass: CancelablePromise.canceled / .cancelable', () => {
   });
 });
 
-describe('rename pass: CancelError.bubbled', () => {
+describe('renamed API: CancelError.bubbled', () => {
   it('bubbled is the primary field, defaults false', () => {
     const error = new CancelError('reason');
     expect(error.bubbled).toBe(false);
@@ -86,7 +77,7 @@ describe('rename pass: CancelError.bubbled', () => {
   });
 });
 
-describe('rename pass: options getter', () => {
+describe('renamed API: options getter', () => {
   it('reflects the active flag options as a plain snapshot', () => {
     const promise = new CancelablePromise(
       () => {
@@ -109,7 +100,7 @@ describe('rename pass: options getter', () => {
   });
 });
 
-describe('rename pass: Promise.try static', () => {
+describe('renamed API: Promise.try static', () => {
   it('wraps a synchronous return value in a resolved CancelablePromise', async () => {
     const result = await CancelablePromise.try(() => 42);
     expect(result).toBe(42);
@@ -129,7 +120,7 @@ describe('rename pass: Promise.try static', () => {
   });
 });
 
-describe('rename pass: isCancPromise duck-token', () => {
+describe('renamed API: isCancPromise duck-token', () => {
   it('recognizes a genuine CancelablePromise instance', () => {
     const promise = new CancelablePromise(() => {
       /**/
@@ -153,7 +144,7 @@ describe('rename pass: isCancPromise duck-token', () => {
   });
 });
 
-describe('rename pass: makeCancelable (renamed forceCancelable helper)', () => {
+describe('renamed API: makeCancelable (renamed forceCancelable helper)', () => {
   it('wraps a plain promise into a cancelable one', async () => {
     const wrapped = makeCancelable(Promise.resolve(1));
     expect(isCancPromise(wrapped)).toBe(true);

@@ -14,4 +14,4 @@
 "@cancjs/toolbox-native": patch
 ---
 
-Add internal shared timeout reason normalizer (`toCancelError`, `toCancelErrorFactory`) reproducing core cancellation rules for upcoming adapter fixes.
+Packages that cancel with a caller supplied reason, such as a timeout or an abort signal reason, turn a reason that is not already a cancel error into one the same way: an object reason is kept as the error cause, and a primitive reason becomes its message.

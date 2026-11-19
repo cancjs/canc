@@ -262,7 +262,7 @@ describe('{ lazy: true } (cancelable)', () => {
     });
   });
 
-  describe('minDelay does not read { lazy: true } (not in scope for this task)', () => {
+  describe('minDelay does not read { lazy: true }', () => {
     it('is unaffected by the option: still starts its input eagerly', async () => {
       // Characterization, not a lazy test: `minDelay` keeps calling `construct` directly (see
       // `_toolbox/min-delay.ts`), so `{ lazy: true }` is just an opaque, unread key to it.

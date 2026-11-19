@@ -248,12 +248,12 @@ declare const sevenWrapped: TNodeSignatures<ISevenOverloads, 'same'>;
  * A seventh overload does not collapse the whole signature to one rung: TS keeps the newest six
  * and silently drops the OLDEST, so rung one (`tag: 1`, declared first) is the one that stops
  * type-checking, while rungs two through seven all still resolve their own distinct return types.
- * That is the concrete shape of the bug this task guards: a function's original, presumably most
+ * That is the concrete shape of the bug this fixture guards: a function's original, presumably most
  * common, call form is the one that breaks once a later overload pushes it past the cap.
  *
  * The `@ts-expect-error` on rung one is load-bearing. If the ladder ever stops dropping it, the
- * directive goes unused and `tsc` reports that as an error, the same signal this task wants
- * produced for a real node export instead of a silent behavior change.
+ * directive goes unused and `tsc` reports that as an error, the same signal a real node export
+ * should produce instead of a silent behavior change.
  */
 export function ladderDropsTheOldestOverloadPastItsCap() {
   // @ts-expect-error rung one, declared first, is the one the cap drops once a seventh exists

@@ -46,6 +46,17 @@ const BAD_CHARS = [
   ['\uFEFF', 'byte order mark'],
 ];
 
+// Curated stable notes use a version triple and package slug in their file name
+// A generic release-* changeset must not trigger curated-note checks
+const CURATED_FILE_RE = /^release-\d+-\d+-\d+-[a-z0-9-]+\.md$/;
+
+function isCuratedFile(fileName) {
+  return CURATED_FILE_RE.test(fileName);
+}
+
+// Breaking core notes must open with a migration headline
+const CORE_PACKAGES = new Set(['@cancjs/promise', '@cancjs/coroutine']);
+
 const EMOJI_RE = /[\u{1f000}-\u{1faff}\u{2600}-\u{27bf}\u{2b00}-\u{2bff}]|\ufe0f|\p{Extended_Pictographic}/u;
 
 function parseArgs(argv) {
@@ -128,7 +139,22 @@ function getChangedFiles(baseRef) {
   return [];
 }
 
-function validateChangesetFile(filePath) {
+function hasBreakingListItem(summary, fromMarkdown) {
+  function visit(node) {
+    if (node.type === 'listItem') {
+      const firstBlock = node.children.find((child) => child.type !== 'definition');
+      if (firstBlock?.type === 'paragraph' && summary.startsWith('**Breaking:**', firstBlock.position.start.offset)) {
+        return true;
+      }
+    }
+
+    return node.children?.some(visit) || false;
+  }
+
+  return visit(fromMarkdown(summary));
+}
+
+function validateChangesetFile(filePath, fromMarkdown) {
   const relPath = path.relative(ROOT, filePath).replace(/\\/g, '/');
   const fileName = path.basename(filePath);
   const errors = [];
@@ -154,7 +180,7 @@ function validateChangesetFile(filePath) {
     return errors;
   }
 
-  const isCurated = fileName.startsWith('release-');
+  const isCurated = isCuratedFile(fileName);
 
   if (isCurated && parsed.releases.length !== 1) {
     const pkgList = parsed.releases.map((r) => r.name).join(', ') || 'none';
@@ -167,6 +193,19 @@ function validateChangesetFile(filePath) {
 
   if (!parsed.summary || parsed.summary.trim().length === 0) {
     errors.push(`${relPath}: changeset body is empty`);
+  }
+
+  if (isCurated && parsed.releases.length === 1 && CORE_PACKAGES.has(parsed.releases[0].name)) {
+    const bodyLines = (parsed.summary || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const hasBreakingBullet = hasBreakingListItem(parsed.summary || '', fromMarkdown);
+    if (hasBreakingBullet && !bodyLines[0].startsWith('**Breaking:** ')) {
+      errors.push(
+        `${relPath}: core release notes with a **Breaking:** bullet must open with a headline line that starts with "**Breaking:** "`,
+      );
+    }
   }
 
   const lines = content.split(/\r?\n/);
@@ -273,7 +312,7 @@ async function checkReleasePlan(explicitBase) {
 
   const changesetDir = path.join(ROOT, '.changeset');
   const diskFiles = fs.existsSync(changesetDir) ? fs.readdirSync(changesetDir) : [];
-  const curatedFiles = diskFiles.filter((f) => f.startsWith('release-') && f.endsWith('.md'));
+  const curatedFiles = diskFiles.filter(isCuratedFile);
 
   for (const cf of curatedFiles) {
     const fullPath = path.join(changesetDir, cf);
@@ -446,6 +485,7 @@ async function main() {
   }
 
   if (!args.plan && !args.changelogDiff) {
+    const { fromMarkdown } = await import('mdast-util-from-markdown');
     const isPR = Boolean(process.env.GITHUB_BASE_REF) && !args.all;
     let filesToCheck = [];
 
@@ -487,7 +527,7 @@ async function main() {
       const fullPath = path.resolve(ROOT, relFile);
       if (!fs.existsSync(fullPath)) continue;
       checkedCount++;
-      const fileErrors = validateChangesetFile(fullPath);
+      const fileErrors = validateChangesetFile(fullPath, fromMarkdown);
       allErrors.push(...fileErrors);
     }
 
@@ -502,7 +542,7 @@ async function main() {
 
     const csDir = path.join(ROOT, '.changeset');
     if (fs.existsSync(csDir)) {
-      const hasCurated = fs.readdirSync(csDir).some((f) => f.startsWith('release-') && f.endsWith('.md'));
+      const hasCurated = fs.readdirSync(csDir).some(isCuratedFile);
       if (hasCurated) {
         const planOk = await checkReleasePlan(args.base);
         if (!planOk) passed = false;

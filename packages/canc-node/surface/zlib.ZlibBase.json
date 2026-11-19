@@ -20,7 +20,7 @@
         "deno": "method",
         "bun": "method"
       },
-      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "notes": "instance member of the archive container class, re-exported unchanged, not wrapped",
       "callPath": "sync"
     },
     {
@@ -40,7 +40,7 @@
         "deno": "method",
         "bun": "method"
       },
-      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "notes": "instance member of the archive container class, re-exported unchanged, not wrapped",
       "callPath": "sync"
     },
     {
@@ -60,7 +60,7 @@
         "deno": "method",
         "bun": "method"
       },
-      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "notes": "instance member of the archive container class, re-exported unchanged, not wrapped",
       "callPath": "sync"
     },
     {
@@ -80,7 +80,7 @@
         "deno": "method",
         "bun": "method"
       },
-      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "notes": "instance member of the archive container class, re-exported unchanged, not wrapped",
       "callPath": "sync"
     },
     {
@@ -100,7 +100,7 @@
         "deno": "method",
         "bun": "method"
       },
-      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "notes": "instance member of the archive container class, re-exported unchanged, not wrapped",
       "callPath": "sync"
     },
     {
@@ -120,7 +120,7 @@
         "deno": "method",
         "bun": "method"
       },
-      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "notes": "instance member of the archive container class, re-exported unchanged, not wrapped",
       "callPath": "sync"
     },
     {
@@ -140,7 +140,7 @@
         "deno": "method",
         "bun": "method"
       },
-      "notes": "instance member of the archive container class, re-exported unchanged; deferred beyond this phase, not wrapped",
+      "notes": "instance member of the archive container class, re-exported unchanged, not wrapped",
       "callPath": "sync"
     }
   ]

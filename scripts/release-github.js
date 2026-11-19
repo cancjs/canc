@@ -53,19 +53,23 @@ function findPackageDir(pkgName) {
   return null;
 }
 
+function noChangelogLine(pkgName, version) {
+  return `No changelog entry was recorded for ${pkgName} ${version}.`;
+}
+
 function extractChangelogSection(pkgName, version, customContent) {
   let content = customContent;
   if (content === undefined) {
     const dir = findPackageDir(pkgName);
-    if (!dir) return `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
+    if (!dir) return noChangelogLine(pkgName, version);
     const changelogPath = path.join(dir, 'CHANGELOG.md');
-    if (!fs.existsSync(changelogPath)) return `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
+    if (!fs.existsSync(changelogPath)) return noChangelogLine(pkgName, version);
     content = fs.readFileSync(changelogPath, 'utf8');
   }
 
   const headingRegex = new RegExp(`^##\\s+${version.replace(/\./g, '\\.')}\\s*$`, 'm');
   const match = content.match(headingRegex);
-  if (!match) return `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
+  if (!match) return noChangelogLine(pkgName, version);
 
   const afterHeading = content.slice(match.index + match[0].length);
   const lines = [];
@@ -80,7 +84,25 @@ function extractChangelogSection(pkgName, version, customContent) {
   }
 
   const result = lines.join('\n').trim();
-  return result.length > 0 ? result : `<!-- Owner: no CHANGELOG section for ${pkgName} ${version} -->`;
+  return result.length > 0 ? result : noChangelogLine(pkgName, version);
+}
+
+// HTML comments are hidden when rendered but remain public in release body text
+function findHtmlComments(body) {
+  const lines = [];
+  body.split(/\r?\n/).forEach((line, idx) => {
+    if (line.includes('<!--')) lines.push(idx + 1);
+  });
+  return lines;
+}
+
+function assertNoHtmlComments(body) {
+  const lines = findHtmlComments(body);
+  if (lines.length > 0) {
+    throw new Error(
+      `release body holds an HTML comment on line ${lines.join(', ')}; remove it before the draft is created`,
+    );
+  }
 }
 
 function getCurrentLatestMinor(options = {}) {
@@ -309,15 +331,6 @@ function generateReleaseData(published, options = {}) {
 
     betaBody += `### Known issues\n\n- Server packages support HTTP/1.1 only.`;
     body = betaBody;
-  } else if (isMinorTrain) {
-    const summaryHint = 'replace with 2-4 sentence release summary';
-    const placeholder = `<!-- Owner: ${summaryHint} -->`;
-    body = `## Highlights\n\n${placeholder}\n\n`;
-    for (const pkg of published) {
-      const custom = options.changelogContents ? options.changelogContents[pkg.name] : undefined;
-      const section = extractChangelogSection(pkg.name, pkg.version, custom);
-      body += `## ${pkg.name} ${pkg.version}\n\n${section}\n\n`;
-    }
   } else {
     body = '';
     for (const pkg of published) {
@@ -359,6 +372,7 @@ async function main() {
   console.log(`body head: ${bodyHead}`);
 
   if (isDryRun) {
+    assertNoHtmlComments(body);
     return;
   }
 
@@ -386,6 +400,8 @@ async function main() {
     const tagArgs = tagsToPush.map((t) => `"${t}"`).join(' ');
     execSync(`git push origin ${tagArgs}`, { cwd: ROOT, stdio: 'inherit' });
   }
+
+  assertNoHtmlComments(body);
 
   try {
     execSync(`gh release view "${tag}"`, { cwd: ROOT, stdio: 'ignore' });
@@ -424,4 +440,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { generateReleaseData, extractChangelogSection };
+module.exports = { generateReleaseData, extractChangelogSection, findHtmlComments };

@@ -99,7 +99,7 @@ describe('promisify', () => {
 
       expect(injectedSignal.aborted).toBe(true);
       // Asserting actual behavior where injected signal reason is raw unlike cancelify which
-      // brands via toCancelError pending a phase followup on promisify parity
+      // brands via toCancelError
       expect(isCancelError(injectedSignal.reason)).toBe(false);
 
       const reason = await promise.catch((e) => e);
