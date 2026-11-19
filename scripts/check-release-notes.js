@@ -139,6 +139,58 @@ function getChangedFiles(baseRef) {
   return [];
 }
 
+function hasBreakingListItem(summary) {
+  const listContentIndents = [];
+  let fence = null;
+
+  for (const rawLine of summary.split(/\r?\n/)) {
+    let line = '';
+    for (const char of rawLine) {
+      line += char === '\t' ? ' '.repeat(4 - (line.length % 4)) : char;
+    }
+    if (!line.trim()) continue;
+
+    const indent = /^ */.exec(line)[0].length;
+    while (listContentIndents.length && indent < listContentIndents[listContentIndents.length - 1]) {
+      listContentIndents.pop();
+    }
+    const containerIndent = listContentIndents[listContentIndents.length - 1] || 0;
+    const content = line.slice(containerIndent);
+
+    if (fence) {
+      const closing = /^ {0,3}(\x60+|~+)\s*$/.exec(content);
+      if (closing && closing[1][0] === fence[0] && closing[1].length >= fence.length) {
+        fence = null;
+      }
+      continue;
+    }
+
+    if (indent - containerIndent >= 4) continue;
+
+    const marker = /^ {0,3}([-*+]|\d{1,9}[.)])( +)(.*)$/.exec(content);
+    let prose = content;
+    if (marker) {
+      const markerWidth = marker[0].length - marker[3].length;
+      if (marker[2].length > 4) {
+        listContentIndents.push(containerIndent + markerWidth - marker[2].length + 1);
+        continue;
+      }
+      listContentIndents.push(containerIndent + markerWidth);
+      prose = marker[3];
+    }
+
+    const opening = /^ {0,3}(\x60{3,}|~{3,})(.*)$/.exec(prose);
+    if (opening && (opening[1][0] !== '\x60' || !opening[2].includes('\x60'))) {
+      fence = opening[1];
+      continue;
+    }
+
+    if (marker && /^\*\*Breaking:\*\*/.test(prose)) return true;
+  }
+
+  return false;
+}
+
 function validateChangesetFile(filePath) {
   const relPath = path.relative(ROOT, filePath).replace(/\\/g, '/');
   const fileName = path.basename(filePath);
@@ -185,7 +237,7 @@ function validateChangesetFile(filePath) {
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter(Boolean);
-    const hasBreakingBullet = bodyLines.some((l) => /^[-*]\s+\*\*Breaking:\*\*/.test(l));
+    const hasBreakingBullet = hasBreakingListItem(parsed.summary || '');
     if (hasBreakingBullet && !bodyLines[0].startsWith('**Breaking:** ')) {
       errors.push(
         `${relPath}: core release notes with a **Breaking:** bullet must open with a headline line that starts with "**Breaking:** "`,
