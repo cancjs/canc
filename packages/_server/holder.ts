@@ -29,7 +29,7 @@ export const REQUEST_CANCEL_STATE = Symbol.for('@cancjs/server-node:RequestCance
 export const REQUEST_REGISTRY = Symbol.for('@cancjs/server-node:RequestRegistry');
 
 /** Key the in-flight shutdown promise is cached under, so a second shutdown of the same server is a no-op. */
-export const SHUTDOWN_STATE = Symbol.for('@cancjs/server-node:Shutdown');
+export const SHUTDOWN_STATE = Symbol.for('@cancjs/server-node:ShutdownState');
 
 /**
  * Key the function `createShutdown` returned is cached under, on the object it was given, so a
