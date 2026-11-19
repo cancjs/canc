@@ -14,4 +14,4 @@
 "@cancjs/toolbox-native": patch
 ---
 
-Add internal shared generator result and step guard helpers (`assertGeneratorResult`, `assertStepResult`) for upcoming generator validation fixes across package drivers.
+Code that runs a generator function as a coroutine now fails with a `TypeError` that names what it received when the result is not a synchronous generator, such as an async generator or an object without `next`, `return` or `throw`. An iterator step that is a promise or not an object fails the same way.
