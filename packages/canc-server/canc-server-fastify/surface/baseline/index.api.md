@@ -20,7 +20,6 @@ Generated. Do not edit by hand.
 ## `ICancelErrorHandlerOptions` (interface)
 
 ```text
-canceledStatus?: number | undefined // @deprecated
 onError?: ((error: unknown, request: FastifyRequest, reply: FastifyReply) => void) | undefined
 status?: number | undefined
 ```

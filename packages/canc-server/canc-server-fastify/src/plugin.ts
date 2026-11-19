@@ -18,8 +18,6 @@ import { installCloseDrain } from './shutdown';
 export interface ICancelErrorHandlerOptions {
   /** Status sent when a cancellation surfaces on a live connection. Defaults to 503. */
   status?: number;
-  /** @deprecated Read `status` instead. Kept so existing `canceledStatus` callers keep working. */
-  canceledStatus?: number;
   /**
    * Answers an error that is not a cancellation, in place of fastify's own `reply.send(error)`. Set it
    * when the app's own error mapping lives in the same handler. Cancellations do not reach it: the
@@ -85,7 +83,7 @@ export const cancelPlugin = fastifyPlugin(plugin, {
  * itself, so this is for an app that wants its own error mapping alongside that answer.
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
-  const configured = options?.status ?? options?.canceledStatus;
+  const configured = options?.status;
 
   checkAnswerStatus(configured);
   const onError = options?.onError;

@@ -15,6 +15,7 @@ import {
   cancelPlugin,
   createShutdown,
   getRequestSignal,
+  ICancelErrorHandlerOptions,
   SERVER_SHUTDOWN,
 } from './index';
 
@@ -630,12 +631,12 @@ describe('error handler', () => {
     expect((await pending).statusCode).toBe(499);
   });
 
-  it('still reads the deprecated canceledStatus key', async () => {
+  it('ignores the removed canceledStatus key', async () => {
     const started = deferred();
 
     const instance = Fastify();
     await instance.register(cancelPlugin);
-    instance.setErrorHandler(cancelErrorHandler({ canceledStatus: 498 }));
+    instance.setErrorHandler(cancelErrorHandler({ canceledStatus: 498 } as ICancelErrorHandlerOptions));
     instance.get(
       '/hang',
       cancelableHandler(function* () {
@@ -651,31 +652,7 @@ describe('error handler', () => {
     await started.promise;
     await createShutdown(instance)({ cancelAfter: 200 });
 
-    expect((await pending).statusCode).toBe(498);
-  });
-
-  it('prefers status over the deprecated canceledStatus key', async () => {
-    const started = deferred();
-
-    const instance = Fastify();
-    await instance.register(cancelPlugin);
-    instance.setErrorHandler(cancelErrorHandler({ status: 499, canceledStatus: 498 }));
-    instance.get(
-      '/hang',
-      cancelableHandler(function* () {
-        started.resolve();
-        yield new Promise(() => undefined);
-
-        return { ok: true };
-      }),
-    );
-
-    const port = await listen(instance);
-    const pending = send(port, '/hang');
-    await started.promise;
-    await createShutdown(instance)({ cancelAfter: 200 });
-
-    expect((await pending).statusCode).toBe(499);
+    expect((await pending).statusCode).toBe(503);
   });
 
   it('drops a cancellation that surfaces after the client left', async () => {
@@ -1877,8 +1854,6 @@ describe('cancelErrorHandler status range', () => {
     expect(() => cancelErrorHandler({ status: 600 })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 502.5 })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: NaN })).toThrow(RangeError);
-    expect(() => cancelErrorHandler({ canceledStatus: 199 })).toThrow(RangeError);
-    expect(() => cancelErrorHandler({ canceledStatus: NaN })).toThrow(RangeError);
     expect(() => cancelErrorHandler({ status: 200 })).not.toThrow();
     expect(() => cancelErrorHandler({ status: 599 })).not.toThrow();
   });
