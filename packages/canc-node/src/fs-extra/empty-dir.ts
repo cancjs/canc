@@ -9,11 +9,11 @@ import { ensureDir, ensureDirSync } from './ensure';
 import { IAbortSignalLike, throwIfAborted } from './utils';
 
 /**
- * The call presently in flight, so a cancel reaches it directly instead of waiting for
- * the next checkpoint.
+ * The call presently in flight, so a cancel stops waiting on it at once instead of at the next
+ * checkpoint.
  * Single-slot register only safe because emptyDirTree is strictly sequential.
- * Needed because node accepts signal for lstat/stat only; readdir, rm and other calls
- * have no signal, so canceling our inner promise is the only way to interrupt them.
+ * The call itself keeps running: node gives readdir, rm and the other calls here no signal, so
+ * canceling our inner promise only ends the wait.
  */
 interface IActiveCall {
   current: CancelablePromise<unknown> | null;

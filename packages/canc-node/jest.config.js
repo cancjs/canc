@@ -25,7 +25,6 @@ module.exports = {
     ...baseConfig.moduleNameMapper,
   },
   cacheDirectory: path.join(__dirname, 'node_modules', '.cache', 'jest'),
-  testTimeout: 15000,
   /*
 	globals: {
 	 ...baseConfig.globals,

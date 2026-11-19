@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { Worker as NodeWorker } from 'node:worker_threads';
 
 import { CancelError } from '@cancjs/promise';
@@ -115,6 +117,38 @@ describe('runTask', () => {
 
     expect(isProcessExitError(caught)).toBe(true);
     expect((caught as { exitCode?: number | null }).exitCode).toBe(7);
+  });
+
+  it('names an eval worker [eval] in the exit error, never its source text', async () => {
+    const secretTask = `// token=hunter2
+process.exit(7);`;
+    let caught: unknown;
+    try {
+      await runTask(secretTask, undefined, { eval: true });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(isProcessExitError(caught)).toBe(true);
+    expect((caught as { command?: string }).command).toBe('[eval]');
+    expect(JSON.stringify(caught)).not.toContain('hunter2');
+  });
+
+  it('names a file worker by its path in the exit error', async () => {
+    const script = join(tmpdir(), `run-task-exit-${process.pid}.js`);
+    writeFileSync(script, 'process.exit(3);');
+    let caught: unknown;
+    try {
+      await runTask(script);
+    } catch (err) {
+      caught = err;
+    } finally {
+      rmSync(script, { force: true });
+    }
+
+    expect(isProcessExitError(caught)).toBe(true);
+    expect((caught as { command?: string }).command).toBe(script);
+    expect((caught as { exitCode?: number | null }).exitCode).toBe(3);
   });
 
   it('rejects the error the worker threw', async () => {

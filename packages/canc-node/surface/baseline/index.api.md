@@ -448,6 +448,7 @@ name: string
 hasAddAbortListener: boolean
 hasAsyncDispose: boolean
 hasConsumersBytes: boolean
+hasDuplexPair: boolean
 hasGlob: boolean
 hasMkdtempDisposable: boolean
 hasSqlite: boolean

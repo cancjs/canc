@@ -142,21 +142,13 @@ export class JsonParseError extends BaseJsonParseError {
 }
 
 export const isNotImplementedError = (error: unknown): error is NotImplementedError =>
-  isObject(error) &&
-  ((error as Record<symbol, unknown>)[NOT_IMPLEMENTED_ERROR_BRAND] === true ||
-    (error as { name?: unknown }).name === 'NotImplementedError');
+  isObject(error) && (error as Record<symbol, unknown>)[NOT_IMPLEMENTED_ERROR_BRAND] === true;
 
 export const isProcessExitError = (error: unknown): error is ProcessExitError =>
-  isObject(error) &&
-  ((error as Record<symbol, unknown>)[PROCESS_EXIT_ERROR_BRAND] === true ||
-    (error as { name?: unknown }).name === 'ProcessExitError');
+  isObject(error) && (error as Record<symbol, unknown>)[PROCESS_EXIT_ERROR_BRAND] === true;
 
 export const isProcessSpawnError = (error: unknown): error is ProcessSpawnError =>
-  isObject(error) &&
-  ((error as Record<symbol, unknown>)[PROCESS_SPAWN_ERROR_BRAND] === true ||
-    (error as { name?: unknown }).name === 'ProcessSpawnError');
+  isObject(error) && (error as Record<symbol, unknown>)[PROCESS_SPAWN_ERROR_BRAND] === true;
 
 export const isJsonParseError = (error: unknown): error is JsonParseError =>
-  isObject(error) &&
-  ((error as Record<symbol, unknown>)[JSON_PARSE_ERROR_BRAND] === true ||
-    (error as { name?: unknown }).name === 'JsonParseError');
+  isObject(error) && (error as Record<symbol, unknown>)[JSON_PARSE_ERROR_BRAND] === true;

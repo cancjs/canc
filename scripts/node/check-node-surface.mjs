@@ -3,12 +3,20 @@
 // Check G's result is folded into surface-check's own exit code, so this call is what lets a
 // docs-staleness failure be attributed to its own named step instead of hiding behind whichever
 // other check made surface-check exit nonzero.
+import assert from 'node:assert/strict';
+
 import { spawnSync } from 'child_process';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
+import { renderFloorVersion } from './surface-docs.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.CANC_SURFACE_ROOT || join(HERE, '..', '..');
+
+// Keep patch-level floors visible in generated docs; .0 floors retain compact spelling.
+assert.equal(renderFloorVersion('22.6.0'), '22.6+');
+assert.equal(renderFloorVersion('22.6.1'), '22.6.1+');
 
 const steps = [
   { name: 'surface-validate', file: join(HERE, 'surface-validate.mjs'), args: [] },

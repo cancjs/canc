@@ -681,19 +681,24 @@ already calls `node:timers/promises` directly, or when `ref: false` is needed.
 the returned iterator, or by breaking a `for await` loop over it; both end iteration and clear the
 underlying timer. `scheduler.yield` takes no options and is node's own function, unwrapped.
 
+A delay above 2147483647 ms (about 24.8 days) overflows node's 32-bit timer. Node warns and fires
+after 1 ms, and so do these functions, so split a longer wait into shorter ones.
+
 ### stream
 
 `pipeline` and `finished` wrap `node:stream/promises`, alongside the stream classes,
 `addAbortSignal`, `Readable.from`, `Duplex.from` and `duplexPair`, re-exported structurally so a
-caller does not need a second import to use the wrappers. `duplexPair` requires Node 20.17.0 or
-22.6.0 or later; older runtimes throw `NotImplementedError`. Canceling `pipeline` destroys every
+caller does not need a second import to use the wrappers. `duplexPair` needs a Node release that
+ships it (the stream support table above lists them); older runtimes throw `NotImplementedError`. Canceling `pipeline` destroys every
 stream in the chain, the same teardown node runs for its own aborted pipeline. Canceling `finished`
 removes the listeners it attached.
 
 `text`, `json`, `buffer`, `arrayBuffer`, `blob` and `bytes` wrap `node:stream/consumers`. None of
 these take a signal from node, so canceling destroys the source stream directly; pass
-`{ destroyOnCancel: false }` when the stream is shared with another reader. `bytes` is
-feature-gated and throws `NotImplementedError` on a runtime that lacks it.
+`{ destroyOnCancel: false }` when the stream is shared with another reader. A web stream or a bare
+async iterable has no `destroy`, so canceling a consumer on one rejects the promise but cannot stop
+the read: it runs to completion and its result is discarded. `bytes` is feature-gated and throws
+`NotImplementedError` on a runtime that lacks it.
 
 `toArray`, `reduce`, `some`, `every`, `find` and `forEach` wrap the promise-returning `Readable`
 terminals. They are free functions taking the stream as their first argument, `toArray(stream)`,
@@ -733,7 +738,7 @@ A `Resolver` instance is different: canceling one of its queries is real, and it
 
 ### readline
 
-`question` answers a cancelable promise. Canceling it aborts the pending prompt through node's own `signal` handling and restores the interface to the state it was in before the call, including stdin's raw mode. A canceled question never consumes the next line typed at the prompt.
+`question` answers a cancelable promise. Canceling it aborts the pending prompt through node's own `signal` handling and restores the interface to the state it was in before the call, including stdin's raw mode. A canceled question never consumes the next line typed at the prompt. Closing the interface while a question is pending leaves that promise pending, the same as node, so cancel the question first. A `question` call after `close()` rejects with node's `ERR_USE_AFTER_CLOSE`.
 
 ### crypto
 
@@ -756,9 +761,9 @@ The zstd family, the iterable codec family, and the zip archive family are all v
 
 ### worker-threads
 
-A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise` property that settles when the thread stops: `await worker.promise` resolves to the exit code. The property is built on first access and never shows up in `Object.keys`, a spread, or `JSON.stringify`.
+A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise` property that settles when the thread stops: `await worker.promise` resolves to the exit code. The property is built on first access and never shows up in `Object.keys`, a spread, or `JSON.stringify`. A non-zero code still resolves: `process.exit(7)` resolves `7`, and a thread stopped with `terminate()` resolves the `1` node reports. Only an `error` event rejects, unlike `spawn` and `fork`, which reject on a non-zero exit, so check the code when a non-zero exit matters.
 
-`terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away. An error a worker throws reaches the caller with its canc identity restored: a `CancelError`, `TimeoutError`, `ProcessExitError`, `ProcessSpawnError`, `JsonParseError`, or `NotImplementedError` is rebuilt from the name node keeps across the thread boundary, so `isCancelError` and the other guards answer for it. A canc class this package does not ship, such as `SupersededError`, `IterationError`, or `BreakError`, comes back as a plain `Error` subclass that answers its own brand guard (for example `isSupersededError`) but is not `instanceof` the owning package's class. Any other error arrives as node reports it. Node keeps only the name, not the class, so a caller's own error that happens to be named like one of these is rebuilt too; name your own errors differently. An error a worker posts by hand with `postMessage` is not revived: the identity is restored only where this package owns the boundary, so a raw `postMessage` caller gets a plain `Error` back.
+`terminate()` stops a thread at whatever point it happens to be at. There is no `finally`, no flush, no unload hook: a thread mid-write when terminated leaves that write unfinished. `runTask` therefore posts a stop message and gives the worker `gracePeriod` (5000ms by default) to exit on its own before falling back to `terminate()`, so a cooperating worker gets to clean up first. Pass `{ terminate: 'immediate' }` for a worker that does not cooperate, which skips the grace period and terminates right away. An error a worker throws reaches the caller with its canc identity restored: a `CancelError`, `TimeoutError`, `ProcessExitError`, `ProcessSpawnError`, `JsonParseError`, or `NotImplementedError` is rebuilt from the brand key its instance carries, which survives the thread boundary where the class does not, so `isCancelError` and the other guards answer for it. A canc class this package does not ship, such as `SupersededError`, `IterationError`, or `BreakError`, comes back as a plain `Error` subclass that answers its own brand guard (for example `isSupersededError`) but is not `instanceof` the owning package's class. Any other error arrives as node reports it. A plain error that only shares a name with one of these, such as a caller's own class called `TimeoutError`, carries no brand key and is left as it is. An error a worker posts by hand with `postMessage` is not revived: the identity is restored only where this package owns the boundary, so a raw `postMessage` caller gets a plain `Error` back.
 
 `requestLock` wraps `worker_threads.locks.request` (Node 24.5.0+). The body receives the lock and an `AbortSignal`. Canceling while waiting for the lock aborts the acquisition. Canceling while holding it rejects the promise with `CancelError` right away and aborts the body's signal (and cancels the body's result when that is a `CancelablePromise`), but the lock is released only when the body's own result settles. A body that ignores the signal therefore never overlaps the next holder; it just keeps the lock until it finishes.
 
@@ -768,13 +773,9 @@ A holder whose lock is taken by a `steal: true` request rejects with `CancelErro
 
 `send` resolves once the datagram is handed to the kernel. **A sent datagram cannot be recalled**: canceling stops waiting for that result, but a datagram already passed to `socket.send` is still delivered. A string message is sent as its UTF-8 bytes. `bind` and `connect` are cancelable up to the point they complete: canceling either closes the socket, which frees the port. A failed `connect`, such as an unresolvable host, rejects with node's error and leaves the socket unconnected. `dgram.Socket` has no `promise` property, because it has two terminal events (`listening` and `close`) rather than one.
 
-### Planned subpaths
+### Modules without a subpath
 
-Wrapped built-in modules are arriving in upcoming releases. Planned subpaths include:
-
-- `net`: networking helpers
-- `tls`: TLS socket utilities
-- `http`: HTTP, HTTPS, and HTTP/2 clients and servers
+This package does not wrap `net`, `tls` or `http`. Import them from node directly.
 
 ## File system
 
@@ -875,7 +876,7 @@ CommonJS and ESM are separate module instances; `instanceof` against root error 
 
 ### Feature detection
 
-- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasWorkerLocks`)
+- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasDuplexPair`, `hasWorkerLocks`)
 
 ## Compatibility
 
