@@ -2186,6 +2186,20 @@ describe('drain inside the fastify close', () => {
     expect(warn.mock.calls[0][0]).toEqual({ cancelAfter: 2_600, closeAfter: 3_600, pluginTimeout: 4_000 });
   });
 
+  it('keeps a margin of at least one millisecond under a tiny pluginTimeout', async () => {
+    const instance = Fastify({ pluginTimeout: 5 });
+    const warn = jest.spyOn(instance.log, 'warn');
+    await instance.register(cancelPlugin);
+    const shutdown = createShutdown(instance);
+    await listen(instance);
+    app = undefined;
+
+    await shutdown();
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toEqual({ cancelAfter: 0, closeAfter: 4, pluginTimeout: 5 });
+  });
+
   it('keeps the windows when pluginTimeout is 0', async () => {
     const started = deferred();
     const instance = Fastify({ pluginTimeout: 0 });
