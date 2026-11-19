@@ -20,8 +20,8 @@ import {
   TimeoutError,
 } from './index';
 
-// Cross-package smoke for the phase that unified error classes/brands, added the matcher
-// factories, and gave every wrapper a displayName.
+// Cross-package smoke for the unified error classes and brands, the matcher factories, and the
+// displayName on every wrapper.
 // Each unit is already covered in its own
 // package's suite (see cancel-error.spec.ts, error-brands.spec.ts, error-matchers.spec.ts,
 // coroutine.spec.ts, cancelify.spec.ts, promisify.spec.ts, suppress.spec.ts); this file's job is
