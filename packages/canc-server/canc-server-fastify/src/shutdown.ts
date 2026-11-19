@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
 import { getShutdownFunction, getShutdownState, setShutdownFunction } from '../../../_server/holder';
-import { createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
+import { checkShutdownOptions, createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
 import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
 // key the drain fastify's own close runs is configured under, on the instance's http.Server: the
@@ -118,7 +118,8 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
  * inside fastify's own close as a `preClose` hook, so a plain `await app.close()` shuts down
  * gracefully too. `options` here are then what that close uses, and the returned function runs
  * `app.close()` with its own options laid over them. Calling this again with new options replaces
- * the ones a later plain `app.close()` uses. Hooks run in registration order, so a `preClose` hook
+ * the ones a later plain `app.close()` uses. Options are checked here: a `cancelAfter` greater
+ * than `closeAfter`, a status outside 200 to 599 or an invalid header throws. Hooks run in registration order, so a `preClose` hook
  * registered ahead of this one (one that ends websockets, say) runs when the close starts, and one
  * registered after it waits until the shutdown has ended. A request arriving on a kept-alive
  * connection during the close is answered by fastify, with 503 unless `return503OnClosing` is
@@ -158,6 +159,10 @@ export function createShutdown(
 
   const drain = getCloseDrain(app.server as IServerLike);
   if (options !== undefined) {
+    // checked here, so a bad set throws to whoever wrote it instead of inside a later app.close()
+    if (options !== null) {
+      checkShutdownOptions(options);
+    }
     drain.options = options;
   }
 

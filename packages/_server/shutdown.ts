@@ -596,6 +596,15 @@ export function createServerShutdown(
   return shutdown;
 }
 
+/**
+ * Throws what a shutdown would throw for these options, without running anything, so a layer that
+ * keeps options for a later shutdown rejects a bad set where it was written.
+ */
+export function checkShutdownOptions(options: IShutdownOptions): void {
+  checkCancelAnswer(options);
+  resolveWindows(options);
+}
+
 // a status or header the platform would refuse throws here, not inside a request mid-drain
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 const INVALID_HEADER_VALUE = /[^\t\x20-\x7e\x80-\xff]/;
