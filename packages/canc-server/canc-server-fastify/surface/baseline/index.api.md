@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-server/canc-server-fastify/dist/types/index.d.ts`
-- Exports: 21
+- Exports: 22
 
 ## `CLIENT_DISCONNECTED` (const)
 
@@ -22,6 +22,17 @@ Generated. Do not edit by hand.
 ```text
 onError?: ((error: unknown, request: FastifyRequest, reply: FastifyReply) => void) | undefined
 status?: number | undefined
+```
+
+## `ICancelPluginOptions` (interface)
+
+```text
+extends ICancelableHandlerOptions
+autoWrap?: boolean | undefined
+onDisconnect?: ((reason: CancelError) => void) | undefined
+onTimeout?: ((reason: CancelError) => void) | undefined
+signal?: AbortSignal | Array<AbortSignal> | undefined
+timeout?: TTimeoutOption | undefined
 ```
 
 ## `ICancelableHandlerOptions` (interface)
@@ -110,7 +121,7 @@ number | { ms: number; status?: number; message?: string; headers?: Record<strin
 ## `cancelPlugin` (const)
 
 ```text
-(instance: FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>, opts: ICancelableHandlerOptions): Promise<void>
+(instance: FastifyInstance<RawServerDefault, IncomingMessage, ServerResponse<IncomingMessage>, FastifyBaseLogger, FastifyTypeProviderDefault>, opts: ICancelPluginOptions): Promise<void>
 ```
 
 ## `cancelableHandler<RouteGeneric extends RouteGenericInterface = RouteGenericInterface>` (function)

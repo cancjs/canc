@@ -2358,3 +2358,101 @@ describe('cancelable hooks', () => {
     expect(() => cancelableHook(undefined as never)).toThrow(TypeError);
   });
 });
+
+describe('auto-wrap', () => {
+  it('runs a bare generator route handler', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get('/x', nativeGenerator('yield Promise.resolve(); return { ok: true };') as never);
+
+    const port = await listen(instance);
+    const response = await send(port, '/x');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('{"ok":true}');
+  });
+
+  it('runs a bare generator route preHandler and hands on', async () => {
+    const instance = Fastify();
+    const trail: string[] = [];
+    await instance.register(cancelPlugin);
+    instance.route({
+      handler: async () => {
+        trail.push('route');
+        return 'ok';
+      },
+      method: 'GET',
+      preHandler: [nativeGenerator("yield Promise.resolve(); trail.push('hook');", { trail }) as never],
+      url: '/x',
+    });
+
+    const port = await listen(instance);
+    const response = await send(port, '/x');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('ok');
+    expect(trail).toEqual(['hook', 'route']);
+  });
+
+  it('cancels an auto-wrapped handler at the plugin deadline', async () => {
+    const instance = Fastify();
+    const trail: string[] = [];
+    await instance.register(cancelPlugin, { timeout: 30 });
+    instance.get(
+      '/x',
+      nativeGenerator("try { yield new Promise(() => undefined); } finally { trail.push('finally'); }", {
+        trail,
+      }) as never,
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/x');
+
+    expect(response.statusCode).toBe(503);
+    expect(trail).toEqual(['finally']);
+  });
+
+  it('leaves generators alone with autoWrap false', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { autoWrap: false });
+    instance.get('/x', nativeGenerator('yield Promise.resolve(); return { ok: true };') as never);
+
+    const port = await listen(instance);
+    const response = await send(port, '/x');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('{}');
+  });
+
+  it('does not see routes registered before the plugin', async () => {
+    const instance = Fastify();
+    instance.get('/x', nativeGenerator('yield Promise.resolve(); return { ok: true };') as never);
+    await instance.register(cancelPlugin);
+
+    const port = await listen(instance);
+    const response = await send(port, '/x');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('{}');
+  });
+
+  it('leaves plain and async functions untouched', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get('/plain', () => 'plain');
+    instance.get('/async', async () => 'async');
+
+    const port = await listen(instance);
+    const plain = await send(port, '/plain');
+    const asynchronous = await send(port, '/async');
+
+    expect(plain.body).toBe('plain');
+    expect(asynchronous.body).toBe('async');
+  });
+});
+
+// specs compile to ES5, so build a native generator at runtime
+function nativeGenerator(body: string, scope: Record<string, unknown> = {}): (...args: never[]) => unknown {
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- native generators survive the spec ES5 compilation
+  return new Function(...Object.keys(scope), `return function* () { ${body} };`)(...Object.values(scope));
+}

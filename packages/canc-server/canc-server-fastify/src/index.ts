@@ -13,6 +13,6 @@ export type {
   TFastifyRouteHandler,
 } from './handler';
 export { cancelableHandler, cancelableHook, cancelablePreParsing, getRequestSignal } from './handler';
-export type { ICancelErrorHandlerOptions, TCancelErrorHandler } from './plugin';
+export type { ICancelErrorHandlerOptions, ICancelPluginOptions, TCancelErrorHandler } from './plugin';
 export { cancelErrorHandler, cancelPlugin } from './plugin';
 export { createShutdown } from './shutdown';
