@@ -46,6 +46,14 @@ const BAD_CHARS = [
   ['\uFEFF', 'byte order mark'],
 ];
 
+// Curated stable notes use a version triple and package slug in their file name
+// A generic release-* changeset must not trigger curated-note checks
+const CURATED_FILE_RE = /^release-\d+-\d+-\d+-[a-z0-9-]+\.md$/;
+
+function isCuratedFile(fileName) {
+  return CURATED_FILE_RE.test(fileName);
+}
+
 const EMOJI_RE = /[\u{1f000}-\u{1faff}\u{2600}-\u{27bf}\u{2b00}-\u{2bff}]|\ufe0f|\p{Extended_Pictographic}/u;
 
 function parseArgs(argv) {
@@ -154,7 +162,7 @@ function validateChangesetFile(filePath) {
     return errors;
   }
 
-  const isCurated = fileName.startsWith('release-');
+  const isCurated = isCuratedFile(fileName);
 
   if (isCurated && parsed.releases.length !== 1) {
     const pkgList = parsed.releases.map((r) => r.name).join(', ') || 'none';
@@ -273,7 +281,7 @@ async function checkReleasePlan(explicitBase) {
 
   const changesetDir = path.join(ROOT, '.changeset');
   const diskFiles = fs.existsSync(changesetDir) ? fs.readdirSync(changesetDir) : [];
-  const curatedFiles = diskFiles.filter((f) => f.startsWith('release-') && f.endsWith('.md'));
+  const curatedFiles = diskFiles.filter(isCuratedFile);
 
   for (const cf of curatedFiles) {
     const fullPath = path.join(changesetDir, cf);
@@ -502,7 +510,7 @@ async function main() {
 
     const csDir = path.join(ROOT, '.changeset');
     if (fs.existsSync(csDir)) {
-      const hasCurated = fs.readdirSync(csDir).some((f) => f.startsWith('release-') && f.endsWith('.md'));
+      const hasCurated = fs.readdirSync(csDir).some(isCuratedFile);
       if (hasCurated) {
         const planOk = await checkReleasePlan(args.base);
         if (!planOk) passed = false;
