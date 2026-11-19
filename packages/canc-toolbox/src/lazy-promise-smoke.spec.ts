@@ -94,7 +94,7 @@ describe('lazy promise smoke', () => {
  * execute() vs `void lazy.then()`, in a REAL node process. jest's runner swallows
  * unhandledRejection, so this has to run outside it (see `lazy-unhandled-rejection.spec.ts` for the
  * exhaustive version of this same contract; this is the smoke-level confirmation that the behavior
- * still holds after the phase's file moves and rewiring).
+ * still holds after the file moves and rewiring).
  */
 const lazySource = path.join(__dirname, '..', '..', '_toolbox', 'lazy', 'lazy-promise.ts');
 const repoRoot = path.resolve(__dirname, '../../..');
