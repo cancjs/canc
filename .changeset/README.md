@@ -13,5 +13,6 @@ Every file in this folder (other than `config.json`, `pre.json`, and this README
 - Breaking changes must start with `**Breaking:**` followed by a concise migration note.
 - Deprecations belong in their own bullet stating the deprecated name, the replacement, and planned removal at the next major release.
 - Use normal public prose with straight quotes. Do not use em or en dashes, arrows, or non-keyboard characters.
+- Files named `release-<major>-<minor>-<patch>-<package>.md` hold the hand-written notes for one stable release and name exactly one package. Give an ordinary changeset any other name.
 
 Full changesets documentation: https://github.com/changesets/changesets
