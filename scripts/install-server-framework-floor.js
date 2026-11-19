@@ -140,8 +140,7 @@ function install(options) {
   }
 }
 
-// the target's own jest config, with the frameworks resolved from the floor prefix
-// only a request from outside the prefix is redirected, so nested dependencies resolve as laid out
+// the target's own jest config, with the frameworks resolved from the floor prefix; a framework the prefix holds must load from there, one it lacks comes from the workspace
 function wrapConfig(options, configPath) {
   const slug = path.basename(path.dirname(configPath));
   const wrapper = path.join(options.prefix, `jest.${slug}.config.js`);
@@ -152,14 +151,19 @@ function wrapConfig(options, configPath) {
   const resolverLines = [
     `const prefix = ${JSON.stringify(prefix)};`,
     `const frameworks = ${FRAMEWORK_REQUEST.toString()};`,
+    "const fs = require('fs');",
+    "const path = require('path');",
     'module.exports = (request, options) => {',
-    "  const from = options.basedir.split(require('path').sep).join('/').toLowerCase();",
+    "  const from = options.basedir.split(path.sep).join('/').toLowerCase();",
     '',
     '  if (frameworks.test(request) && !from.startsWith(prefix)) {',
-    '    try {',
+    "    const name = request.split('/').slice(0, request.startsWith('@') ? 2 : 1).join('/');",
+    "    const manifest = path.join(prefix, 'node_modules', ...name.split('/'), 'package.json');",
+    '',
+    '    // installed in the prefix: a failure to load it there is a broken floor install, never a reason',
+    '    // to test the workspace copy instead',
+    '    if (fs.existsSync(manifest)) {',
     '      return options.defaultResolver(request, { ...options, basedir: prefix });',
-    '    } catch {',
-    '      // not installed in the prefix, so the workspace copy stands',
     '    }',
     '  }',
     '',
