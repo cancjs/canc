@@ -160,6 +160,7 @@ export function getRequestRegistry(server: IServerLike | undefined, create?: boo
 /**
  * Records every connection a server accepts from now on, until it closes, so a shutdown can close
  * one that has received no bytes. Node keeps no such list, and `closeIdleConnections()` skips them.
+ * On a TLS server the raw socket is recorded too, so one still in its handshake can be closed.
  */
 export function trackConnections(server: IServerLike): void {
   const registry = getRequestRegistry(server, true);
@@ -172,13 +173,20 @@ export function trackConnections(server: IServerLike): void {
 
   const host = server as IListenerHost;
   if (isFunction(host.on)) {
-    host.on(isFunction(host.addContext) ? 'secureConnection' : 'connection', (socket) => {
+    const record = (socket: unknown) => {
       const connection = socket as IConnectionLike;
       connections.set(connection, Date.now());
       connection.once?.('close', () => {
         connections.delete(connection);
       });
-    });
+    };
+
+    // a TLS server hands its requests the socket from secureConnection, but a client still in its
+    // handshake exists only as the raw socket from connection, and nothing else would close it
+    if (isFunction(host.addContext)) {
+      host.on('secureConnection', record);
+    }
+    host.on('connection', record);
   }
 }
 

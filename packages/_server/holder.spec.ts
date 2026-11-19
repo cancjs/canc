@@ -54,7 +54,7 @@ describe('connection tracking', () => {
     expect(getRequestRegistry(host)?.connections?.size).toBe(0);
   });
 
-  it('follows a TLS server through secureConnection, whose socket its requests carry', () => {
+  it('follows a TLS server through both its raw and its secure socket', () => {
     const server = Object.assign(new EventEmitter(), { addContext: () => undefined });
     const host = server as unknown as IServerLike;
     const raw = new EventEmitter();
@@ -65,7 +65,7 @@ describe('connection tracking', () => {
     server.emit('secureConnection', secure);
 
     const connections = getRequestRegistry(host)?.connections;
-    expect(connections?.has(raw)).toBe(false);
+    expect(connections?.has(raw)).toBe(true);
     expect(connections?.has(secure)).toBe(true);
   });
 });

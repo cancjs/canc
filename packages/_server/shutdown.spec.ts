@@ -1,6 +1,8 @@
 import { CancelablePromise, CancelError, isCancelError, setPromiseImpl } from '@cancjs/promise';
 import { once } from 'events';
 import { createServer, globalAgent, IncomingMessage, request, Server, ServerResponse } from 'http';
+import { createServer as createSecureServer } from 'https';
+import type { AddressInfo } from 'net';
 import { connect, Socket } from 'net';
 
 import { createExchange, FakeResponse, FakeServer, flush, outcomeOf, pending } from './__tests__/fakes';
@@ -1557,5 +1559,39 @@ describe('shutdown answer validation', () => {
 
     expect(() => shutdownServer(server as never, { status: 200, headers: { 'X-A': 'a\tb' } })).not.toThrow();
     expect(() => shutdownServer(server as never, { status: 599 })).not.toThrow();
+  });
+});
+
+describe('TLS handshake at shutdown', () => {
+  it('closes a connection still in its TLS handshake', async () => {
+    const tls = createSecureServer({});
+    await new Promise<void>((resolve) => tls.listen(0, '127.0.0.1', resolve));
+    const shutdown = createServerShutdown(tls);
+    const client = connect((tls.address() as AddressInfo).port, '127.0.0.1');
+    client.on('error', () => undefined);
+    await once(client, 'connect');
+    const closed = once(client, 'close');
+
+    expect(await shutdown({ cancelAfter: 100, closeAfter: 1_000 })).toEqual({
+      canceled: 0,
+      completed: 0,
+      timedOut: false,
+    });
+    await closed;
+  });
+
+  it('leaves a handshaking connection alone with closeServer false', async () => {
+    const tls = createSecureServer({});
+    await new Promise<void>((resolve) => tls.listen(0, '127.0.0.1', resolve));
+    const shutdown = createServerShutdown(tls);
+    const client = connect((tls.address() as AddressInfo).port, '127.0.0.1');
+    client.on('error', () => undefined);
+    await once(client, 'connect');
+
+    await shutdown({ cancelAfter: 50, closeAfter: 200, closeServer: false });
+
+    expect(client.destroyed).toBe(false);
+    client.destroy();
+    await new Promise<void>((resolve) => tls.close(() => resolve()));
   });
 });
