@@ -140,58 +140,92 @@ function getChangedFiles(baseRef) {
 }
 
 function hasBreakingListItem(summary) {
-  const listContentIndents = [];
+  const containers = [];
   let fence = null;
+  let previousBlank = true;
 
   for (const rawLine of summary.split(/\r?\n/)) {
-    let line = '';
+    let content = '';
     for (const char of rawLine) {
-      line += char === '\t' ? ' '.repeat(4 - (line.length % 4)) : char;
+      content += char === '\t' ? ' '.repeat(4 - (content.length % 4)) : char;
     }
-    if (!line.trim()) continue;
 
-    const indent = /^ */.exec(line)[0].length;
-    while (listContentIndents.length && indent < listContentIndents[listContentIndents.length - 1]) {
-      listContentIndents.pop();
+    const followsBlank = previousBlank;
+    previousBlank = false;
+    let matched = 0;
+    for (const container of containers) {
+      const lazy =
+        !fence &&
+        !followsBlank &&
+        content.trim() &&
+        !/^ {0,3}(?:>|(?:[-*+]|\d{1,9}[.)])(?: +|$)|\x60{3,}|~{3,}|#{1,6}(?: +|$))/.test(content);
+      if (container.type === 'quote') {
+        const quote = /^ {0,3}> ?/.exec(content);
+        if (!quote && !lazy) break;
+        if (quote) content = content.slice(quote[0].length);
+      } else if (!content.trim()) {
+        content = '';
+      } else {
+        const indent = /^ */.exec(content)[0].length;
+        if (indent < container.indent && !lazy) break;
+        if (indent >= container.indent) content = content.slice(container.indent);
+      }
+      matched++;
     }
-    const containerIndent = listContentIndents[listContentIndents.length - 1] || 0;
-    const content = line.slice(containerIndent);
+    containers.length = matched;
 
+    if (fence && !fence.containers.every((container, index) => containers[index] === container)) {
+      fence = null;
+    }
     if (fence) {
       const closing = /^ {0,3}(\x60+|~+)\s*$/.exec(content);
-      if (closing && closing[1][0] === fence[0] && closing[1].length >= fence.length) {
+      if (closing && closing[1][0] === fence.marker[0] && closing[1].length >= fence.marker.length) {
         fence = null;
       }
       continue;
     }
 
-    if (indent - containerIndent >= 4) continue;
+    let openedContainer = false;
+    while (content.trim()) {
+      const quote = /^ {0,3}> ?/.exec(content);
+      const marker = /^ {0,3}([-*+]|\d{1,9}[.)])(?: +(.*)|$)/.exec(content);
+      if (!quote && !marker) break;
+      openedContainer = true;
 
-    let prose = content;
-    let contentIndent = containerIndent;
-    let hasMarker = false;
-    while (true) {
-      const marker = /^ {0,3}([-*+]|\d{1,9}[.)])( +)(.*)$/.exec(prose);
-      if (!marker) break;
-      const markerWidth = marker[0].length - marker[3].length;
-      if (marker[2].length > 4) {
-        listContentIndents.push(contentIndent + markerWidth - marker[2].length + 1);
-        prose = '';
-        break;
+      const parent = containers[containers.length - 1];
+      if (parent && parent.type === 'list') parent.pending = false;
+
+      if (quote) {
+        containers.push({ type: 'quote' });
+        content = content.slice(quote[0].length);
+      } else {
+        const markerEnd = marker[0].indexOf(marker[1]) + marker[1].length;
+        const afterMarker = content.slice(markerEnd);
+        const spaces = /^ */.exec(afterMarker)[0].length;
+        const padding = spaces > 4 ? 1 : spaces;
+        const indent = markerEnd + (afterMarker.trim() ? padding : 0);
+        containers.push({ type: 'list', indent, pending: true });
+        content = content.slice(indent);
       }
-      contentIndent += markerWidth;
-      listContentIndents.push(contentIndent);
-      hasMarker = true;
-      prose = marker[3];
     }
-
-    const opening = /^ {0,3}(\x60{3,}|~{3,})(.*)$/.exec(prose);
-    if (opening && (opening[1][0] !== '\x60' || !opening[2].includes('\x60'))) {
-      fence = opening[1];
+    if (!content.trim()) {
+      previousBlank = !openedContainer;
       continue;
     }
 
-    if (hasMarker && /^\*\*Breaking:\*\*/.test(prose)) return true;
+    const item = containers[containers.length - 1];
+    const pending = item && item.type === 'list' && item.pending;
+    if (item && item.type === 'list') item.pending = false;
+
+    if (/^ {4}/.test(content)) continue;
+
+    const opening = /^ {0,3}(\x60{3,}|~{3,})(.*)$/.exec(content);
+    if (opening && (opening[1][0] !== '\x60' || !opening[2].includes('\x60'))) {
+      fence = { marker: opening[1], containers: containers.slice() };
+      continue;
+    }
+
+    if (pending && /^ {0,3}\*\*Breaking:\*\*/.test(content)) return true;
   }
 
   return false;
