@@ -1336,3 +1336,42 @@ describe('onError cancelErrorHandler stamps an owned derived cancel', () => {
     expect((await pending).status).toBe(503);
   });
 });
+
+describe('onError that throws', () => {
+  it('closes the socket of a deadline whose onError rethrows the cancellation', async () => {
+    const host = runInThisContext('process') as NodeJS.Process;
+    const surfaced: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      surfaced.push(reason);
+    };
+    host.on('unhandledRejection', onUnhandled);
+
+    try {
+      const port = await listen(
+        cancelableHandler(
+          function* (_req: IncomingMessage, res: ServerResponse) {
+            yield never();
+            res.end('unreachable');
+          },
+          {
+            onError: (error) => {
+              throw error;
+            },
+            timeout: 25,
+          },
+        ),
+      );
+      const client = await rawRequest(port, 'GET /slow HTTP/1.1\r\nHost: localhost\r\n\r\n');
+      const closed = once(client, 'close').then(() => 'closed');
+      const open = new Promise<string>((resolve) => {
+        setTimeout(() => resolve('still open'), 2_000).unref();
+      });
+
+      expect(await Promise.race([closed, open])).toBe('closed');
+      await settleTurns();
+      expect(surfaced).toEqual([]);
+    } finally {
+      host.off('unhandledRejection', onUnhandled);
+    }
+  });
+});
