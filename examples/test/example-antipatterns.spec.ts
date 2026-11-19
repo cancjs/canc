@@ -4,7 +4,7 @@ import { join, relative } from 'path';
 // repo-wide sweep asserting killed antipatterns stay dead in example sources
 
 const EXAMPLES_ROOT = join(__dirname, '..');
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', 'out', '~~legacy examples']);
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', '.git', 'out']);
 
 function walk(dir: string, files: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
