@@ -11,6 +11,8 @@ import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/dead
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
+  cancelableHook,
+  cancelablePreParsing,
   cancelErrorHandler,
   cancelPlugin,
   createShutdown,
@@ -1426,9 +1428,9 @@ function slowBody(onEnd: () => void): Readable {
 
 /** A wrapped hook that hands the request straight on, the shape of an auth or tenant check. */
 function passThrough(): preHandlerAsyncHookHandler {
-  return cancelableHandler(function* () {
+  return cancelableHook(function* () {
     /**/
-  }) as unknown as preHandlerAsyncHookHandler;
+  });
 }
 
 /**
@@ -2256,5 +2258,103 @@ describe('drain inside the fastify close', () => {
 
     expect(await shutdown).toEqual({ canceled: 0, completed: 1, timedOut: false });
     expect(order).toEqual(['answered', 'preClose']);
+  });
+});
+
+describe('cancelable hooks', () => {
+  it('cancels a generator preHandler at the request deadline and skips the route', async () => {
+    const instance = Fastify();
+    const trail: string[] = [];
+    await instance.register(cancelPlugin, { timeout: 50 });
+    instance.get(
+      '/x',
+      {
+        preHandler: cancelableHook(function* () {
+          try {
+            yield new Promise(() => undefined);
+          } finally {
+            trail.push('hook-finally');
+          }
+        }),
+      },
+      cancelableHandler(function* () {
+        trail.push('route');
+        return { ok: true };
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = await send(port, '/x');
+
+    expect(response.statusCode).toBe(503);
+    expect(trail).toEqual(['hook-finally']);
+  });
+
+  it('runs one wrapped hook value on onRequest, preValidation and preHandler', async () => {
+    const instance = Fastify();
+    const seen: string[] = [];
+    await instance.register(cancelPlugin);
+    const hook = cancelableHook(function* (request) {
+      yield Promise.resolve();
+      seen.push(request.url);
+    });
+    instance.get('/x', { onRequest: hook, preHandler: hook, preValidation: hook }, () => 'ok');
+
+    const port = await listen(instance);
+    const response = await send(port, '/x');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('ok');
+    expect(seen).toEqual(['/x', '/x', '/x']);
+  });
+
+  it('passes the payload to preParsing and lets a returned stream replace it', async () => {
+    const instance = Fastify();
+    const seen: string[] = [];
+    await instance.register(cancelPlugin);
+    instance.addHook(
+      'preParsing',
+      cancelablePreParsing(function* (_request, _reply, payload) {
+        seen.push(typeof payload.pipe);
+        yield Promise.resolve();
+        return Readable.from(['{"b":2}']);
+      }),
+    );
+    instance.post('/echo', async (request) => request.body);
+
+    const port = await listen(instance);
+    const response = await send(port, '/echo', 'POST', '{"a":1}');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('{"b":2}');
+    expect(seen).toEqual(['function']);
+  });
+
+  it('keeps the payload when preParsing returns nothing', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.addHook(
+      'preParsing',
+      cancelablePreParsing(function* () {
+        yield Promise.resolve();
+      }),
+    );
+    instance.post('/echo', async (request) => request.body);
+
+    const port = await listen(instance);
+    const response = await send(port, '/echo', 'POST', '{"a":1}');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toBe('{"a":1}');
+  });
+
+  it('refuses onRequestAbort and payload-carrying hooks with a TypeError', () => {
+    const hook = cancelableHook(function* () {
+      /**/
+    }) as unknown as (...args: unknown[]) => unknown;
+
+    expect(() => hook({ raw: {} }, () => undefined)).toThrow(/onRequestAbort.*already aborted/);
+    expect(() => hook({ raw: {} }, { raw: {} }, 'payload', () => undefined)).toThrow(/payload or an error/);
+    expect(() => cancelableHook(undefined as never)).toThrow(TypeError);
   });
 });

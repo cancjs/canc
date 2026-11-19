@@ -1,8 +1,10 @@
-import { CancelSignal, isCancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelSignal, isCancelError } from '@cancjs/promise';
 import {
   FastifyInstance,
   FastifyReply,
   FastifyRequest,
+  preHandlerAsyncHookHandler,
+  preParsingAsyncHookHandler,
   RawReplyDefaultExpression,
   RawRequestDefaultExpression,
   RawServerDefault,
@@ -62,7 +64,8 @@ export function getRequestSignal(request: Pick<FastifyRequest, 'raw'>, reply: Pi
  *
  * The wrapper never writes the response. A cancellation on a response that can no longer be
  * answered is swallowed, because there is nobody left to answer; everything else, deadlines
- * included, reaches the fastify error handler.
+ * included, reaches the fastify error handler. Mount request hooks with `cancelableHook` or
+ * `cancelablePreParsing` instead.
  */
 export function cancelableHandler<RouteGeneric extends RouteGenericInterface = RouteGenericInterface>(
   handler: THandlerFn<TFastifyRouteHandler<RouteGeneric>, RouteGeneric['Reply']>,
@@ -75,6 +78,8 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
     reply: FastifyReply<RouteGeneric>,
     ...hookDone: unknown[]
   ): Promise<RouteGeneric['Reply'] | undefined> {
+    assertReply(reply, 'cancelableHandler');
+
     // fastify hands a hook a done callback even when the hook is async, and a route handler only
     // the pair; a hook settling hands the request on, so the deadline stays up for the route
     const mountedAsHook = hookDone.length > 0;
@@ -86,38 +91,146 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
       thisArg: this,
     });
 
-    return task.catch((error: unknown) => {
-      // an unowned cancellation is the caller's: it goes to the error handler uncut
-      const state = isCancelError(error) ? getRequestState(toRequestLike(request.raw)) : undefined;
-      const owned = state !== undefined && ownedStatusOf(error, state, undefined, signals) !== undefined;
-
-      // a sent head cannot take a status, so the socket is cut instead of left looking complete
-      // a response that finished on its own is not a cut
-      // a cut on a live response is logged, since the client sees only a reset
-      if (owned && reply.raw.headersSent) {
-        if (isResponseLive(reply.raw)) {
-          request.log.error(error);
-        }
-
-        reply.raw.destroy();
-        reply.hijack();
-
-        return undefined;
-      }
-
-      if (!isUnanswerable(error, reply.raw)) {
-        throw error;
-      }
-
-      // hijack, not the reply.sent flag fastify 5 deprecated: it is the supported way to say the
-      // response is no longer fastify's to write, and it is read before any send is attempted
-      reply.hijack();
-
-      return undefined;
-    });
+    return settleWrapped(task, request, reply, signals);
   };
 
   // fastify resolves a route's return type through a conditional over the route generic, which
   // cannot be evaluated while that generic is still a type parameter here
   return wrapped as TFastifyRouteHandler<RouteGeneric>;
+}
+
+function settleWrapped<T, RouteGeneric extends RouteGenericInterface>(
+  task: CancelablePromise<T>,
+  request: FastifyRequest<RouteGeneric>,
+  reply: FastifyReply<RouteGeneric>,
+  signals: readonly AbortSignal[],
+): Promise<T | undefined> {
+  return task.catch((error: unknown) => {
+    // an unowned cancellation is the caller's: it goes to the error handler uncut
+    const state = isCancelError(error) ? getRequestState(toRequestLike(request.raw)) : undefined;
+    const owned = state !== undefined && ownedStatusOf(error, state, undefined, signals) !== undefined;
+
+    // a sent head cannot take a status, so the socket is cut instead of left looking complete
+    // a response that finished on its own is not a cut
+    // a cut on a live response is logged, since the client sees only a reset
+    if (owned && reply.raw.headersSent) {
+      if (isResponseLive(reply.raw)) {
+        request.log.error(error);
+      }
+
+      reply.raw.destroy();
+      reply.hijack();
+
+      return undefined;
+    }
+
+    if (!isUnanswerable(error, reply.raw)) {
+      throw error;
+    }
+
+    // hijack, not the reply.sent flag fastify 5 deprecated: it is the supported way to say the
+    // response is no longer fastify's to write, and it is read before any send is attempted
+    reply.hijack();
+
+    return undefined;
+  });
+}
+
+function assertReply(reply: unknown, wrapper: string): void {
+  if (typeof reply === 'function') {
+    throw new TypeError(
+      `${wrapper}() cannot wrap an onRequestAbort hook: the request scope is already aborted when it runs.`,
+    );
+  }
+
+  if (reply === null || typeof reply !== 'object' || (reply as { raw?: unknown }).raw === undefined) {
+    throw new TypeError(`${wrapper}() needs the reply as the second argument.`);
+  }
+}
+
+/** The async hook fastify takes for onRequest, preValidation and preHandler, with only the route generic left open. */
+export type TFastifyRequestHook<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> =
+  preHandlerAsyncHookHandler<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, RouteGeneric>;
+
+/** The async hook fastify takes for preParsing, with only the route generic left open. */
+export type TFastifyPreParsingHook<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> =
+  preParsingAsyncHookHandler<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, RouteGeneric>;
+
+/** What `cancelableHook` wraps: a generator over the request and the reply, or a plain hook. */
+export type TCancelableHookFn<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> = THandlerFn<
+  (this: FastifyInstance, request: FastifyRequest<RouteGeneric>, reply: FastifyReply<RouteGeneric>) => unknown
+>;
+
+/** What `cancelablePreParsing` wraps: a generator over the request, the reply and the payload, or a plain hook. */
+export type TCancelablePreParsingFn<RouteGeneric extends RouteGenericInterface = RouteGenericInterface> = THandlerFn<
+  (this: FastifyInstance, ...args: Parameters<TFastifyPreParsingHook<RouteGeneric>>) => unknown
+>;
+
+/**
+ * Wraps an `onRequest`, `preValidation` or `preHandler` hook so it is canceled with the request.
+ * A generator stops at its next `yield`; any other hook runs signal-only. A settling hook hands
+ * the request on, leaving its deadline running. One wrapped hook mounts on any of those stages.
+ * An `onRequestAbort` hook is refused because its request scope is already aborted.
+ */
+export function cancelableHook<RouteGeneric extends RouteGenericInterface = RouteGenericInterface>(
+  hook: TCancelableHookFn<RouteGeneric>,
+  options?: ICancelableHandlerOptions,
+): TFastifyRequestHook<RouteGeneric> {
+  return wrapHook<RouteGeneric>('cancelableHook', hook as TAnyFn, options, false) as TFastifyRequestHook<RouteGeneric>;
+}
+
+/**
+ * Wraps a `preParsing` hook so it is canceled with the request. The payload stream is the
+ * third argument, and a returned stream replaces that payload as it does for a fastify async hook.
+ */
+export function cancelablePreParsing<RouteGeneric extends RouteGenericInterface = RouteGenericInterface>(
+  hook: TCancelablePreParsingFn<RouteGeneric>,
+  options?: ICancelableHandlerOptions,
+): TFastifyPreParsingHook<RouteGeneric> {
+  // preParsing resolves its type through payload overloads absent from the shared wrapper
+  return wrapHook<RouteGeneric>(
+    'cancelablePreParsing',
+    hook as TAnyFn,
+    options,
+    true,
+  ) as unknown as TFastifyPreParsingHook<RouteGeneric>;
+}
+
+function wrapHook<RouteGeneric extends RouteGenericInterface>(
+  wrapper: string,
+  hook: TAnyFn,
+  options: ICancelableHandlerOptions | undefined,
+  forwardsPayload: boolean,
+) {
+  if (typeof hook !== 'function') {
+    throw new TypeError(`${wrapper}() needs the hook function as its first argument, got ${typeof hook}.`);
+  }
+
+  const signals = routeSignalsOf(options?.signal);
+
+  return function (
+    this: FastifyInstance,
+    request: FastifyRequest<RouteGeneric>,
+    reply: FastifyReply<RouteGeneric>,
+    ...rest: unknown[]
+  ): Promise<unknown> {
+    assertReply(reply, wrapper);
+
+    // payload/error hooks have more arguments than request hooks
+    if (!forwardsPayload && rest.length > 1) {
+      throw new TypeError(
+        `${wrapper}() wraps an onRequest, preValidation or preHandler hook; this hook was called with a payload or an error argument.`,
+      );
+    }
+
+    const task = runCancelableHandler<unknown>(hook, request.raw, reply.raw, options, {
+      args: forwardsPayload ? [request, reply, rest[0]] : [request, reply],
+      // a hook settling hands the request on, leaving the deadline up for the route
+      handsOn: () => true,
+      onLateFailure: (error) => request.log.error(error),
+      thisArg: this,
+    });
+
+    return settleWrapped(task, request, reply, signals);
+  };
 }
