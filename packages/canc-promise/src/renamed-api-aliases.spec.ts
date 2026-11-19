@@ -2,15 +2,6 @@ import { CancelError } from './cancel-error';
 import { CancelablePromise, ICancelableHelperOptions } from './cancelable-promise';
 import { isCancPromise, makeCancelable } from './helpers';
 
-/**
- * New primary names and the deprecated aliases that keep the old names working.
- *
- * Covers: canceled/cancelable getters (new primary + old alias still works), bubbled field on
- * CancelError (new primary + old alias getter/setter), options getter, Promise.try static,
- * isCancPromise duck-token helper, makeCancelable (renamed forceCancelable helper) + alias,
- * ICancelableHelperOptions custom-constructor injection.
- */
-
 describe('renamed API: CancelablePromise.canceled / .cancelable', () => {
   it('canceled is the primary name and reflects state', async () => {
     const promise = new CancelablePromise(() => {
