@@ -19,7 +19,7 @@
  * hits the identical wall with or without this package in the middle. This file is compiled only
  * in lanes matrix.config.json marks `serverFastifyTypes: true` (5.4 and newer).
  */
-import { cancelableHandler, createShutdown } from '@cancjs/server-fastify';
+import { cancelableHandler, cancelableHook, cancelablePreParsing, createShutdown } from '@cancjs/server-fastify';
 import Fastify from 'fastify';
 import { Readable } from 'node:stream';
 
@@ -80,7 +80,51 @@ const wrongArityHandler = () =>
   });
 void wrongArityHandler;
 
+const requestHook = cancelableHook(function* (request, reply) {
+  const method: string = request.method;
+  const ended: boolean = reply.raw.writableEnded;
+  yield Promise.resolve();
+  void method;
+  void ended;
+});
+void requestHook;
+
+const typedHook = cancelableHook<{ Params: { id: string } }>(function* (request) {
+  const id: string = request.params.id;
+  yield Promise.resolve();
+  void id;
+});
+void typedHook;
+
+const parsingHook = cancelablePreParsing(function* (_request, _reply, payload) {
+  const pipe: typeof payload.pipe = payload.pipe;
+  yield Promise.resolve();
+  void pipe;
+});
+void parsingHook;
+
+const asyncGeneratorHook = () =>
+  // @ts-expect-error async generators are not supported by a request hook
+  cancelableHook(async function* () {
+    yield 1;
+  });
+void asyncGeneratorHook;
+
+const wrongArityHook = () =>
+  // @ts-expect-error request hooks take only request and reply
+  cancelableHook(function* (_request, _reply, _payload: string) {
+    yield Promise.resolve();
+  });
+void wrongArityHook;
+
 const app = Fastify();
+app.addHook('onRequest', requestHook);
+app.addHook('preValidation', requestHook);
+app.addHook('preHandler', requestHook);
+app.addHook('preParsing', parsingHook);
+app.get<{ Params: { id: string } }>('/users/:id', { preHandler: typedHook }, () => 'ok');
+// @ts-expect-error onRequestAbort does not accept a request/reply hook
+app.addHook('onRequestAbort', requestHook);
 const goodShutdown = () => createShutdown(app);
 const badShutdown = () =>
   // @ts-expect-error the shutdown is narrowed to the instance so onClose hooks run after it
