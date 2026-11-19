@@ -54,6 +54,9 @@ function isCuratedFile(fileName) {
   return CURATED_FILE_RE.test(fileName);
 }
 
+// Breaking core notes must open with a migration headline
+const CORE_PACKAGES = new Set(['@cancjs/promise', '@cancjs/coroutine']);
+
 const EMOJI_RE = /[\u{1f000}-\u{1faff}\u{2600}-\u{27bf}\u{2b00}-\u{2bff}]|\ufe0f|\p{Extended_Pictographic}/u;
 
 function parseArgs(argv) {
@@ -175,6 +178,19 @@ function validateChangesetFile(filePath) {
 
   if (!parsed.summary || parsed.summary.trim().length === 0) {
     errors.push(`${relPath}: changeset body is empty`);
+  }
+
+  if (isCurated && parsed.releases.length === 1 && CORE_PACKAGES.has(parsed.releases[0].name)) {
+    const bodyLines = (parsed.summary || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const hasBreakingBullet = bodyLines.some((l) => /^[-*]\s+\*\*Breaking:\*\*/.test(l));
+    if (hasBreakingBullet && !bodyLines[0].startsWith('**Breaking:** ')) {
+      errors.push(
+        `${relPath}: core release notes with a **Breaking:** bullet must open with a headline line that starts with "**Breaking:** "`,
+      );
+    }
   }
 
   const lines = content.split(/\r?\n/);
