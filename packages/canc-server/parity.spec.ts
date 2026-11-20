@@ -1,5 +1,5 @@
 import { once } from 'node:events';
-import { IncomingMessage, request as sendRequest, Server } from 'node:http';
+import { IncomingMessage, request as sendRequest, Server, STATUS_CODES } from 'node:http';
 import { AddressInfo } from 'node:net';
 
 import { CancelablePromise, CancelError } from '@cancjs/promise';
@@ -51,6 +51,7 @@ import * as koaServer from './canc-server-koa/src';
  * | Quiet body on the terminal handler      | express, H on owned    | the handler answers a bare status, finalhandler would log and send html |
  * | App handler skipped for owned cancels   | fastify and hono, HU   | one error slot: the adapter's handler answers a cancel the request owns, and its `onError` option only takes what is not a cancel |
  * | Unowned cancel not given to the app     | fastify, HU            | the adapter's handler passes a cancel the request does not own to the framework default, not to its `onError` option |
+ * | Generic body for minted cancels        | fastify, M             | fastify ignores `expose`, so the plugin hides a minted cancel's message behind the status text |
  *
  * The first three are connection level and covered by the per-package suites; the rest are asserted
  * below, each against the mode it is documented to behave like.
@@ -124,6 +125,20 @@ const adapters: IAdapter[] = [
   { build: buildKoa, modes: ['P', 'W', 'H', 'U', 'WU', 'HU', 'UH'], name: 'koa' },
   {
     build: buildFastify,
+    delta: (mode, kind, base) => {
+      if (mode !== 'M' || !MINTED.includes(kind)) {
+        return base;
+      }
+
+      // fastify plugin hides canc-minted error messages in the default body
+      const body = JSON.stringify({ ...(JSON.parse(base.body) as object), message: STATUS_CODES[base.status] });
+      const headers =
+        base.headers['content-length'] === undefined ?
+          base.headers
+        : { ...base.headers, 'content-length': String(Buffer.byteLength(body)) };
+
+      return { ...base, body, headers };
+    },
     modes: ['P', 'W', 'M', 'H', 'U', 'WU', 'HU'],
     name: 'fastify',
     reference: (mode, kind) => {
