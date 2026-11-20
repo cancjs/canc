@@ -140,7 +140,6 @@ function install(options) {
   }
 }
 
-// the target's own jest config, with the frameworks resolved from the floor prefix; a framework the prefix holds must load from there, one it lacks comes from the workspace
 function wrapConfig(options, configPath) {
   const slug = path.basename(path.dirname(configPath));
   const wrapper = path.join(options.prefix, `jest.${slug}.config.js`);
