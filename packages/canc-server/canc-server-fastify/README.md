@@ -97,7 +97,21 @@ The cancel state is cached on the raw request under a registered symbol, so the 
 
 ### What the wrapper does and does not answer
 
-The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches Fastify's error handling, including a missed deadline, which carries `status` and `statusCode` so Fastify answers with the code you configured. With `cancelPlugin` registered, Fastify's default error body for such a cancellation carries the status text as its message, for example `Service Unavailable`, so a deadline `message` or a shutdown `reason` stays out of the response; the error keeps its message for logs and for your own error handler.
+The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches Fastify's error handling, including a missed deadline, which carries `status` and `statusCode` so Fastify answers with the code you configured.
+
+All five server adapters set `CancelError.message` to `Request canceled` for deadlines and shutdowns they trigger. The original diagnostic is on the direct `cause`, a `TimeoutError` with the deadline message or an `Error` with the shutdown reason. In logs and callbacks, read `error.cause?.message ?? error.message`.
+
+With or without `cancelPlugin`, Fastify's default error handler serializes the cancellation with the HTTP status text in `error` and the fixed message in `message`. A custom handler that delegates with `reply.send(error)` gets the same body. For a 503 response, Fastify sends:
+
+```json
+{
+  "statusCode": 503,
+  "error": "Service Unavailable",
+  "message": "Request canceled"
+}
+```
+
+A custom handler that sends its own JSON controls the body and can explicitly include the original diagnostic from `error.cause`.
 
 When the response head already went out, no status can be sent, so the socket is destroyed instead of left looking complete. The cut is logged once at error level through `request.log`, since the client sees only a reset. A cancellation the request does not own, such as one the handler raised itself, is not cut: it goes to the error handler as it is. A handler that fails after its cancellation has already answered the request is logged the same way, at error level, through `request.log`.
 
