@@ -271,6 +271,7 @@ describe('request deadline', () => {
   it('reports a deadline once however many wrapped layers the request passed', async () => {
     const timeouts: CancelError[] = [];
     const onTimeout = (reason: CancelError) => timeouts.push(reason);
+    let signal: AbortSignal | undefined;
 
     const route = cancelableHandler(
       function* (_req: IncomingMessage, res: ServerResponse) {
@@ -289,6 +290,7 @@ describe('request deadline', () => {
     const port = await listen(
       cancelableHandler(
         function* (req: IncomingMessage, res: ServerResponse) {
+          signal = getRequestSignal(req, res);
           middle(req, res);
           yield never();
         },
@@ -299,6 +301,12 @@ describe('request deadline', () => {
     expect((await httpRequest(port, { path: '/slow' })).status).toBe(503);
     await settleTurns();
     expect(timeouts).toHaveLength(1);
+    expect(timeouts[0]).toBe(signal?.reason);
+    expect(timeouts[0]).toMatchObject({
+      cause: { message: HANDLER_TIMEOUT },
+      message: 'Request canceled',
+      timedOut: true,
+    });
   });
 
   it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {

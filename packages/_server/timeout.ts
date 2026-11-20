@@ -26,7 +26,7 @@ export interface IStatusCancelError extends CancelError {
    * otherwise.
    */
   headers?: Record<string, string>;
-  /** Always false on a canc-minted cancel: its message is for the log, never for the response body. */
+  /** Always false on a server-minted cancellation. */
   expose: boolean;
 }
 
@@ -72,6 +72,14 @@ export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefi
   };
 }
 
+function createRequestCancellation(cause: Error): IStatusCancelError {
+  const error = new CancelError('Request canceled') as IStatusCancelError;
+
+  Object.defineProperty(error, 'cause', { configurable: true, value: cause, writable: true });
+
+  return error;
+}
+
 /**
  * Mints the cancellation a missed deadline raises.
  *
@@ -81,7 +89,7 @@ export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefi
  * setting both produces the configured code in all three with no extra wiring.
  */
 export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
-  const error = new CancelError(spec.message, { cause: new TimeoutError(spec.message) }) as IStatusCancelError;
+  const error = createRequestCancellation(new TimeoutError(spec.message));
 
   error.status = spec.status;
   error.statusCode = spec.status;
@@ -98,11 +106,11 @@ export function createTimeoutError(spec: ITimeoutSpec): IStatusCancelError {
  * Mints the cancellation a shutdown raises on one request.
  *
  * Stamped with the same status pair as a deadline, so a framework's default error pipeline answers
- * 503 with no handler. The cause is left empty: `timedOut` stays false, and the handler's status
- * option still applies to it, unless the shutdown set a status of its own.
+ * 503 with no handler. The original reason lives in an Error cause, so `timedOut` stays false.
+ * The handler's status option applies unless the shutdown set a status of its own.
  */
 export function createShutdownError(message: string, options: IShutdownErrorOptions = {}): IStatusCancelError {
-  const error = new CancelError(message) as IStatusCancelError;
+  const error = createRequestCancellation(new Error(message));
   const status = options.status ?? DEFAULT_TIMEOUT_STATUS;
 
   error.status = status;

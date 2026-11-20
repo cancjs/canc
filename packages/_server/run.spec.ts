@@ -318,7 +318,8 @@ describe('handler deadline', () => {
 
     expect(isCancelError(error)).toBe(true);
     expect(error.timedOut).toBe(true);
-    expect(error.message).toBe(HANDLER_TIMEOUT);
+    expect(error.message).toBe('Request canceled');
+    expect(error.cause).toMatchObject({ message: HANDLER_TIMEOUT });
     expect(error.status).toBe(503);
     expect(error.statusCode).toBe(503);
   });
@@ -343,7 +344,8 @@ describe('handler deadline', () => {
 
     expect(error.status).toBe(504);
     expect(error.statusCode).toBe(504);
-    expect(error.message).toBe('slow query');
+    expect(error.message).toBe('Request canceled');
+    expect(error.cause).toMatchObject({ message: 'slow query' });
   });
 
   it('aborts the shared request signal, not just the handler', () => {

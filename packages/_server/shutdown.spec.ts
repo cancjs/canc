@@ -74,7 +74,8 @@ describe('graceful shutdown', () => {
 
       expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
       expect(isCancelError(error)).toBe(true);
-      expect(error.message).toBe(SERVER_SHUTDOWN);
+      expect(error.message).toBe('Request canceled');
+      expect(error.cause).toMatchObject({ message: SERVER_SHUTDOWN });
       expect(server.allClosed).toBe(0);
     } finally {
       jest.useRealTimers();
@@ -101,7 +102,8 @@ describe('graceful shutdown', () => {
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(isCancelError(error)).toBe(true);
-    expect(error.message).toBe(SERVER_SHUTDOWN);
+    expect(error.message).toBe('Request canceled');
+    expect(error.cause).toMatchObject({ message: SERVER_SHUTDOWN });
   });
 
   it('cancels live requests across several connections', async () => {
@@ -220,7 +222,8 @@ describe('graceful shutdown', () => {
     const error = (await detached) as CancelError;
 
     expect(isCancelError(error)).toBe(true);
-    expect(error.message).toBe(SERVER_SHUTDOWN);
+    expect(error.message).toBe('Request canceled');
+    expect(error.cause).toMatchObject({ message: SERVER_SHUTDOWN });
     expect(isCancelError(await handled)).toBe(true);
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
@@ -289,7 +292,7 @@ describe('graceful shutdown', () => {
 
     expect(await shutdownServer(server, { cancelAfter: 0 })).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(signal.aborted).toBe(true);
-    expect((signal.reason as CancelError).message).toBe(SERVER_SHUTDOWN);
+    expect(signal.reason).toMatchObject({ cause: { message: SERVER_SHUTDOWN }, message: 'Request canceled' });
   });
 
   it('ignores a request whose response is already over', async () => {
@@ -332,7 +335,7 @@ describe('graceful shutdown', () => {
       const signal = getNodeRequestSignal(req, res);
 
       expect(signal.aborted).toBe(true);
-      expect((signal.reason as Error).message).toBe(SERVER_SHUTDOWN);
+      expect(signal.reason).toMatchObject({ cause: { message: SERVER_SHUTDOWN }, message: 'Request canceled' });
       // the request owes its answer, so the window holds until closeAfter (cancelAfter + 1000)
       await jest.advanceTimersByTimeAsync(1000);
       await shutdown;
@@ -842,7 +845,7 @@ describe('graceful shutdown over a real socket', () => {
     const outcome = await answer;
 
     expect(outcome).toMatchObject({
-      body: SERVER_SHUTDOWN,
+      body: 'Request canceled',
       connection: 'close',
       status: 503,
     });
@@ -1095,7 +1098,7 @@ describe('graceful shutdown over a real socket', () => {
 
     expect(responses).toHaveLength(2);
     expect(responses[1]).toMatch(/^HTTP\/1\.1 503/);
-    expect(responses[1]).toContain(SERVER_SHUTDOWN);
+    expect(responses[1]).toContain('Request canceled');
     expect(result).toEqual({ canceled: 1, completed: 1, timedOut: false });
   });
 
@@ -1194,7 +1197,7 @@ describe('graceful shutdown over a real socket', () => {
       closeAfter: 60_000,
     });
 
-    expect(await answer).toMatchObject({ body: SERVER_SHUTDOWN, status: 503 });
+    expect(await answer).toMatchObject({ body: 'Request canceled', status: 503 });
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
 
