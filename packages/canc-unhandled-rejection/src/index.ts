@@ -56,23 +56,55 @@ function warnSafe(msg: string, options?: RegisterOptions): void {
   }
 }
 
+type RejectionListener = (reason: unknown, promise: Promise<unknown>) => void;
+
 interface Registration {
   type: string;
   remove: () => void;
+  // process listener, absent for event-target registrations
+  handler?: RejectionListener;
 }
 
-const REGISTRY_KEY = Symbol.for('@cancjs/unhandled-rejection:registry');
+const registrations: Registration[] = [];
 
-// one list per process so every build and entry point shares it
-function getRegistrations(): Registration[] {
-  if (typeof globalThis === 'undefined') {
-    return [];
+const HANDLER_BRAND = Symbol.for('@cancjs/unhandled-rejection:handler');
+
+function isBrandedHandler(listener: unknown): boolean {
+  try {
+    return typeof listener === 'function' && Boolean((listener as unknown as Record<symbol, unknown>)[HANDLER_BRAND]);
+  } catch {
+    return false;
   }
-  const host = globalThis as { [REGISTRY_KEY]?: Registration[] };
-  return host[REGISTRY_KEY] || (host[REGISTRY_KEY] = []);
 }
 
-const registrations: Registration[] = getRegistrations();
+// null when the process cannot enumerate its listeners, then callers fall back to counting
+function readProcessListeners(): RejectionListener[] | null {
+  if (typeof process === 'undefined' || typeof process.listeners !== 'function') {
+    return null;
+  }
+  try {
+    const listeners = process.listeners('unhandledRejection');
+    return Array.isArray(listeners) ? listeners : null;
+  } catch {
+    return null;
+  }
+}
+
+// another copy's branded listeners go, returns how many were removed
+function removeForeignBrandedHandlers(): number {
+  const listeners = readProcessListeners();
+  if (!listeners || typeof process.removeListener !== 'function') {
+    return 0;
+  }
+  let removed = 0;
+  for (const listener of listeners) {
+    if (isBrandedHandler(listener) && !registrations.some((reg) => reg.handler === listener)) {
+      process.removeListener('unhandledRejection', listener);
+      removed++;
+    }
+  }
+  return removed;
+}
 
 function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boolean {
   const isSuppressedLeaf = (error: unknown): boolean =>
@@ -98,7 +130,7 @@ function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boole
 
 function tryRegister(
   type: string,
-  setup: () => (() => void) | null,
+  setup: () => Pick<Registration, 'remove' | 'handler'> | null,
   options?: RegisterOptions,
   expectSiblings?: boolean,
 ): void {
@@ -114,9 +146,9 @@ function tryRegister(
     warnSafe(`Handler already registered (${existingTypes}), registering ${type} alongside.`, options);
   }
 
-  const remove = setup();
-  if (remove) {
-    registrations.push({ type, remove });
+  const installed = setup();
+  if (installed) {
+    registrations.push({ type, remove: installed.remove, handler: installed.handler });
   } else {
     warnSafe(`Failed to register handler for type "${type}" in current environment.`, options);
   }
@@ -224,7 +256,7 @@ function rethrowLater(reason: unknown): void {
   });
 }
 
-function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
+function makeNodeSetup(options?: RegisterOptions): () => Pick<Registration, 'remove' | 'handler'> | null {
   return () => {
     if (!hasNodeProcess()) {
       return null;
@@ -263,11 +295,21 @@ function makeNodeSetup(options?: RegisterOptions): () => (() => void) | null {
       }
       rethrowLater(reason);
     };
+    (handler as unknown as Record<symbol, unknown>)[HANDLER_BRAND] = true;
+    if (removeForeignBrandedHandlers() > 0) {
+      warnSafe(
+        'Handler already registered by another copy of this package. Replacing it with the new options.',
+        options,
+      );
+    }
     process.on('unhandledRejection', handler);
-    return () => {
-      if (typeof process !== 'undefined' && typeof process.removeListener === 'function') {
-        process.removeListener('unhandledRejection', handler);
-      }
+    return {
+      handler,
+      remove: () => {
+        if (typeof process !== 'undefined' && typeof process.removeListener === 'function') {
+          process.removeListener('unhandledRejection', handler);
+        }
+      },
     };
   };
 }
@@ -302,10 +344,12 @@ function registerEventTarget(type: string, options?: RegisterOptions, expectSibl
         }
       };
       target.addEventListener('unhandledrejection', handler);
-      return () => {
-        if (target && typeof target.removeEventListener === 'function') {
-          target.removeEventListener('unhandledrejection', handler);
-        }
+      return {
+        remove: () => {
+          if (target && typeof target.removeEventListener === 'function') {
+            target.removeEventListener('unhandledrejection', handler);
+          }
+        },
       };
     },
     options,
@@ -357,8 +401,9 @@ export function registerEdgeRuntime(options?: RegisterOptions): void {
  * duck-typing globals and `process.versions`. Warns and does nothing if no target is recognized.
  *
  * Suppresses `CancelError` rejections while letting real rejections pass to `onUnhandledRejection`
- * or default runtime handling. Registrations are shared by every copy of this package in the process.
- * A second call for the same target replaces the earlier handler and options and logs a warning.
+ * or default runtime handling. On Node, Bun and Electron main every copy of this package in the process
+ * recognizes the handler of the others. A second call for the same target replaces the earlier handler
+ * and options and logs a warning.
  * Installed handlers can be removed with {@link unregister}.
  */
 export function register(options?: RegisterOptions): void {
@@ -426,10 +471,11 @@ export function registerElectron(options?: RegisterOptions): void {
   }
 }
 
-/** Removes every handler installed by any `register*` call so far. */
+/** Removes every handler installed by any `register*` call so far, including a Node handler another copy of this package installed. */
 export function unregister(): void {
   for (const reg of registrations) {
     reg.remove();
   }
   registrations.length = 0;
+  removeForeignBrandedHandlers();
 }

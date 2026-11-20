@@ -224,19 +224,7 @@ describe('@cancjs/unhandled-rejection', () => {
     }
   });
 
-  describe('one registry per process', () => {
-    it('keeps registrations on a global symbol key', () => {
-      const { registerNode, unregister } = require('./index');
-      const registry = () => (globalThis as any)[Symbol.for('@cancjs/unhandled-rejection:registry')];
-      try {
-        registerNode();
-        expect(registry()).toHaveLength(1);
-      } finally {
-        unregister();
-      }
-      expect(registry()).toHaveLength(0);
-    });
-
+  describe('one registration per process', () => {
     it('the side-effect entry plus register with a callback leaves one listener that calls the callback', () => {
       const res = runChild(`
         require(${JSON.stringify(registerSrc)});
