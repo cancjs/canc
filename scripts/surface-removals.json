@@ -1,6 +1,13 @@
 {
   "removals": [
     {
+      "package": "@cancjs/server-fastify",
+      "entry": ".",
+      "name": "ICancelErrorHandlerOptions",
+      "member": "canceledStatus",
+      "reason": "Deprecated prerelease-only Fastify option removed before the first stable release, as approved for 1.1.0."
+    },
+    {
       "package": "@cancjs/fetch",
       "entry": ".",
       "name": "TCancelableFetchFailure",
