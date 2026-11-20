@@ -11,6 +11,8 @@ export interface IWebRequestLike {
 export interface IWebRequestSignal {
   signal: CancelSignal;
   cancel: (reason?: unknown) => void;
+  /** Stops listening to the request's own signal. Called once the minted signal aborts. */
+  release: () => void;
 }
 
 /**
@@ -23,21 +25,32 @@ export function createWebRequestSignal(request?: IWebRequestLike): IWebRequestSi
   const { cancel, signal } = createCancelSignal();
 
   // callers compose multiple signals through promise options signal array instead
-  adopt(request?.signal, () => cancel(CLIENT_DISCONNECTED));
+  const release = adopt(request?.signal, () => cancel(CLIENT_DISCONNECTED));
 
-  return { cancel, signal };
+  // the source has nothing left to tell a canceled request
+  if (!signal.aborted) {
+    signal.addEventListener('abort', release, { once: true });
+  }
+
+  return { cancel, release, signal };
 }
 
-function adopt(source: AbortSignal | null | undefined, onAbort: () => void): void {
+function adopt(source: AbortSignal | null | undefined, onAbort: () => void): () => void {
   if (!source) {
-    return;
+    return noop;
   }
 
   if (source.aborted) {
     onAbort();
 
-    return;
+    return noop;
   }
 
   source.addEventListener('abort', onAbort, { once: true });
+
+  return () => source.removeEventListener('abort', onAbort);
+}
+
+function noop(): void {
+  /**/
 }

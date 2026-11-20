@@ -1,6 +1,8 @@
 import { CancelablePromise, CancelError, isCancelError, setPromiseImpl } from '@cancjs/promise';
 import { once } from 'events';
 import { createServer, globalAgent, IncomingMessage, request, Server, ServerResponse } from 'http';
+import { createServer as createSecureServer } from 'https';
+import type { AddressInfo } from 'net';
 import { connect, Socket } from 'net';
 
 import { createExchange, FakeResponse, FakeServer, flush, outcomeOf, pending } from './__tests__/fakes';
@@ -72,7 +74,8 @@ describe('graceful shutdown', () => {
 
       expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
       expect(isCancelError(error)).toBe(true);
-      expect(error.message).toBe(SERVER_SHUTDOWN);
+      expect(error.message).toBe('Request canceled');
+      expect(error.cause).toMatchObject({ message: SERVER_SHUTDOWN });
       expect(server.allClosed).toBe(0);
     } finally {
       jest.useRealTimers();
@@ -99,7 +102,8 @@ describe('graceful shutdown', () => {
 
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(isCancelError(error)).toBe(true);
-    expect(error.message).toBe(SERVER_SHUTDOWN);
+    expect(error.message).toBe('Request canceled');
+    expect(error.cause).toMatchObject({ message: SERVER_SHUTDOWN });
   });
 
   it('cancels live requests across several connections', async () => {
@@ -218,7 +222,8 @@ describe('graceful shutdown', () => {
     const error = (await detached) as CancelError;
 
     expect(isCancelError(error)).toBe(true);
-    expect(error.message).toBe(SERVER_SHUTDOWN);
+    expect(error.message).toBe('Request canceled');
+    expect(error.cause).toMatchObject({ message: SERVER_SHUTDOWN });
     expect(isCancelError(await handled)).toBe(true);
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
@@ -287,7 +292,7 @@ describe('graceful shutdown', () => {
 
     expect(await shutdownServer(server, { cancelAfter: 0 })).toEqual({ canceled: 1, completed: 0, timedOut: false });
     expect(signal.aborted).toBe(true);
-    expect((signal.reason as CancelError).message).toBe(SERVER_SHUTDOWN);
+    expect(signal.reason).toMatchObject({ cause: { message: SERVER_SHUTDOWN }, message: 'Request canceled' });
   });
 
   it('ignores a request whose response is already over', async () => {
@@ -330,7 +335,7 @@ describe('graceful shutdown', () => {
       const signal = getNodeRequestSignal(req, res);
 
       expect(signal.aborted).toBe(true);
-      expect((signal.reason as Error).message).toBe(SERVER_SHUTDOWN);
+      expect(signal.reason).toMatchObject({ cause: { message: SERVER_SHUTDOWN }, message: 'Request canceled' });
       // the request owes its answer, so the window holds until closeAfter (cancelAfter + 1000)
       await jest.advanceTimersByTimeAsync(1000);
       await shutdown;
@@ -840,7 +845,7 @@ describe('graceful shutdown over a real socket', () => {
     const outcome = await answer;
 
     expect(outcome).toMatchObject({
-      body: SERVER_SHUTDOWN,
+      body: 'Request canceled',
       connection: 'close',
       status: 503,
     });
@@ -1093,7 +1098,7 @@ describe('graceful shutdown over a real socket', () => {
 
     expect(responses).toHaveLength(2);
     expect(responses[1]).toMatch(/^HTTP\/1\.1 503/);
-    expect(responses[1]).toContain(SERVER_SHUTDOWN);
+    expect(responses[1]).toContain('Request canceled');
     expect(result).toEqual({ canceled: 1, completed: 1, timedOut: false });
   });
 
@@ -1192,7 +1197,7 @@ describe('graceful shutdown over a real socket', () => {
       closeAfter: 60_000,
     });
 
-    expect(await answer).toMatchObject({ body: SERVER_SHUTDOWN, status: 503 });
+    expect(await answer).toMatchObject({ body: 'Request canceled', status: 503 });
     expect(result).toEqual({ canceled: 1, completed: 0, timedOut: false });
   });
 
@@ -1557,5 +1562,39 @@ describe('shutdown answer validation', () => {
 
     expect(() => shutdownServer(server as never, { status: 200, headers: { 'X-A': 'a\tb' } })).not.toThrow();
     expect(() => shutdownServer(server as never, { status: 599 })).not.toThrow();
+  });
+});
+
+describe('TLS handshake at shutdown', () => {
+  it('closes a connection still in its TLS handshake', async () => {
+    const tls = createSecureServer({});
+    await new Promise<void>((resolve) => tls.listen(0, '127.0.0.1', resolve));
+    const shutdown = createServerShutdown(tls);
+    const client = connect((tls.address() as AddressInfo).port, '127.0.0.1');
+    client.on('error', () => undefined);
+    await once(client, 'connect');
+    const closed = once(client, 'close');
+
+    expect(await shutdown({ cancelAfter: 100, closeAfter: 1_000 })).toEqual({
+      canceled: 0,
+      completed: 0,
+      timedOut: false,
+    });
+    await closed;
+  });
+
+  it('leaves a handshaking connection alone with closeServer false', async () => {
+    const tls = createSecureServer({});
+    await new Promise<void>((resolve) => tls.listen(0, '127.0.0.1', resolve));
+    const shutdown = createServerShutdown(tls);
+    const client = connect((tls.address() as AddressInfo).port, '127.0.0.1');
+    client.on('error', () => undefined);
+    await once(client, 'connect');
+
+    await shutdown({ cancelAfter: 50, closeAfter: 200, closeServer: false });
+
+    expect(client.destroyed).toBe(false);
+    client.destroy();
+    await new Promise<void>((resolve) => tls.close(() => resolve()));
   });
 });

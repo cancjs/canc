@@ -16,6 +16,10 @@ import {
  * request. `server-node` owns the key because it is the layer every other adapter wires through;
  * the string resolves whether or not that package is installed.
  */
+// Cross-copy contract: state under Symbol.for is shared across installed server packages
+// on the same request or server, so fields are added only, never renamed or retyped,
+// absent fields mean unset, and incompatible changes require a new key plus a coordinated
+// major of every server package, since two keys would split state between copies.
 export const REQUEST_CANCEL_STATE = Symbol.for('@cancjs/server-node:RequestCancelState');
 
 /**
@@ -29,7 +33,7 @@ export const REQUEST_CANCEL_STATE = Symbol.for('@cancjs/server-node:RequestCance
 export const REQUEST_REGISTRY = Symbol.for('@cancjs/server-node:RequestRegistry');
 
 /** Key the in-flight shutdown promise is cached under, so a second shutdown of the same server is a no-op. */
-export const SHUTDOWN_STATE = Symbol.for('@cancjs/server-node:Shutdown');
+export const SHUTDOWN_STATE = Symbol.for('@cancjs/server-node:ShutdownState');
 
 /**
  * Key the function `createShutdown` returned is cached under, on the object it was given, so a
@@ -40,7 +44,10 @@ export const SHUTDOWN_FUNCTION = Symbol.for('@cancjs/server-node:ShutdownFunctio
 /** Runs a graceful shutdown, or returns the one already running. */
 export type TShutdownFunction = (options?: IShutdownOptions) => Promise<IShutdownResult>;
 
-/** Everything a request's cancellation is driven from, cached on the raw request object. */
+/**
+ * Shape under the cross-copy contract at the top of this file.
+ * Everything a request's cancellation is driven from, cached on the raw request object.
+ */
 export interface IRequestCancelState {
   signal: CancelSignal;
   cancel: (reason?: unknown) => void;
@@ -106,6 +113,7 @@ export interface IConnectionLike {
 }
 
 /**
+ * Shape under the cross-copy contract at the top of this file.
  * Every request a server is still answering that this layer has seen, keyed by its response.
  *
  * Fed by a `request` listener prepended the first time this layer meets the server, so requests
@@ -160,6 +168,7 @@ export function getRequestRegistry(server: IServerLike | undefined, create?: boo
 /**
  * Records every connection a server accepts from now on, until it closes, so a shutdown can close
  * one that has received no bytes. Node keeps no such list, and `closeIdleConnections()` skips them.
+ * On a TLS server the raw socket is recorded too, so one still in its handshake can be closed.
  */
 export function trackConnections(server: IServerLike): void {
   const registry = getRequestRegistry(server, true);
@@ -172,13 +181,20 @@ export function trackConnections(server: IServerLike): void {
 
   const host = server as IListenerHost;
   if (isFunction(host.on)) {
-    host.on(isFunction(host.addContext) ? 'secureConnection' : 'connection', (socket) => {
+    const record = (socket: unknown) => {
       const connection = socket as IConnectionLike;
       connections.set(connection, Date.now());
       connection.once?.('close', () => {
         connections.delete(connection);
       });
-    });
+    };
+
+    // a TLS server hands its requests the socket from secureConnection, but a client still in its
+    // handshake exists only as the raw socket from connection, and nothing else would close it
+    if (isFunction(host.addContext)) {
+      host.on('secureConnection', record);
+    }
+    host.on('connection', record);
   }
 }
 

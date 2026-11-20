@@ -1,7 +1,9 @@
+import { CancelSignal, createCancelSignal } from '@cancjs/promise';
 import { FastifyInstance } from 'fastify';
 
 import { getShutdownFunction, getShutdownState, setShutdownFunction } from '../../../_server/holder';
-import { createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
+import { SERVER_SHUTDOWN } from '../../../_server/reasons';
+import { checkShutdownOptions, createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
 import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
 // key the drain fastify's own close runs is configured under, on the instance's http.Server: the
@@ -9,7 +11,14 @@ import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server
 // encapsulation scopes, and the server is the one object they all share
 const CLOSE_DRAIN = Symbol.for('@cancjs/server-fastify:CloseDrain');
 
-interface ICloseDrain {
+/**
+ * @internal Read by every installed copy through the CloseDrain key: fields only ever added,
+ * never renamed or retyped; absent means not set.
+ */
+export interface ICloseDrain {
+  // the boot scope every cancelablePlugin of the server runs under;
+  // a shutdown that closes the instance cancels it
+  boot?: { signal: CancelSignal; cancel: (reason?: unknown) => void };
   // set once the preClose hook that runs the drain is registered
   hooked?: boolean;
   // options stored by createShutdown(app, options), used by a plain app.close()
@@ -18,7 +27,8 @@ interface ICloseDrain {
   warned?: boolean;
 }
 
-const ALREADY_STARTED = 'FST_ERR_INSTANCE_ALREADY_LISTENING';
+// Fastify 5.0 rejects a hook after ready() with Avvio's root-booted error.
+const ALREADY_STARTED = new Set(['FST_ERR_INSTANCE_ALREADY_LISTENING', 'AVV_ERR_ROOT_PLG_BOOTED']);
 // room left under pluginTimeout for fastify to end the close after the windows run out
 const PLUGIN_TIMEOUT_MARGIN = 500;
 
@@ -32,6 +42,22 @@ function getCloseDrain(server: IServerLike): ICloseDrain {
   }
 
   return drain;
+}
+
+/**
+ * The boot scope of a server, created on first use. Kept on the close drain object, so every copy of
+ * this package and every encapsulation scope shares it.
+ *
+ * @internal
+ */
+export function getBootScope(server: IServerLike): { signal: CancelSignal; cancel: (reason?: unknown) => void } {
+  const drain = getCloseDrain(server);
+
+  if (!drain.boot) {
+    drain.boot = createCancelSignal();
+  }
+
+  return drain.boot;
 }
 
 function usableMs(ms: number | undefined): number | undefined {
@@ -99,7 +125,8 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
       await (getShutdownState(server) ?? shutdownServer(fitPluginTimeout(instance, drain, drain.options)));
     });
   } catch (error) {
-    if ((error as { code?: unknown } | null)?.code === ALREADY_STARTED) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (typeof code === 'string' && ALREADY_STARTED.has(code)) {
       return false;
     }
 
@@ -118,13 +145,16 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
  * inside fastify's own close as a `preClose` hook, so a plain `await app.close()` shuts down
  * gracefully too. `options` here are then what that close uses, and the returned function runs
  * `app.close()` with its own options laid over them. Calling this again with new options replaces
- * the ones a later plain `app.close()` uses. Hooks run in registration order, so a `preClose` hook
+ * the ones a later plain `app.close()` uses. Options are checked here: a `cancelAfter` greater
+ * than `closeAfter`, a status outside 200 to 599 or an invalid header throws. Hooks run in registration order, so a `preClose` hook
  * registered ahead of this one (one that ends websockets, say) runs when the close starts, and one
  * registered after it waits until the shutdown has ended. A request arriving on a kept-alive
  * connection during the close is answered by fastify, with 503 unless `return503OnClosing` is
  * false. Fastify cuts a `preClose` hook off at `pluginTimeout` (10 s by default), which the default
  * windows would pass, so there the windows are lowered to end just inside it, and that is logged
  * once through `app.log.warn`.
+ * A boot that `cancelablePlugin` runs and that is still in progress is canceled first, so a
+ * shutdown during startup does not wait for the boot to finish.
  *
  * The shutdown stops the server: no new connections, a window for in-flight handlers to finish,
  * and a cancel for any still running when `cancelAfter` ends (at once with `cancelAfter: 0`). Every
@@ -158,6 +188,10 @@ export function createShutdown(
 
   const drain = getCloseDrain(app.server as IServerLike);
   if (options !== undefined) {
+    // checked here, so a bad set throws to whoever wrote it instead of inside a later app.close()
+    if (options !== null) {
+      checkShutdownOptions(options);
+    }
     drain.options = options;
   }
 
@@ -191,6 +225,10 @@ export function createShutdown(
     const drained = shutdownServer(
       insideClose && merged.closeServer !== false ? fitPluginTimeout(app, drain, merged) : merged,
     );
+    // a boot still running holds app.close() until it ends, so cancel it before the close
+    if (merged.closeServer !== false) {
+      getBootScope(app.server as IServerLike).cancel(merged.reason ?? SERVER_SHUTDOWN);
+    }
     let result: Promise<IShutdownResult>;
 
     if (merged?.closeServer === false) {

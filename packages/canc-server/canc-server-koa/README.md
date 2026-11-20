@@ -65,7 +65,7 @@ app.use(router.routes());
 const server = app.listen(3000);
 ```
 
-If the client hangs up while the payment lookup is in flight, the handler unwinds at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
+If the client hangs up while the payment lookup is in flight, the handler stops at that `yield` and nothing is written back. If the route takes longer than thirty seconds, the client gets a 503 instead of an open connection.
 
 Shutting down, with the shutdown created right after `app.listen()` so it knows every connection:
 
@@ -111,7 +111,7 @@ When the response head has already gone out, no status can follow it. The connec
 
 ### Handler kinds
 
-A generator handler is driven as a coroutine and is canceled at its next suspension point. Anything else runs signal-only: the request signal still fires, and a cancelable promise the handler returns is canceled, but a plain `async` body has no suspension point to unwind and runs to completion. Use a generator when mid-flight cancellation is the point.
+A generator handler is driven as a coroutine and is canceled at its next suspension point. Anything else runs signal-only: the request signal still fires, and a cancelable promise the handler returns is canceled, but a plain `async` body has nothing to stop at, so it runs to completion. Use a generator when mid-flight cancellation is the point. A signal-only handler that fails after its cancellation was answered is emitted as an `error` event on the app, as koa reports errors, and the response is left alone, so check the signal before writing to it.
 
 ### Options
 
@@ -134,11 +134,13 @@ The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` f
 
 Both raise a `CancelError`. A deadline sets `timedOut` through its `TimeoutError` cause, and a shutdown cancel is not a disconnect even though the socket is dead by then. The middleware drops only a real disconnect. Every other cancellation it owns reaches your error middleware with `err.status` set, so that middleware can tell it apart by status. The exported reason strings are for logs and for humans reading them, never for branching.
 
+A server-owned deadline or shutdown sets `CancelError.message` to `Request canceled`. The original message is in `error.cause.message`, on a `TimeoutError` for a deadline or an `Error` for shutdown. Use `error.timedOut` to identify deadlines and `error.cause?.message ?? error.message` in logs or error callbacks. Disconnects keep their own message. Your own `CancelError` and foreign errors keep their existing behavior. Koa's error handling still owns the reply.
+
 ### Shutting down
 
 `createShutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(server, o)`: call `createShutdown(server)(o)`.
 
-The shutdown stops accepting new connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
+The shutdown stops accepting new connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle ones. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. On an HTTPS server the same applies to a connection whose client has not finished the TLS handshake.
 
 When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response can still answer `503`. A request still open then runs until it finishes or `closeAfter`, and connections still busy at `closeAfter` are closed. Shutdown resolves as soon as nothing is open. On Kubernetes, keep `closeAfter` at or below `terminationGracePeriodSeconds` minus the preStop sleep, less a margin for the process to exit, or the kubelet kills the process before the window ends. A `cancelAfter` greater than `closeAfter` throws a `RangeError` synchronously; negative values clamp to 0 before that check. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
 
@@ -196,7 +198,7 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, Koa 2.13 and later (including Koa 3), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+Node.js 18 and later, Koa 2.13 and later (including Koa 3), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility). The lowest framework versions are type-checked and tested in CI.
 
 Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
 

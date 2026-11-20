@@ -5,8 +5,16 @@ export type {
   IShutdownResult,
   TTimeoutOption,
 } from '../../../_server/types';
-export type { TFastifyRouteHandler } from './handler';
-export { cancelableHandler, getRequestSignal } from './handler';
-export type { ICancelErrorHandlerOptions, TCancelErrorHandler } from './plugin';
+export type { ICancelablePluginOptions, TCancelablePluginFn } from './boot';
+export { cancelablePlugin } from './boot';
+export type {
+  TCancelableHookFn,
+  TCancelablePreParsingFn,
+  TFastifyPreParsingHook,
+  TFastifyRequestHook,
+  TFastifyRouteHandler,
+} from './handler';
+export { cancelableHandler, cancelableHook, cancelablePreParsing, getRequestSignal } from './handler';
+export type { ICancelErrorHandlerOptions, ICancelPluginOptions, TCancelErrorHandler } from './plugin';
 export { cancelErrorHandler, cancelPlugin } from './plugin';
 export { createShutdown } from './shutdown';

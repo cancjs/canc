@@ -1,4 +1,4 @@
-import { isCancelError, isCancelSignal } from '@cancjs/promise';
+import { isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
 import { once } from 'events';
 import { connect, createServer } from 'http2';
 import { AddressInfo } from 'net';
@@ -211,13 +211,19 @@ describe('request deadline edge values', () => {
     expect(state.signal.aborted).toBe(false);
   });
 
-  it('keeps a zero deadline immediate', () => {
+  it('reports the immediate deadline as the signal reason and to onTimeout', () => {
     const { req, res } = createExchange();
-    const state = ensureRequestCancelState(req, res, { timeout: 0 });
+    const onTimeout = jest.fn();
+    const state = ensureRequestCancelState(req, res, { onTimeout, timeout: { message: 'late', ms: 0 } });
 
     jest.advanceTimersByTime(1);
 
     expect(state.signal.aborted).toBe(true);
+    expect(state.signal.reason).toMatchObject({ message: 'Request canceled', timedOut: true });
+    expect(state.signal.reason.cause).toBeInstanceOf(TimeoutError);
+    expect(state.signal.reason.cause).toMatchObject({ message: 'late' });
+    expect(onTimeout).toHaveBeenCalledTimes(1);
+    expect(onTimeout.mock.calls[0][0]).toBe(state.signal.reason);
   });
 });
 

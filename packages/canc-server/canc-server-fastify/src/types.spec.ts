@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 
-import { cancelableHandler, createShutdown } from './index';
+import { cancelableHandler, cancelableHook, cancelablePlugin, cancelablePreParsing, createShutdown } from './index';
 
 // compile-time coverage: under strict mode a parameter the contextual type failed to reach is an
 // implicit any, so these cases fail the build rather than an assertion
@@ -68,5 +68,111 @@ describe('createShutdown typing', () => {
 
     expect(typeof wrong).toBe('function');
     await instance.close();
+  });
+});
+
+describe('hook typing', () => {
+  it('infers request and reply and mounts one hook on three request stages', async () => {
+    const instance = Fastify();
+    const hook = cancelableHook(function* (request, reply) {
+      const method: string = request.method;
+      const ended: boolean = reply.raw.writableEnded;
+      yield Promise.resolve();
+      void method;
+      void ended;
+    });
+
+    instance.addHook('onRequest', hook);
+    instance.addHook('preValidation', hook);
+    instance.addHook('preHandler', hook);
+
+    expect(typeof hook).toBe('function');
+    await instance.close();
+  });
+
+  it('preserves the route generic and the preParsing payload stream', async () => {
+    const instance = Fastify();
+    const routeHook = cancelableHook<{ Params: { id: string } }>(function* (request) {
+      const id: string = request.params.id;
+      yield Promise.resolve();
+      void id;
+    });
+    instance.get<{ Params: { id: string } }>('/users/:id', { preHandler: routeHook }, () => 'ok');
+    const parser = cancelablePreParsing(function* (_request, _reply, payload) {
+      const pipe: typeof payload.pipe = payload.pipe;
+      yield Promise.resolve();
+      void pipe;
+    });
+
+    instance.addHook('preParsing', parser);
+
+    expect(typeof parser).toBe('function');
+    await instance.close();
+  });
+
+  it('rejects incompatible hooks', () => {
+    const instance = Fastify();
+    instance.addHook(
+      'onRequestAbort',
+      // @ts-expect-error onRequestAbort has no reply and cannot use the wrapper
+      cancelableHook(function* () {
+        yield Promise.resolve();
+      }),
+    );
+    // @ts-expect-error an async generator cannot be drained as a request hook
+    const asyncHook = cancelableHook(async function* () {
+      yield 1;
+    });
+    // @ts-expect-error a request hook accepts only request and reply
+    const extraHook = cancelableHook(function* (_request, _reply, _payload: string) {
+      yield Promise.resolve();
+    });
+
+    expect(typeof asyncHook).toBe('function');
+    expect(typeof extraHook).toBe('function');
+  });
+});
+
+describe('cancelable plugin typing', () => {
+  it('infers an instance and options and registers a generator plugin', async () => {
+    const instance = Fastify();
+    instance.register(
+      cancelablePlugin(function* (pluginInstance, opts) {
+        const name: string = pluginInstance.prefix;
+        void opts;
+        yield Promise.resolve();
+        void name;
+      }),
+    );
+    instance.register(
+      cancelablePlugin<{ url: string }>(function* (_pluginInstance, opts) {
+        const url: string = opts.url;
+        yield Promise.resolve();
+        void url;
+      }),
+      { url: 'x' },
+    );
+
+    await instance.ready();
+    await instance.close();
+  });
+
+  it('rejects async generators and wrong plugin options', () => {
+    const wrongPlugin = () =>
+      // @ts-expect-error async generators are not drained during plugin boot
+      cancelablePlugin(async function* () {
+        yield 1;
+      });
+    const instance = Fastify();
+    const badOptions = () =>
+      instance.register(
+        cancelablePlugin<{ url: string }>(function* () {
+          yield Promise.resolve();
+        }),
+        // @ts-expect-error plugin options require url to be a string
+        { url: 1 },
+      );
+    expect(typeof wrongPlugin).toBe('function');
+    expect(typeof badOptions).toBe('function');
   });
 });

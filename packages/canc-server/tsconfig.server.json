@@ -1,6 +1,8 @@
 {
   "extends": "../../tsconfig.base",
   "compilerOptions": {
+    "target": "es2022",
+    "useDefineForClassFields": false,
     "lib": ["es2022"],
     // shared outDir inert since rollup targets dist and check is noEmit
     "outDir": "build",

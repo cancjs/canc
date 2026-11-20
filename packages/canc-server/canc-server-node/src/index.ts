@@ -60,7 +60,8 @@ export interface INodeCancelableHandlerOptions<
    * shutdown cancellation whose socket is still live, or a plain thrown error. Raw node has no
    * `next(err)` or error middleware to fall back to, so this is the answer for adapters (restify,
    * AdonisJS, a Pages Router API route, Nest on top of the raw server) with their own error
-   * pipeline. Defaults to `cancelErrorHandler()`.
+   * pipeline. Defaults to `cancelErrorHandler()`. If it throws before ending the response, the
+   * socket is destroyed and the error is rethrown.
    */
   onError?: TNodeErrorHandler<TReq, TRes>;
 }
@@ -117,7 +118,16 @@ export function cancelableHandler<
 
       // the default answer reads the route's signals too, so its own signal can own a cancel
       if (onError) {
-        onError(error, req, res);
+        try {
+          onError(error, req, res);
+        } catch (handlerError) {
+          // nothing answers once onError throws, so the socket must close
+          if (!res.writableEnded) {
+            res.destroy();
+          }
+
+          throw handlerError;
+        }
       } else {
         answerCancellation(error, req, res, {}, signals);
       }

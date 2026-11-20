@@ -12,14 +12,13 @@ import {
 import { getRequestRegistry, getRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
 import { ICancelableHandlerOptions } from '../../../_server/types';
+import { cancelableHandler, cancelableHook, cancelablePreParsing } from './handler';
 import { installCloseDrain } from './shutdown';
 
 /** What an error handler does with a cancellation the wrapper forwarded. */
 export interface ICancelErrorHandlerOptions {
   /** Status sent when a cancellation surfaces on a live connection. Defaults to 503. */
   status?: number;
-  /** @deprecated Read `status` instead. Kept so existing `canceledStatus` callers keep working. */
-  canceledStatus?: number;
   /**
    * Answers an error that is not a cancellation, in place of fastify's own `reply.send(error)`. Set it
    * when the app's own error mapping lives in the same handler. Cancellations do not reach it: the
@@ -36,10 +35,54 @@ export type TCancelErrorHandler = (
   reply: FastifyReply,
 ) => void;
 
-const plugin: FastifyPluginAsync<ICancelableHandlerOptions> = function cancelPlugin(fastify, options) {
+/** Options accepted by `cancelPlugin`: request defaults and the plugin's own switches. */
+export interface ICancelPluginOptions extends ICancelableHandlerOptions {
+  /**
+   * Wraps generator route handlers and route-level request hooks, which fastify cannot run.
+   * Only routes registered after the plugin are seen. Defaults to true.
+   */
+  autoWrap?: boolean;
+}
+
+// route-level request hooks use one wrapper; preParsing has its own payload contract
+const REQUEST_HOOKS = ['onRequest', 'preValidation', 'preHandler'] as const;
+
+// a native generator returns an iterator fastify cannot resolve as a route or hook
+function isGeneratorFunction(value: unknown): value is (...args: never[]) => Generator {
+  return typeof value === 'function' && Object.prototype.toString.call(value) === '[object GeneratorFunction]';
+}
+
+const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(fastify, pluginOptions) {
+  const { autoWrap, ...options } = pluginOptions;
   // the instance holds its server from the start, so a shutdown knows every request, plain ones too
   getRequestRegistry(fastify.server, true);
   installCloseDrain(fastify);
+
+  fastify.addHook('onRoute', (route) => {
+    if (autoWrap === false) {
+      return;
+    }
+
+    if (isGeneratorFunction(route.handler)) {
+      route.handler = cancelableHandler(route.handler as never);
+    }
+
+    const hooks = route as unknown as Record<string, unknown>;
+    const wrapEach = (name: string, wrap: (hook: never) => unknown) => {
+      const value = hooks[name];
+
+      if (Array.isArray(value)) {
+        hooks[name] = value.map((hook: unknown) => (isGeneratorFunction(hook) ? wrap(hook as never) : hook));
+      } else if (isGeneratorFunction(value)) {
+        hooks[name] = wrap(value as never);
+      }
+    };
+
+    for (const name of REQUEST_HOOKS) {
+      wrapEach(name, (hook) => cancelableHook(hook));
+    }
+    wrapEach('preParsing', (hook) => cancelablePreParsing(hook));
+  });
 
   // onRequest is the earliest hook, so the signal exists before body parsing and before any
   // request-scoped work a later hook starts
@@ -63,6 +106,10 @@ const plugin: FastifyPluginAsync<ICancelableHandlerOptions> = function cancelPlu
  * run once per request, however many wrapped hooks it passes. Nothing is decorated onto the request
  * or the instance, so no module augmentation is needed to use this.
  *
+ * With `autoWrap`, on by default, a generator route handler or route-level `onRequest`,
+ * `preParsing`, `preValidation` or `preHandler` hook is wrapped as it is registered, since
+ * fastify cannot run one. Earlier routes and hooks added with `addHook` are not seen.
+ *
  * It also registers a `preClose` hook that drains the server inside fastify's own close, so a plain
  * `await app.close()` lets in-flight requests finish and cancels the rest, with the options given
  * to `createShutdown` or the defaults. Register it after plugins whose `preClose` hooks end
@@ -85,7 +132,7 @@ export const cancelPlugin = fastifyPlugin(plugin, {
  * itself, so this is for an app that wants its own error mapping alongside that answer.
  */
 export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCancelErrorHandler {
-  const configured = options?.status ?? options?.canceledStatus;
+  const configured = options?.status;
 
   checkAnswerStatus(configured);
   const onError = options?.onError;

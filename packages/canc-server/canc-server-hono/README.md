@@ -151,9 +151,9 @@ app.onError((err, c) => {
 
 ### Handler kinds
 
-A **generator** handler is driven as a coroutine, so a cancellation unwinds it at its current `yield`. This is the flavor with real mid-flight cancellation.
+A **generator** handler is driven as a coroutine, so a cancellation stops it at its current `yield` and runs its `finally` blocks. This is the flavor with real mid-flight cancellation.
 
-Any **other** handler runs signal-only. The request signal still fires, `onDisconnect` still runs, and a cancelable promise the handler returns is canceled, but a plain `async` body has no suspension points to unwind and runs to completion. That is a real limit, not an oversight: nothing can interrupt an `await` from outside.
+Any **other** handler runs signal-only. The request signal still fires, `onDisconnect` still runs, and a cancelable promise the handler returns is canceled, but a plain `async` body has nothing to stop at, so it runs to completion. That is a real limit, not an oversight: nothing can interrupt an `await` from outside. A signal-only handler that fails after its cancellation was answered is logged with `console.error`, as Hono logs errors, and the response is left alone, so check the signal before writing to it.
 
 ### Options
 
@@ -174,11 +174,13 @@ There is one deadline per request. `cancelMiddleware` starts it when the request
 
 Both raise a `CancelError`. The discriminator is `isCancelError(error) && !error.timedOut`; a deadline sets `timedOut` through its `TimeoutError` cause. The exported reason strings, `CLIENT_DISCONNECTED`, `SERVER_SHUTDOWN` and `HANDLER_TIMEOUT`, are for logs and for humans reading them, never for branching.
 
+A server-owned deadline or shutdown sets `CancelError.message` to `Request canceled`. The original message is in `error.cause.message`, on a `TimeoutError` for a deadline or an `Error` for shutdown. Use `error.timedOut` to identify deadlines and `error.cause?.message ?? error.message` in logs or error callbacks. Disconnects keep their own message. Your own `CancelError` and foreign errors keep their existing behavior. Hono's `app.onError` still handles the reply.
+
 ### Shutting down
 
 `createShutdown` takes what `serve()` returned, not the Hono app, and returns the function that runs the shutdown. Call it right after `serve()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(server, o)`: call `createShutdown(server)(o)`.
 
-On node the shutdown stops the server accepting connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes.
+On node the shutdown stops the server accepting connections, closes a connection that has received no bytes once it is five seconds old (or at the grace, if shorter), leaves one that has already sent part of a request to finish, and closes idle keep-alive sockets. In-flight requests, wrapped or not, keep running for the grace window, and so does a request that arrives on a kept-alive connection meanwhile. Every response sent from then on carries `Connection: close`, and each connection closes as soon as the response on it finishes. On an HTTPS server the same applies to a connection whose client has not finished the TLS handshake.
 
 When the window ends, handlers still running are canceled with the shutdown reason, so their cleanup runs and one that has not started its response answers the shutdown's `status`, or `503`. That answer does not depend on `cancelErrorHandler()`, though mounting it lets a handler's `status` option apply when the shutdown set none. Invalid values throw from `shutdown()`: a `status` outside 200 to 599 raises a `RangeError`, and a header name or value HTTP does not allow raises a `TypeError`. A request still open then runs until it finishes or `closeAfter`, and connections still busy at `closeAfter` are closed. Shutdown resolves as soon as nothing is open. On Kubernetes, keep `closeAfter` at or below `terminationGracePeriodSeconds` minus the preStop sleep, less a margin for the process to exit, or the kubelet kills the process before the window ends. A `cancelAfter` greater than `closeAfter` throws a `RangeError` synchronously; negative values clamp to 0 before that check. The cancel reaches the request signal too, so work started from `getRequestSignal` and never awaited by the handler stops with the shutdown instead of outliving it.
 
@@ -230,7 +232,7 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, Hono 4.8 and later, `@hono/node-server` 1.9 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+Node.js 18 and later, Hono 4.8 and later, `@hono/node-server` 1.9 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility). The lowest framework versions are type-checked and tested in CI.
 
 Tested against `@hono/node-server`. Other Web standard runtimes (Cloudflare Workers, Deno, Bun's fetch handler) take the `Request.signal` path and are not independently verified here; their own disconnect-signal reliability is a property of the runtime, not of this package.
 

@@ -683,7 +683,11 @@ describe('error handler gate and late failure', () => {
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     expect(response.statusCode).toBe(503);
-    expect(errorSpy.mock.calls.filter(([label]) => label === '[@cancjs/server-hono] late failure')).toHaveLength(1);
+    expect(
+      errorSpy.mock.calls.filter(
+        (call) => call.length === 1 && call[0] instanceof Error && call[0].message === 'late boom',
+      ),
+    ).toHaveLength(1);
     errorSpy.mockRestore();
   });
 });
@@ -1728,7 +1732,7 @@ describe('cancel answers without a mounted error handler', () => {
     expect(outcome.complete).toBe(false);
     expect(forwarded).toHaveLength(0);
     expect(errorSpy).toHaveBeenCalledTimes(1);
-    expect(errorSpy.mock.calls[0][0]).toContain('response cut after its head was sent');
+    expect(cutLogs(errorSpy)).toHaveLength(1);
     errorSpy.mockRestore();
   });
 
@@ -1778,12 +1782,10 @@ describe('cancel answers without a mounted error handler', () => {
     });
     await tick();
 
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
-
     expect(forwarded).toHaveLength(1);
     expect(isCancelError(forwarded[0])).toBe(true);
     expect(outcome).toEqual({ body: 'part-end', complete: true });
-    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
+    expect(cutLogs(errorSpy)).toHaveLength(0);
     errorSpy.mockRestore();
   });
 
@@ -1826,10 +1828,8 @@ describe('cancel answers without a mounted error handler', () => {
     });
     await tick();
 
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
-
     expect(outcome.complete).toBe(false);
-    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
+    expect(cutLogs(errorSpy)).toHaveLength(1);
     errorSpy.mockRestore();
   });
 
@@ -1871,10 +1871,8 @@ describe('cancel answers without a mounted error handler', () => {
     });
     await tick();
 
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
-
     expect(outcome.complete).toBe(false);
-    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
+    expect(cutLogs(errorSpy)).toHaveLength(1);
     errorSpy.mockRestore();
   });
 
@@ -1918,10 +1916,8 @@ describe('cancel answers without a mounted error handler', () => {
     });
     await tick();
 
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
-
     expect(outcome.complete).toBe(false);
-    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
+    expect(cutLogs(errorSpy)).toHaveLength(1);
     errorSpy.mockRestore();
   });
 
@@ -1965,7 +1961,7 @@ describe('cancel answers without a mounted error handler', () => {
 
     const messages = errorSpy.mock.calls.map((call) => String(call[0]));
 
-    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
+    expect(cutLogs(errorSpy)).toHaveLength(0);
     expect(messages.filter((message) => message.includes('ERR_HTTP_HEADERS_SENT'))).toHaveLength(0);
     errorSpy.mockRestore();
   });
@@ -2011,9 +2007,7 @@ describe('cancel answers without a mounted error handler', () => {
     });
     await tick();
 
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
-
-    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(0);
+    expect(cutLogs(errorSpy)).toHaveLength(0);
     errorSpy.mockRestore();
   });
 
@@ -2053,7 +2047,7 @@ describe('cancel answers without a mounted error handler', () => {
     const messages = errorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(messages.filter((message) => message.includes('Cannot write headers'))).toHaveLength(0);
-    expect(messages.filter((message) => message.includes('response cut after its head was sent'))).toHaveLength(1);
+    expect(cutLogs(errorSpy)).toHaveLength(1);
     errorSpy.mockRestore();
   });
 });
@@ -2199,5 +2193,35 @@ describe('answer headers', () => {
 
     expect(response.status).toBe(409);
     expect(response.headers.get('x-app')).toBe('routed');
+  });
+});
+
+/** Hono logs a head cut with the bare cancellation. */
+function cutLogs(spy: jest.SpyInstance): unknown[][] {
+  return spy.mock.calls.filter((call) => call.length === 1 && isCancelError(call[0]));
+}
+
+describe('promise flag options', () => {
+  it('passes shield through, so a deadline does not cancel a shielded handler', async () => {
+    const app = new Hono();
+    app.use(cancelMiddleware());
+    app.get(
+      '/shielded',
+      cancelableHandler(
+        function* (c: Context) {
+          yield new CancelablePromise<void>((resolve) => {
+            setTimeout(resolve, 80);
+          });
+
+          return c.text('finished');
+        },
+        { shield: true, timeout: 20 },
+      ),
+    );
+
+    const response = await app.request('/shielded');
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('finished');
   });
 });

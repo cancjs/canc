@@ -271,6 +271,7 @@ describe('request deadline', () => {
   it('reports a deadline once however many wrapped layers the request passed', async () => {
     const timeouts: CancelError[] = [];
     const onTimeout = (reason: CancelError) => timeouts.push(reason);
+    let signal: AbortSignal | undefined;
 
     const route = cancelableHandler(
       function* (_req: IncomingMessage, res: ServerResponse) {
@@ -289,6 +290,7 @@ describe('request deadline', () => {
     const port = await listen(
       cancelableHandler(
         function* (req: IncomingMessage, res: ServerResponse) {
+          signal = getRequestSignal(req, res);
           middle(req, res);
           yield never();
         },
@@ -299,6 +301,12 @@ describe('request deadline', () => {
     expect((await httpRequest(port, { path: '/slow' })).status).toBe(503);
     await settleTurns();
     expect(timeouts).toHaveLength(1);
+    expect(timeouts[0]).toBe(signal?.reason);
+    expect(timeouts[0]).toMatchObject({
+      cause: { message: HANDLER_TIMEOUT },
+      message: 'Request canceled',
+      timedOut: true,
+    });
   });
 
   it('keeps the close listeners on the response bounded across twelve wrapped layers', async () => {
@@ -1334,5 +1342,44 @@ describe('onError cancelErrorHandler stamps an owned derived cancel', () => {
     await createShutdown(lastServer())({ cancelAfter: 100 });
 
     expect((await pending).status).toBe(503);
+  });
+});
+
+describe('onError that throws', () => {
+  it('closes the socket of a deadline whose onError rethrows the cancellation', async () => {
+    const host = runInThisContext('process') as NodeJS.Process;
+    const surfaced: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      surfaced.push(reason);
+    };
+    host.on('unhandledRejection', onUnhandled);
+
+    try {
+      const port = await listen(
+        cancelableHandler(
+          function* (_req: IncomingMessage, res: ServerResponse) {
+            yield never();
+            res.end('unreachable');
+          },
+          {
+            onError: (error) => {
+              throw error;
+            },
+            timeout: 25,
+          },
+        ),
+      );
+      const client = await rawRequest(port, 'GET /slow HTTP/1.1\r\nHost: localhost\r\n\r\n');
+      const closed = once(client, 'close').then(() => 'closed');
+      const open = new Promise<string>((resolve) => {
+        setTimeout(() => resolve('still open'), 2_000).unref();
+      });
+
+      expect(await Promise.race([closed, open])).toBe('closed');
+      await settleTurns();
+      expect(surfaced).toEqual([]);
+    } finally {
+      host.off('unhandledRejection', onUnhandled);
+    }
   });
 });

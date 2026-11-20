@@ -1,4 +1,4 @@
-import { isCancelError } from '@cancjs/promise';
+import { isCancelError, TimeoutError } from '@cancjs/promise';
 
 import { HANDLER_TIMEOUT } from './reasons';
 import {
@@ -67,12 +67,16 @@ describe('handler deadline', () => {
     expect(error.statusCode).toBe(504);
   });
 
-  it('mints a cancellation that reports itself as a timeout', () => {
+  it('keeps the deadline diagnostic in a direct TimeoutError cause', () => {
     const error = createTimeoutError({ message: HANDLER_TIMEOUT, ms: 1, status: 503 });
 
     expect(isCancelError(error)).toBe(true);
     expect(error.timedOut).toBe(true);
-    expect(error.message).toBe(HANDLER_TIMEOUT);
+    expect(error.message).toBe('Request canceled');
+    expect(error.stack?.split('\n')[0]).toBe('CancelError: Request canceled');
+    expect(error.cause).toBeInstanceOf(TimeoutError);
+    expect(error.cause).toMatchObject({ message: HANDLER_TIMEOUT });
+    expect(Object.getOwnPropertyDescriptor(error, 'cause')).toMatchObject({ enumerable: false, value: error.cause });
   });
 });
 
@@ -90,7 +94,20 @@ describe('deadline and shutdown errors', () => {
     expect(createTimeoutError(normalizeTimeout(30)!).expose).toBe(false);
   });
 
-  it('marks a shutdown error as not exposed', () => {
-    expect(createShutdownError('closing').expose).toBe(false);
+  it('keeps the shutdown diagnostic in a direct native Error cause', () => {
+    const error = createShutdownError('closing');
+
+    expect(isCancelError(error)).toBe(true);
+    expect(error).toMatchObject({
+      expose: false,
+      message: 'Request canceled',
+      status: 503,
+      statusCode: 503,
+      timedOut: false,
+    });
+    expect(error.stack?.split('\n')[0]).toBe('CancelError: Request canceled');
+    expect(Object.getPrototypeOf(error.cause)).toBe(Error.prototype);
+    expect(error.cause).toMatchObject({ message: 'closing' });
+    expect(Object.getOwnPropertyDescriptor(error, 'cause')).toMatchObject({ enumerable: false, value: error.cause });
   });
 });

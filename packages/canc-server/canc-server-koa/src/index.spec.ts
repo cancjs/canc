@@ -1739,8 +1739,8 @@ describe('outer middleware and open cancel paths', () => {
     const app = new Koa();
     const lateFailed = deferred();
 
-    app.on('error', (error: Error) => {
-      events.push(`app ${error.message}`);
+    app.on('error', (error: Error & { cause?: Error }) => {
+      events.push(`app ${error.message}${error.cause ? `: ${error.cause.message}` : ''}`);
 
       if (error.message === 'late boom') {
         lateFailed.resolve();
@@ -1765,6 +1765,6 @@ describe('outer middleware and open cancel paths', () => {
     await lateFailed.promise;
 
     expect(answer.status).toBe(503);
-    expect(events).toEqual(['app handler timeout', 'app late boom']);
+    expect(events).toEqual(['app Request canceled: handler timeout', 'app late boom']);
   });
 });
