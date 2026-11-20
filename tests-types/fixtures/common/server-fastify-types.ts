@@ -19,7 +19,13 @@
  * hits the identical wall with or without this package in the middle. This file is compiled only
  * in lanes matrix.config.json marks `serverFastifyTypes: true` (5.4 and newer).
  */
-import { cancelableHandler, cancelableHook, cancelablePreParsing, createShutdown } from '@cancjs/server-fastify';
+import {
+  cancelableHandler,
+  cancelableHook,
+  cancelablePlugin,
+  cancelablePreParsing,
+  createShutdown,
+} from '@cancjs/server-fastify';
 import Fastify from 'fastify';
 import { Readable } from 'node:stream';
 
@@ -133,3 +139,36 @@ void goodShutdown;
 void badShutdown;
 
 export {};
+
+const pluginApp = Fastify();
+pluginApp.register(
+  cancelablePlugin(function* (instance, opts) {
+    const prefix: string = instance.prefix;
+    void opts;
+    yield Promise.resolve();
+    void prefix;
+  }),
+);
+pluginApp.register(
+  cancelablePlugin<{ url: string }>(function* (_instance, opts) {
+    const url: string = opts.url;
+    void url;
+    yield Promise.resolve();
+  }),
+  { url: 'x' },
+);
+const wrongAsyncPlugin = () =>
+  // @ts-expect-error async generator plugins cannot be drained
+  cancelablePlugin(async function* () {
+    yield 1;
+  });
+const wrongPluginOptions = () =>
+  pluginApp.register(
+    cancelablePlugin<{ url: string }>(function* () {
+      yield Promise.resolve();
+    }),
+    // @ts-expect-error plugin opts url must be a string
+    { url: 1 },
+  );
+void wrongAsyncPlugin;
+void wrongPluginOptions;
