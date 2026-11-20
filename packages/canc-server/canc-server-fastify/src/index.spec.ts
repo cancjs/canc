@@ -2469,32 +2469,68 @@ function bootSleep(ms: number): CancelablePromise<void> {
 
 describe('cancelablePlugin', () => {
   it('cancels a boot just under pluginTimeout and runs its finally', async () => {
-    const instance = Fastify({ pluginTimeout: 200 });
-    app = instance;
-    const trail: string[] = [];
-    instance.register(
-      cancelablePlugin(function* dbPlugin() {
-        try {
-          yield bootSleep(600);
-        } finally {
-          trail.push('finally');
-        }
-      }),
-    );
-    const started = Date.now();
-    let failure: unknown;
+    // Only timers move virtually; Fastify's plugin boot and promise turns still run normally.
+    jest.useFakeTimers({
+      doNotFake: [
+        'Date',
+        'hrtime',
+        'nextTick',
+        'performance',
+        'queueMicrotask',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+      ],
+    });
     try {
-      await instance.ready();
-    } catch (error) {
-      failure = error;
-    }
+      const instance = Fastify({ pluginTimeout: 200 });
+      app = instance;
+      const entered = deferred();
+      const trail: string[] = [];
+      instance.register(
+        cancelablePlugin(function* dbPlugin() {
+          try {
+            entered.resolve();
+            yield bootSleep(600);
+          } finally {
+            trail.push('finally');
+          }
+        }),
+      );
+      let settled = false;
+      const ready = instance.ready().then(
+        () => {
+          settled = true;
 
-    expect(isCancelError(failure)).toBe(true);
-    expect((failure as CancelError).timedOut).toBe(true);
-    expect((failure as CancelError & { code?: string }).code).toBe('FST_ERR_PLUGIN_TIMEOUT');
-    expect((failure as CancelError).message).toBe('plugin dbPlugin did not finish booting within 180 ms');
-    expect(Date.now() - started).toBeLessThan(200);
-    expect(trail).toEqual(['finally']);
+          return undefined;
+        },
+        (error: unknown) => {
+          settled = true;
+
+          return error;
+        },
+      );
+
+      await entered.promise;
+      expect(jest.getTimerCount()).toBeGreaterThanOrEqual(2);
+      jest.advanceTimersByTime(179);
+      await tick();
+      expect(settled).toBe(false);
+      jest.advanceTimersByTime(1);
+      await tick();
+      expect(settled).toBe(true);
+
+      const failure = await ready;
+      expect(isCancelError(failure)).toBe(true);
+      expect((failure as CancelError).timedOut).toBe(true);
+      expect((failure as CancelError & { code?: string }).code).toBe('FST_ERR_PLUGIN_TIMEOUT');
+      expect((failure as CancelError).message).toBe('plugin dbPlugin did not finish booting within 180 ms');
+      expect(trail).toEqual(['finally']);
+    } finally {
+      jest.runOnlyPendingTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('cancels at an explicit timeout', async () => {
