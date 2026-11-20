@@ -27,7 +27,8 @@ export interface ICloseDrain {
   warned?: boolean;
 }
 
-const ALREADY_STARTED = 'FST_ERR_INSTANCE_ALREADY_LISTENING';
+// Fastify 5.0 rejects a hook after ready() with Avvio's root-booted error.
+const ALREADY_STARTED = new Set(['FST_ERR_INSTANCE_ALREADY_LISTENING', 'AVV_ERR_ROOT_PLG_BOOTED']);
 // room left under pluginTimeout for fastify to end the close after the windows run out
 const PLUGIN_TIMEOUT_MARGIN = 500;
 
@@ -124,7 +125,8 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
       await (getShutdownState(server) ?? shutdownServer(fitPluginTimeout(instance, drain, drain.options)));
     });
   } catch (error) {
-    if ((error as { code?: unknown } | null)?.code === ALREADY_STARTED) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (typeof code === 'string' && ALREADY_STARTED.has(code)) {
       return false;
     }
 
