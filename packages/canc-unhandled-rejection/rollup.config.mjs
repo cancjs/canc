@@ -5,12 +5,12 @@ const configs = createMultiConfigs([
   { input: 'src/register.ts', base: 'register', name: 'canc_unhandled_rejection_register' },
 ]);
 
-// cjs and es keep the self-import external to share one registry, UMD inlines it to load standalone
+// register builds import the package instead of inlining a second copy
+// UMD reaches it through the index global, so the index script loads first
 const selfImport = '@cancjs/unhandled-rejection';
 
 for (const config of configs) {
-  const format = config.output.format;
-  if (format !== 'cjs' && format !== 'es') {
+  if (config.input !== 'src/register.ts') {
     continue;
   }
   const orig = config.external;
