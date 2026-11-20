@@ -2,7 +2,7 @@ import { once } from 'node:events';
 import { IncomingMessage, request as sendRequest, Server, STATUS_CODES } from 'node:http';
 import { AddressInfo } from 'node:net';
 
-import { CancelablePromise, CancelError } from '@cancjs/promise';
+import { CancelablePromise, CancelError, isCancelError, TimeoutError } from '@cancjs/promise';
 import { serve } from '@hono/node-server';
 import express from 'express';
 import Fastify, { FastifyInstance, FastifyReply } from 'fastify';
@@ -51,7 +51,6 @@ import * as koaServer from './canc-server-koa/src';
  * | Quiet body on the terminal handler      | express, H on owned    | the handler answers a bare status, finalhandler would log and send html |
  * | App handler skipped for owned cancels   | fastify and hono, HU   | one error slot: the adapter's handler answers a cancel the request owns, and its `onError` option only takes what is not a cancel |
  * | Unowned cancel not given to the app     | fastify, HU            | the adapter's handler passes a cancel the request does not own to the framework default, not to its `onError` option |
- * | Generic body for minted cancels        | fastify, M             | fastify ignores `expose`, so the plugin hides a minted cancel's message behind the status text |
  *
  * The first three are connection level and covered by the per-package suites; the rest are asserted
  * below, each against the mode it is documented to behave like.
@@ -71,12 +70,14 @@ interface IObserved {
   body: string;
   logs: string[];
   events: string[];
+  diagnostics: string[];
 }
 
 interface IHarness {
   started: { promise: Promise<void>; resolve: () => void };
   logs: string[];
   events: string[];
+  diagnostics: string[];
 }
 
 interface IRunning {
@@ -99,8 +100,14 @@ const MINTED: TKind[] = ['deadline', 'shutdown'];
 const WRAPPED: TMode[] = ['W', 'M', 'H', 'WU', 'HU', 'UH'];
 const WITH_USER_HANDLER: TMode[] = ['U', 'WU', 'HU', 'UH'];
 
-const SHUTDOWN_OPTIONS = { cancelAfter: 0, closeAfter: 2000, headers: { 'retry-after': '5' }, status: 502 };
-const DEADLINE = { headers: { 'retry-after': '3' }, ms: 20, status: 504 };
+const SHUTDOWN_OPTIONS = {
+  cancelAfter: 0,
+  closeAfter: 2000,
+  headers: { 'retry-after': '5' },
+  reason: 'deploying',
+  status: 502,
+};
+const DEADLINE = { headers: { 'retry-after': '3' }, message: 'slow operation', ms: 20, status: 504 };
 
 const stops: Array<() => Promise<void>> = [];
 
@@ -125,20 +132,6 @@ const adapters: IAdapter[] = [
   { build: buildKoa, modes: ['P', 'W', 'H', 'U', 'WU', 'HU', 'UH'], name: 'koa' },
   {
     build: buildFastify,
-    delta: (mode, kind, base) => {
-      if (mode !== 'M' || !MINTED.includes(kind)) {
-        return base;
-      }
-
-      // fastify plugin hides canc-minted error messages in the default body
-      const body = JSON.stringify({ ...(JSON.parse(base.body) as object), message: STATUS_CODES[base.status] });
-      const headers =
-        base.headers['content-length'] === undefined ?
-          base.headers
-        : { ...base.headers, 'content-length': String(Buffer.byteLength(body)) };
-
-      return { ...base, body, headers };
-    },
     modes: ['P', 'W', 'M', 'H', 'U', 'WU', 'HU'],
     name: 'fastify',
     reference: (mode, kind) => {
@@ -204,6 +197,19 @@ for (const adapter of adapters) {
           if (answered !== undefined) {
             expect(base.status).toBe(answered);
           }
+          if (minted && group.base === 'WU') {
+            expect(base.body).toBe(JSON.stringify({ user: 'Request canceled' }));
+            const diagnostic = kind === 'deadline' ? DEADLINE.message : SHUTDOWN_OPTIONS.reason;
+            expect(base.diagnostics).toEqual([`Request canceled: ${diagnostic}`]);
+          }
+          if (minted && group.base === 'W' && adapter.name === 'fastify') {
+            expect(JSON.parse(base.body)).toEqual({
+              statusCode: answered,
+              error: STATUS_CODES[answered],
+              message: 'Request canceled',
+            });
+          }
+
           // an app header survives the answer; koa's default error response clears them all
           expect(base.headers['x-app']).toBe(adapter.name === 'koa' && group.label === 'app default' ? undefined : '1');
 
@@ -222,7 +228,7 @@ for (const adapter of adapters) {
 }
 
 async function observe(adapter: IAdapter, mode: TMode, kind: TKind): Promise<IObserved> {
-  const harness: IHarness = { events: [], logs: [], started: deferred() };
+  const harness: IHarness = { diagnostics: [], events: [], logs: [], started: deferred() };
   const spy = jest.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
     harness.logs.push(args.map(describe_).join(' '));
   });
@@ -241,7 +247,7 @@ async function observe(adapter: IAdapter, mode: TMode, kind: TKind): Promise<IOb
     // framework loggers defer their write
     await ticks();
 
-    return { ...response, events: harness.events, logs: harness.logs };
+    return { ...response, diagnostics: harness.diagnostics, events: harness.events, logs: harness.logs };
   } finally {
     spy.mockRestore();
   }
@@ -277,6 +283,21 @@ function rateLimitError(): Error {
   return Object.assign(new Error('slow down'), { headers: { 'retry-after': '7' }, status: 429, statusCode: 429 });
 }
 
+function recordDiagnostic(harness: IHarness, error: unknown): void {
+  if (!isCancelError(error)) {
+    return;
+  }
+
+  const cancellation = error as CancelError;
+  const cause: unknown = cancellation.cause;
+
+  if (cause instanceof TimeoutError || cause instanceof Error) {
+    expect(cancellation.timedOut).toBe(cause instanceof TimeoutError);
+    expect(Object.getOwnPropertyDescriptor(cancellation, 'cause')?.enumerable).toBe(false);
+    harness.diagnostics.push(`${cancellation.message}: ${cause.message}`);
+  }
+}
+
 function statusOf(error: IHttpError): number {
   return error.status ?? error.statusCode ?? 500;
 }
@@ -309,6 +330,7 @@ async function buildExpress(mode: TMode, kind: TKind, harness: IHarness): Promis
 
   if (WITH_USER_HANDLER.includes(mode)) {
     app.use((error: IHttpError, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      recordDiagnostic(harness, error);
       res.status(statusOf(error)).set('x-user', '1').json({ user: error.message });
     });
   }
@@ -337,6 +359,7 @@ async function buildKoa(mode: TMode, kind: TKind, harness: IHarness): Promise<IR
     try {
       await next();
     } catch (error) {
+      recordDiagnostic(harness, error);
       ctx.status = statusOf(error as IHttpError);
       ctx.set('x-user', '1');
       ctx.body = { user: (error as IHttpError).message };
@@ -394,6 +417,7 @@ async function buildFastify(mode: TMode, kind: TKind, harness: IHarness): Promis
   });
   const fail = failureFor(kind, rateLimitError);
   const user = (error: unknown, _request: unknown, reply: FastifyReply): void => {
+    recordDiagnostic(harness, error);
     reply
       .code(statusOf(error as IHttpError))
       .header('x-user', '1')
@@ -452,8 +476,11 @@ async function buildHono(mode: TMode, kind: TKind, harness: IHarness): Promise<I
 
     return new HTTPException(429, { message: 'slow down', res: new Response('slow down', { headers, status: 429 }) });
   });
-  const user = (error: IHttpError, c: Context): Response =>
-    c.json({ user: error.message }, statusOf(error) as ContentfulStatusCode, { 'x-user': '1' });
+  const user = (error: IHttpError, c: Context): Response => {
+    recordDiagnostic(harness, error);
+
+    return c.json({ user: error.message }, statusOf(error) as ContentfulStatusCode, { 'x-user': '1' });
+  };
 
   app.use('*', async (c, next) => {
     c.header('x-app', '1');

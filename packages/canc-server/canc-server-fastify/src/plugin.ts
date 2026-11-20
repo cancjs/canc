@@ -1,7 +1,5 @@
-import { STATUS_CODES } from 'node:http';
-
 import { isCancelError } from '@cancjs/promise';
-import Fastify, { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
 import {
@@ -54,49 +52,13 @@ function isGeneratorFunction(value: unknown): value is (...args: never[]) => Gen
   return typeof value === 'function' && Object.prototype.toString.call(value) === '[object GeneratorFunction]';
 }
 
-const DEFAULT_BODY_KEYS = ['code', 'error', 'message', 'statusCode'];
-
-function concealDefaultBody(reply: FastifyReply, payload: string, message: string): string {
-  let body: unknown;
-
-  try {
-    body = JSON.parse(payload);
-  } catch {
-    return payload;
-  }
-
-  if (
-    body === null ||
-    typeof body !== 'object' ||
-    Object.keys(body).some((key) => !DEFAULT_BODY_KEYS.includes(key)) ||
-    (body as { message?: unknown }).message !== message ||
-    (body as { statusCode?: unknown }).statusCode !== reply.statusCode
-  ) {
-    return payload;
-  }
-
-  const concealedPayload = JSON.stringify({ ...body, message: STATUS_CODES[reply.statusCode] ?? 'Error' });
-  // fastify set the length for the original body before onSend ran
-  reply.header('content-length', Buffer.byteLength(concealedPayload));
-
-  return concealedPayload;
-}
-
 const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(fastify, pluginOptions) {
   const { autoWrap, ...options } = pluginOptions;
   // the instance holds its server from the start, so a shutdown knows every request, plain ones too
   getRequestRegistry(fastify.server, true);
   installCloseDrain(fastify);
 
-  // Fastify exposes the effective instance error handler, but route-level overrides live in
-  // route options. Mark those routes through public config before Fastify clones the options.
-  const defaultErrorHandler = Fastify().errorHandler;
-  const routeErrorHandlerMarker = Symbol('custom cancel error handler');
   fastify.addHook('onRoute', (route) => {
-    if (route.errorHandler !== undefined) {
-      route.config = { ...route.config, [routeErrorHandlerMarker]: true };
-    }
-
     if (autoWrap === false) {
       return;
     }
@@ -129,35 +91,6 @@ const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(f
     done();
   });
 
-  // Fastify ignores expose in its own default body. Only that default handler's output may be
-  // concealed: a custom instance or route error handler owns its payload, even if its keys and
-  // status happen to match Fastify's generated shape. Keep per-request state per registration.
-  const concealed = new WeakMap<object, string>();
-  fastify.addHook('onError', function (request, _reply, error, done) {
-    if (
-      isCancelError(error) &&
-      (error as { expose?: unknown }).expose === false &&
-      this.errorHandler === defaultErrorHandler &&
-      !Object.prototype.hasOwnProperty.call(request.routeOptions.config, routeErrorHandlerMarker)
-    ) {
-      concealed.set(request.raw, error.message);
-    }
-    done();
-  });
-
-  fastify.addHook('onSend', (request, reply, payload, done) => {
-    const message = concealed.get(request.raw);
-
-    if (message === undefined || typeof payload !== 'string') {
-      done(null, payload);
-
-      return;
-    }
-
-    concealed.delete(request.raw);
-    done(null, concealDefaultBody(reply, payload, message));
-  });
-
   return Promise.resolve();
 };
 
@@ -179,10 +112,7 @@ const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(f
  *
  * It also registers a `preClose` hook that drains the server inside fastify's own close, so a plain
  * `await app.close()` lets in-flight requests finish and cancels the rest, with the options given
- * to `createShutdown` or the defaults. Fastify's default error body prints an error's message and
- * ignores `expose`, so for a cancellation this package raised (deadline, shutdown, client gone)
- * this plugin replaces that message with the status text, such as `Service Unavailable`. The error
- * keeps its message for logs and error handlers. Register it after plugins whose `preClose` hooks end
+ * to `createShutdown` or the defaults. Register it after plugins whose `preClose` hooks end
  * long-lived connections: hooks run in registration order.
  */
 export const cancelPlugin = fastifyPlugin(plugin, {
