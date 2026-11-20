@@ -1,6 +1,8 @@
+import { CancelSignal, createCancelSignal } from '@cancjs/promise';
 import { FastifyInstance } from 'fastify';
 
 import { getShutdownFunction, getShutdownState, setShutdownFunction } from '../../../_server/holder';
+import { SERVER_SHUTDOWN } from '../../../_server/reasons';
 import { checkShutdownOptions, createServerShutdown, DEFAULT_SHUTDOWN_TIMEOUT } from '../../../_server/shutdown';
 import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server/types';
 
@@ -10,6 +12,9 @@ import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server
 const CLOSE_DRAIN = Symbol.for('@cancjs/server-fastify:CloseDrain');
 
 interface ICloseDrain {
+  // the boot scope every cancelablePlugin of the server runs under;
+  // a shutdown that closes the instance cancels it
+  boot?: { signal: CancelSignal; cancel: (reason?: unknown) => void };
   // set once the preClose hook that runs the drain is registered
   hooked?: boolean;
   // options stored by createShutdown(app, options), used by a plain app.close()
@@ -32,6 +37,22 @@ function getCloseDrain(server: IServerLike): ICloseDrain {
   }
 
   return drain;
+}
+
+/**
+ * The boot scope of a server, created on first use. Kept on the close drain object, so every copy of
+ * this package and every encapsulation scope shares it.
+ *
+ * @internal
+ */
+export function getBootScope(server: IServerLike): { signal: CancelSignal; cancel: (reason?: unknown) => void } {
+  const drain = getCloseDrain(server);
+
+  if (!drain.boot) {
+    drain.boot = createCancelSignal();
+  }
+
+  return drain.boot;
 }
 
 function usableMs(ms: number | undefined): number | undefined {
@@ -126,6 +147,8 @@ export function installCloseDrain(instance: FastifyInstance): boolean {
  * false. Fastify cuts a `preClose` hook off at `pluginTimeout` (10 s by default), which the default
  * windows would pass, so there the windows are lowered to end just inside it, and that is logged
  * once through `app.log.warn`.
+ * A boot that `cancelablePlugin` runs and that is still in progress is canceled first, so a
+ * shutdown during startup does not wait for the boot to finish.
  *
  * The shutdown stops the server: no new connections, a window for in-flight handlers to finish,
  * and a cancel for any still running when `cancelAfter` ends (at once with `cancelAfter: 0`). Every
@@ -196,6 +219,10 @@ export function createShutdown(
     const drained = shutdownServer(
       insideClose && merged.closeServer !== false ? fitPluginTimeout(app, drain, merged) : merged,
     );
+    // a boot still running holds app.close() until it ends, so cancel it before the close
+    if (merged.closeServer !== false) {
+      getBootScope(app.server as IServerLike).cancel(merged.reason ?? SERVER_SHUTDOWN);
+    }
     let result: Promise<IShutdownResult>;
 
     if (merged?.closeServer === false) {

@@ -6,12 +6,14 @@ import { runInThisContext } from 'node:vm';
 
 import { CancelablePromise, CancelError, isCancelError, isCancelSignal, TimeoutError } from '@cancjs/promise';
 import Fastify, { FastifyInstance, preHandlerAsyncHookHandler } from 'fastify';
+import fastifyPlugin from 'fastify-plugin';
 
 import { expectAbortAt, useDeadlineClock } from '../../../_server/__tests__/deadline-clock';
 import { describeShutdownSockets } from '../../../_server/__tests__/shutdown-sockets';
 import {
   cancelableHandler,
   cancelableHook,
+  cancelablePlugin,
   cancelablePreParsing,
   cancelErrorHandler,
   cancelPlugin,
@@ -2456,3 +2458,189 @@ function nativeGenerator(body: string, scope: Record<string, unknown> = {}): (..
   // eslint-disable-next-line @typescript-eslint/no-implied-eval -- native generators survive the spec ES5 compilation
   return new Function(...Object.keys(scope), `return function* () { ${body} };`)(...Object.values(scope));
 }
+
+function bootSleep(ms: number): CancelablePromise<void> {
+  return new CancelablePromise<void>((resolve, _reject, { handleCancel }) => {
+    const timer = setTimeout(resolve, ms);
+    handleCancel(() => clearTimeout(timer));
+  });
+}
+
+describe('cancelablePlugin', () => {
+  it('cancels a boot just under pluginTimeout and runs its finally', async () => {
+    const instance = Fastify({ pluginTimeout: 200 });
+    app = instance;
+    const trail: string[] = [];
+    instance.register(
+      cancelablePlugin(function* dbPlugin() {
+        try {
+          yield bootSleep(600);
+        } finally {
+          trail.push('finally');
+        }
+      }),
+    );
+    const started = Date.now();
+    let failure: unknown;
+    try {
+      await instance.ready();
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(isCancelError(failure)).toBe(true);
+    expect((failure as CancelError).timedOut).toBe(true);
+    expect((failure as CancelError & { code?: string }).code).toBe('FST_ERR_PLUGIN_TIMEOUT');
+    expect((failure as CancelError).message).toBe('plugin dbPlugin did not finish booting within 180 ms');
+    expect(Date.now() - started).toBeLessThan(200);
+    expect(trail).toEqual(['finally']);
+  });
+
+  it('cancels at an explicit timeout', async () => {
+    const instance = Fastify();
+    app = instance;
+    instance.register(
+      cancelablePlugin(
+        function* () {
+          yield bootSleep(600);
+        },
+        { timeout: 50 },
+      ),
+    );
+    const started = Date.now();
+    await expect(instance.ready()).rejects.toMatchObject({ timedOut: true, code: 'FST_ERR_PLUGIN_TIMEOUT' });
+    expect(Date.now() - started).toBeLessThan(300);
+  });
+
+  it('is canceled by shutdown during boot', async () => {
+    const instance = Fastify();
+    app = instance;
+    const trail: string[] = [];
+    const shutdown = createShutdown(instance, { cancelAfter: 100 });
+    instance.register(
+      cancelablePlugin(function* () {
+        try {
+          yield bootSleep(600);
+        } finally {
+          trail.push('finally');
+        }
+      }),
+    );
+    const listening = instance.listen({ host: '127.0.0.1', port: 0 }).then(
+      () => 'listening',
+      (error: unknown) => error,
+    );
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    const started = Date.now();
+    expect(await shutdown()).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    expect(Date.now() - started).toBeLessThan(500);
+    const canceled = await listening;
+    expect(isCancelError(canceled)).toBe(true);
+    expect((canceled as CancelError).message).toBe(SERVER_SHUTDOWN);
+    expect(trail).toEqual(['finally']);
+  });
+
+  it('is canceled by a caller signal', async () => {
+    const instance = Fastify();
+    app = instance;
+    const controller = new AbortController();
+    const trail: string[] = [];
+    instance.register(
+      cancelablePlugin(
+        function* () {
+          try {
+            yield bootSleep(600);
+          } finally {
+            trail.push('finally');
+          }
+        },
+        { signal: controller.signal },
+      ),
+    );
+    const ready = instance.ready().then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    setTimeout(() => controller.abort('stop'), 30);
+    expect(isCancelError(await ready)).toBe(true);
+    expect(trail).toEqual(['finally']);
+  });
+
+  it('leaves a finished boot alone', async () => {
+    const instance = Fastify();
+    app = instance;
+    instance.register(
+      fastifyPlugin(
+        cancelablePlugin(function* (inst) {
+          yield bootSleep(5);
+          inst.decorate('db', 1);
+        }),
+        { name: 'db' },
+      ),
+    );
+    await instance.ready();
+    expect(instance.hasDecorator('db')).toBe(true);
+    await expect(createShutdown(instance)()).resolves.toEqual({ canceled: 0, completed: 0, timedOut: false });
+  });
+
+  it('runs a plain plugin signal-only', async () => {
+    const instance = Fastify();
+    app = instance;
+    instance.register(
+      cancelablePlugin(
+        async () => {
+          await new Promise<void>((resolve) => setTimeout(resolve, 600));
+        },
+        { timeout: 50 },
+      ),
+    );
+    const started = Date.now();
+    await expect(instance.ready()).rejects.toMatchObject({ timedOut: true });
+    expect(Date.now() - started).toBeLessThan(300);
+  });
+
+  it('does not start a plugin whose scope is already canceled', async () => {
+    const instance = Fastify();
+    app = instance;
+    const controller = new AbortController();
+    controller.abort('before start');
+    const invoked = jest.fn();
+    instance.register(
+      cancelablePlugin(
+        () => {
+          invoked();
+        },
+        { signal: controller.signal },
+      ),
+    );
+    const failure = await instance.ready().then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(isCancelError(failure)).toBe(true);
+    expect(invoked).not.toHaveBeenCalled();
+  });
+
+  it('checks its arguments', () => {
+    expect(() => cancelablePlugin(undefined as never)).toThrow(TypeError);
+    for (const timeout of [0, -1, NaN]) {
+      expect(() => cancelablePlugin(() => undefined, { timeout })).toThrow(RangeError);
+    }
+    expect(typeof cancelablePlugin(() => undefined, { timeout: Infinity })).toBe('function');
+  });
+
+  it('keeps the boot running for a shutdown that does not close the instance', async () => {
+    const instance = Fastify();
+    app = instance;
+    const shutdown = createShutdown(instance);
+    instance.register(
+      cancelablePlugin(function* () {
+        yield bootSleep(100);
+      }),
+    );
+    const ready = instance.ready();
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
+    expect(await shutdown({ closeServer: false })).toEqual({ canceled: 0, completed: 0, timedOut: false });
+    await expect(ready).resolves.toBe(instance);
+  });
+});

@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-server/canc-server-fastify/dist/types/index.d.ts`
-- Exports: 22
+- Exports: 25
 
 ## `CLIENT_DISCONNECTED` (const)
 
@@ -45,6 +45,13 @@ signal?: AbortSignal | Array<AbortSignal> | undefined
 timeout?: TTimeoutOption | undefined
 ```
 
+## `ICancelablePluginOptions` (interface)
+
+```text
+signal?: AbortSignal | Array<AbortSignal> | undefined
+timeout?: number | undefined
+```
+
 ## `IShutdownOptions` (interface)
 
 ```text
@@ -80,6 +87,12 @@ timedOut: boolean
 
 ```text
 TGeneratorFn<(this: FastifyInstance, request: FastifyRequest<RouteGeneric>, reply: FastifyReply<RouteGeneric>) => unknown, unknown> | TPlainHandlerFn<(this: FastifyInstance, request: FastifyRequest<RouteGeneric>, reply: FastifyReply<RouteGeneric>) => unknown>
+```
+
+## `TCancelablePluginFn<Options extends FastifyPluginOptions = Record<never, never>>` (type)
+
+```text
+TGeneratorFn<(this: FastifyInstance, instance: FastifyInstance, options: Options) => unknown, unknown> | TPlainHandlerFn<(this: FastifyInstance, instance: FastifyInstance, options: Options) => unknown>
 ```
 
 ## `TCancelablePreParsingFn<RouteGeneric extends RouteGenericInterface = RouteGenericInterface>` (type)
@@ -134,6 +147,12 @@ number | { ms: number; status?: number; message?: string; headers?: Record<strin
 
 ```text
 <RouteGeneric extends RouteGenericInterface = RouteGenericInterface>(hook: TCancelableHookFn<RouteGeneric>, options?: ICancelableHandlerOptions | undefined): TFastifyRequestHook<RouteGeneric>
+```
+
+## `cancelablePlugin<Options extends FastifyPluginOptions = Record<never, never>>` (function)
+
+```text
+<Options extends FastifyPluginOptions = Record<never, never>>(plugin: TCancelablePluginFn<Options>, options?: ICancelablePluginOptions | undefined): FastifyPluginAsync<Options>
 ```
 
 ## `cancelablePreParsing<RouteGeneric extends RouteGenericInterface = RouteGenericInterface>` (function)

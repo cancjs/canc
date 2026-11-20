@@ -5,6 +5,8 @@ export type {
   IShutdownResult,
   TTimeoutOption,
 } from '../../../_server/types';
+export type { ICancelablePluginOptions, TCancelablePluginFn } from './boot';
+export { cancelablePlugin } from './boot';
 export type {
   TCancelableHookFn,
   TCancelablePreParsingFn,

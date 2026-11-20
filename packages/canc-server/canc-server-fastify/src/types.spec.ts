@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 
-import { cancelableHandler, cancelableHook, cancelablePreParsing, createShutdown } from './index';
+import { cancelableHandler, cancelableHook, cancelablePlugin, cancelablePreParsing, createShutdown } from './index';
 
 // compile-time coverage: under strict mode a parameter the contextual type failed to reach is an
 // implicit any, so these cases fail the build rather than an assertion
@@ -130,5 +130,49 @@ describe('hook typing', () => {
 
     expect(typeof asyncHook).toBe('function');
     expect(typeof extraHook).toBe('function');
+  });
+});
+
+describe('cancelable plugin typing', () => {
+  it('infers an instance and options and registers a generator plugin', async () => {
+    const instance = Fastify();
+    instance.register(
+      cancelablePlugin(function* (pluginInstance, opts) {
+        const name: string = pluginInstance.prefix;
+        void opts;
+        yield Promise.resolve();
+        void name;
+      }),
+    );
+    instance.register(
+      cancelablePlugin<{ url: string }>(function* (_pluginInstance, opts) {
+        const url: string = opts.url;
+        yield Promise.resolve();
+        void url;
+      }),
+      { url: 'x' },
+    );
+
+    await instance.ready();
+    await instance.close();
+  });
+
+  it('rejects async generators and wrong plugin options', () => {
+    const wrongPlugin = () =>
+      // @ts-expect-error async generators are not drained during plugin boot
+      cancelablePlugin(async function* () {
+        yield 1;
+      });
+    const instance = Fastify();
+    const badOptions = () =>
+      instance.register(
+        cancelablePlugin<{ url: string }>(function* () {
+          yield Promise.resolve();
+        }),
+        // @ts-expect-error plugin options require url to be a string
+        { url: 1 },
+      );
+    expect(typeof wrongPlugin).toBe('function');
+    expect(typeof badOptions).toBe('function');
   });
 });
