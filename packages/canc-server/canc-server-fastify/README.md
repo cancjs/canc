@@ -99,7 +99,7 @@ The cancel state is cached on the raw request under a registered symbol, so the 
 
 The wrapper never writes the response. A cancellation that arrives with the client already gone is dropped and the reply is hijacked, because there is nothing to answer on. Everything else is rethrown and reaches Fastify's error handling, including a missed deadline, which carries `status` and `statusCode` so Fastify answers with the code you configured.
 
-All five server adapters set `CancelError.message` to `Request canceled` for deadlines and shutdowns they trigger. The original diagnostic is on the direct `cause`, a `TimeoutError` with the deadline message or an `Error` with the shutdown reason. In logs and callbacks, read `error.cause?.message ?? error.message`.
+The five server adapters use `Request canceled` as `CancelError.message` for request cancellations minted by their shared deadline and shutdown handlers. The original diagnostic is on the direct `cause`, a `TimeoutError` with the deadline message or an `Error` with the shutdown reason. In logs and callbacks, read `error.cause?.message ?? error.message`.
 
 With or without `cancelPlugin`, Fastify's default error handler serializes the cancellation with the HTTP status text in `error` and the fixed message in `message`. A custom handler that delegates with `reply.send(error)` gets the same body. For a 503 response, Fastify sends:
 
