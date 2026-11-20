@@ -1828,8 +1828,6 @@ describe('cancel answers without a mounted error handler', () => {
     });
     await tick();
 
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
-
     expect(outcome.complete).toBe(false);
     expect(cutLogs(errorSpy)).toHaveLength(1);
     errorSpy.mockRestore();
@@ -1872,8 +1870,6 @@ describe('cancel answers without a mounted error handler', () => {
       request.on('error', () => resolve({ body: '', complete: false }));
     });
     await tick();
-
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(outcome.complete).toBe(false);
     expect(cutLogs(errorSpy)).toHaveLength(1);
@@ -1919,8 +1915,6 @@ describe('cancel answers without a mounted error handler', () => {
       request.on('error', () => resolve({ body: '', complete: false }));
     });
     await tick();
-
-    const messages = errorSpy.mock.calls.map((call) => String(call[0]));
 
     expect(outcome.complete).toBe(false);
     expect(cutLogs(errorSpy)).toHaveLength(1);
