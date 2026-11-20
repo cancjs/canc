@@ -180,6 +180,8 @@ A `cancelAfter` of `Infinity` waits for the responses however long they take, an
 
 Cancellation is always a `CancelError`. What differs between the three triggers is the reason it carries, exported as `CLIENT_DISCONNECTED`, `SERVER_SHUTDOWN` and `HANDLER_TIMEOUT`. Those strings are for logs and humans. Code discriminates with `isCancelError(err) && !err.timedOut`, never with a message comparison and never with `instanceof`.
 
+A server-owned deadline or shutdown sets `CancelError.message` to `Request canceled`. The original message is in `error.cause.message`, on a `TimeoutError` for a deadline or an `Error` for shutdown. Use `error.timedOut` to identify deadlines and `error.cause?.message ?? error.message` in logs or error callbacks. Disconnects keep their own message. Your own `CancelError` and foreign errors keep their existing behavior. Express middleware still handles the reply.
+
 ### What reaches the error handler
 
 The wrapper forwards errors to express with `next(err)`, with two exceptions. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped: there is nobody left to answer, and forwarding it only makes the default handler log the request and write to a dead socket. A deadline always reaches the error handler, because the client is still there and expects a response. The other exception: a request forwards one cancellation at most. A deadline cancels a wrapped middleware still running after `next()` together with the route behind it, and only the first of the two reaches the error handlers. A second `next(err)` would skip past `cancelErrorHandler` into express's final handler and log a stack for a request that was already answered.

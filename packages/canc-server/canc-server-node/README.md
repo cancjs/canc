@@ -179,6 +179,8 @@ A `cancelAfter` of `Infinity` waits for the responses however long they take, an
 
 Cancellation is always a `CancelError`. What differs between the three triggers is the reason it carries, exported as `CLIENT_DISCONNECTED`, `SERVER_SHUTDOWN` and `HANDLER_TIMEOUT`. Those strings are for logs and humans. Code discriminates with `isCancelError(err) && !err.timedOut`, never with a message comparison and never with `instanceof`.
 
+A server-owned deadline or shutdown sets `CancelError.message` to `Request canceled`. The original message is in `error.cause.message`, on a `TimeoutError` for a deadline or an `Error` for shutdown. Use `error.timedOut` to identify deadlines and `error.cause?.message ?? error.message` in logs or error callbacks. Disconnects keep their own message. Your own `CancelError` and foreign errors keep their existing behavior. The `onError` callback still owns the reply.
+
 ### What reaches the error handler
 
 Raw node has no `next(err)` and no error middleware. What settles a request after its handler rejects is `options.onError`, and it defaults to `cancelErrorHandler()`. A cancellation that is not a deadline, on a response whose socket is already gone, is dropped before `onError` is called: there is nobody left to answer. A deadline always reaches `onError`, because the client is still there and expects a response. If the head already went out, a status can no longer be sent, so the socket is destroyed instead: the client sees a cut connection rather than a body that looks complete.

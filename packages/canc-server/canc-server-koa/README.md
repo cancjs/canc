@@ -134,6 +134,8 @@ The deadline default status is 503. Set `timeout: { ms: 30_000, status: 504 }` f
 
 Both raise a `CancelError`. A deadline sets `timedOut` through its `TimeoutError` cause, and a shutdown cancel is not a disconnect even though the socket is dead by then. The middleware drops only a real disconnect. Every other cancellation it owns reaches your error middleware with `err.status` set, so that middleware can tell it apart by status. The exported reason strings are for logs and for humans reading them, never for branching.
 
+A server-owned deadline or shutdown sets `CancelError.message` to `Request canceled`. The original message is in `error.cause.message`, on a `TimeoutError` for a deadline or an `Error` for shutdown. Use `error.timedOut` to identify deadlines and `error.cause?.message ?? error.message` in logs or error callbacks. Disconnects keep their own message. Your own `CancelError` and foreign errors keep their existing behavior. Koa's error handling still owns the reply.
+
 ### Shutting down
 
 `createShutdown` takes the `http.Server` that `app.listen()` returns, not the Koa application, because a Koa application has no `close` of its own to sequence against. It returns the function that runs the shutdown. Call it right after `app.listen()`: it records connections and requests from that point on. It replaces the prerelease `shutdown(server, o)`: call `createShutdown(server)(o)`.
