@@ -262,9 +262,9 @@ describe.each(VARIANTS)('umd entry points beyond the main bundles (%s)', (varian
     },
   );
 
-  it('loads unhandled-rejection/register and installs a browser listener', () => {
+  it('loads unhandled-rejection/register after the index and installs a browser listener', () => {
     const scope = createScope(
-      ['promise', 'unhandled-rejection/register'],
+      ['promise', 'unhandled-rejection', 'unhandled-rejection/register'],
       variant,
       `globalThis.addedTypes = [];
        globalThis.addEventListener = function (type) { addedTypes.push(type); };
