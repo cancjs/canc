@@ -34,6 +34,7 @@ export interface IStatusCancelError extends CancelError {
  * Marks a cancellation whose status is the deadline's or an explicit shutdown's. That status beats a
  * handler's `status` option; a status the caller set on its own error does not.
  */
+// read across copies: the marker keeps its meaning forever; see the holder cross-copy contract
 export const STAMP_WINS = Symbol.for('@cancjs/server-node:stampWins');
 
 /** What a shutdown sets on the cancel it raises on each request. */

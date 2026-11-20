@@ -11,7 +11,11 @@ import { IServerLike, IShutdownOptions, IShutdownResult } from '../../../_server
 // encapsulation scopes, and the server is the one object they all share
 const CLOSE_DRAIN = Symbol.for('@cancjs/server-fastify:CloseDrain');
 
-interface ICloseDrain {
+/**
+ * @internal Read by every installed copy through the CloseDrain key: fields only ever added,
+ * never renamed or retyped; absent means not set.
+ */
+export interface ICloseDrain {
   // the boot scope every cancelablePlugin of the server runs under;
   // a shutdown that closes the instance cancels it
   boot?: { signal: CancelSignal; cancel: (reason?: unknown) => void };

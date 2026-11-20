@@ -16,6 +16,10 @@ import {
  * request. `server-node` owns the key because it is the layer every other adapter wires through;
  * the string resolves whether or not that package is installed.
  */
+// Cross-copy contract: state under Symbol.for is shared across installed server packages
+// on the same request or server, so fields are added only, never renamed or retyped,
+// absent fields mean unset, and incompatible changes require a new key plus a coordinated
+// major of every server package, since two keys would split state between copies.
 export const REQUEST_CANCEL_STATE = Symbol.for('@cancjs/server-node:RequestCancelState');
 
 /**
@@ -40,7 +44,10 @@ export const SHUTDOWN_FUNCTION = Symbol.for('@cancjs/server-node:ShutdownFunctio
 /** Runs a graceful shutdown, or returns the one already running. */
 export type TShutdownFunction = (options?: IShutdownOptions) => Promise<IShutdownResult>;
 
-/** Everything a request's cancellation is driven from, cached on the raw request object. */
+/**
+ * Shape under the cross-copy contract at the top of this file.
+ * Everything a request's cancellation is driven from, cached on the raw request object.
+ */
 export interface IRequestCancelState {
   signal: CancelSignal;
   cancel: (reason?: unknown) => void;
@@ -106,6 +113,7 @@ export interface IConnectionLike {
 }
 
 /**
+ * Shape under the cross-copy contract at the top of this file.
  * Every request a server is still answering that this layer has seen, keyed by its response.
  *
  * Fed by a `request` listener prepended the first time this layer meets the server, so requests
