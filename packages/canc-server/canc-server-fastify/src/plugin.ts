@@ -1,7 +1,7 @@
 import { STATUS_CODES } from 'node:http';
 
 import { isCancelError } from '@cancjs/promise';
-import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import Fastify, { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 
 import {
@@ -88,29 +88,39 @@ const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(f
   getRequestRegistry(fastify.server, true);
   installCloseDrain(fastify);
 
-  if (autoWrap !== false) {
-    fastify.addHook('onRoute', (route) => {
-      if (isGeneratorFunction(route.handler)) {
-        route.handler = cancelableHandler(route.handler as never);
+  // Fastify exposes the effective instance error handler, but route-level overrides live in
+  // route options. Mark those routes through public config before Fastify clones the options.
+  const defaultErrorHandler = Fastify().errorHandler;
+  const routeErrorHandlerMarker = Symbol('custom cancel error handler');
+  fastify.addHook('onRoute', (route) => {
+    if (route.errorHandler !== undefined) {
+      route.config = { ...route.config, [routeErrorHandlerMarker]: true };
+    }
+
+    if (autoWrap === false) {
+      return;
+    }
+
+    if (isGeneratorFunction(route.handler)) {
+      route.handler = cancelableHandler(route.handler as never);
+    }
+
+    const hooks = route as unknown as Record<string, unknown>;
+    const wrapEach = (name: string, wrap: (hook: never) => unknown) => {
+      const value = hooks[name];
+
+      if (Array.isArray(value)) {
+        hooks[name] = value.map((hook: unknown) => (isGeneratorFunction(hook) ? wrap(hook as never) : hook));
+      } else if (isGeneratorFunction(value)) {
+        hooks[name] = wrap(value as never);
       }
+    };
 
-      const hooks = route as unknown as Record<string, unknown>;
-      const wrapEach = (name: string, wrap: (hook: never) => unknown) => {
-        const value = hooks[name];
-
-        if (Array.isArray(value)) {
-          hooks[name] = value.map((hook: unknown) => (isGeneratorFunction(hook) ? wrap(hook as never) : hook));
-        } else if (isGeneratorFunction(value)) {
-          hooks[name] = wrap(value as never);
-        }
-      };
-
-      for (const name of REQUEST_HOOKS) {
-        wrapEach(name, (hook) => cancelableHook(hook));
-      }
-      wrapEach('preParsing', (hook) => cancelablePreParsing(hook));
-    });
-  }
+    for (const name of REQUEST_HOOKS) {
+      wrapEach(name, (hook) => cancelableHook(hook));
+    }
+    wrapEach('preParsing', (hook) => cancelablePreParsing(hook));
+  });
 
   // onRequest is the earliest hook, so the signal exists before body parsing and before any
   // request-scoped work a later hook starts
@@ -119,11 +129,17 @@ const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(f
     done();
   });
 
-  // fastify ignores expose in its default body, so conceal non-exposed cancellation messages
-  // per plugin registration: no module-level mutable state
+  // Fastify ignores expose in its own default body. Only that default handler's output may be
+  // concealed: a custom instance or route error handler owns its payload, even if its keys and
+  // status happen to match Fastify's generated shape. Keep per-request state per registration.
   const concealed = new WeakMap<object, string>();
-  fastify.addHook('onError', (request, _reply, error, done) => {
-    if (isCancelError(error) && (error as { expose?: unknown }).expose === false) {
+  fastify.addHook('onError', function (request, _reply, error, done) {
+    if (
+      isCancelError(error) &&
+      (error as { expose?: unknown }).expose === false &&
+      this.errorHandler === defaultErrorHandler &&
+      !Object.prototype.hasOwnProperty.call(request.routeOptions.config, routeErrorHandlerMarker)
+    ) {
       concealed.set(request.raw, error.message);
     }
     done();

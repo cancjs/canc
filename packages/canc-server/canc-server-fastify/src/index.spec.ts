@@ -2702,6 +2702,88 @@ describe('generic cancel body', () => {
     expect(JSON.parse(response.body)).toMatchObject({ message: 'own cancel' });
   });
 
+  it('preserves a custom error response shaped like the Fastify default', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler((error, _request, reply) => {
+      reply.status(503).send({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message: (error as Error).message,
+      });
+    });
+    instance.get(
+      '/custom-default-shape',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+        },
+        { timeout: { ms: 30, message: 'secret' } },
+      ),
+    );
+    const port = await listen(instance);
+    const response = await sendExchange(port, '/custom-default-shape');
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toBe('{"statusCode":503,"error":"Service Unavailable","message":"secret"}');
+    expect(response.headers['content-length']).toBe(String(Buffer.byteLength(response.body)));
+  });
+
+  it('preserves a route-level custom error response with autoWrap disabled', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin, { autoWrap: false });
+    instance.get(
+      '/route-custom',
+      {
+        errorHandler(error, _request, reply) {
+          reply.status(503).send({
+            statusCode: 503,
+            error: 'Service Unavailable',
+            message: (error as Error).message,
+          });
+        },
+      },
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+        },
+        { timeout: { ms: 30, message: 'route-secret' } },
+      ),
+    );
+    const port = await listen(instance);
+    const response = await sendExchange(port, '/route-custom');
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toBe('{"statusCode":503,"error":"Service Unavailable","message":"route-secret"}');
+    expect(response.headers['content-length']).toBe(String(Buffer.byteLength(response.body)));
+  });
+
+  it('preserves an encapsulated custom error response', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    await instance.register(async (child) => {
+      child.setErrorHandler((error, _request, reply) => {
+        reply.status(503).send({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: (error as Error).message,
+        });
+      });
+      child.get(
+        '/child-custom',
+        cancelableHandler(
+          function* () {
+            yield new Promise(() => undefined);
+          },
+          { timeout: { ms: 30, message: 'child-secret' } },
+        ),
+      );
+    });
+    const port = await listen(instance);
+    const response = await sendExchange(port, '/child-custom');
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toBe('{"statusCode":503,"error":"Service Unavailable","message":"child-secret"}');
+    expect(response.headers['content-length']).toBe(String(Buffer.byteLength(response.body)));
+  });
+
   it('leaves a custom error handler body untouched', async () => {
     const instance = Fastify();
     await instance.register(cancelPlugin);
