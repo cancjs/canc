@@ -95,6 +95,57 @@ describe('@cancjs/unhandled-rejection across copies', () => {
       }
     });
 
+    it('alternating copies warn once and the latest callback owns the rejection', () => {
+      const a = loadCopy();
+      const b = loadCopy();
+      try {
+        a.registerNode({ onUnhandledRejection: () => {} });
+        expect(brandedListeners()).toHaveLength(1);
+        b.registerNode({ onUnhandledRejection: () => {} });
+        expect(brandedListeners()).toHaveLength(1);
+        warnSpy.mockClear();
+        a.registerNode({ onUnhandledRejection: () => {} });
+        expect(brandedListeners()).toHaveLength(1);
+        expect(warnSpy).toHaveBeenCalledTimes(1);
+        expect(warnSpy).toHaveBeenCalledWith(
+          '[@cancjs/unhandled-rejection] Handler already registered by another copy of this package. Replacing it with the new options.',
+        );
+      } finally {
+        b.unregister();
+        a.unregister();
+      }
+      expect(brandedListeners()).toHaveLength(0);
+
+      const delivered = runChild(`
+        ${twoCopies}
+        a.registerNode({ warn: false, onUnhandledRejection: (r) => process.stdout.write('A1:' + r.message) });
+        b.registerNode({ warn: false, onUnhandledRejection: (r) => process.stdout.write('B:' + r.message) });
+        a.registerNode({ warn: false, onUnhandledRejection: (r) => process.stdout.write('A2:' + r.message) });
+        process.stdout.write('BRANDED:' + process.listeners('unhandledRejection').filter(
+          (fn) => fn[Symbol.for('@cancjs/unhandled-rejection:handler')]
+        ).length + ';');
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(delivered.status).toBe(0);
+      expect(delivered.stdout).toBe('BRANDED:1;A2:real failure');
+
+      const opaque = runChild(`
+        ${twoCopies}
+        const originalListeners = process.listeners.bind(process);
+        process.listeners = (event) => originalListeners(event).map((fn) => (...args) => fn(...args));
+        const warnings = [];
+        console.warn = (msg) => warnings.push(msg);
+        a.registerNode();
+        a.registerNode();
+        process.stdout.write('WARNINGS:' + warnings.length + ';' + warnings[0]);
+        a.unregister();
+      `);
+      expect(opaque.status).toBe(0);
+      expect(opaque.stdout).toBe(
+        'WARNINGS:1;[@cancjs/unhandled-rejection] Handler already registered for type "node". Replacing it with the new options.',
+      );
+    });
+
     it('unregister() from the second copy removes the handler the first copy installed', () => {
       const a = loadCopy();
       const b = loadCopy();

@@ -90,6 +90,22 @@ function readProcessListeners(): RejectionListener[] | null {
   }
 }
 
+// a foreign live handler proves that an absent local handler was replaced
+function forgetStaleProcessRegistrations(): void {
+  const listeners = readProcessListeners();
+  if (
+    !listeners?.some((listener) => isBrandedHandler(listener) && !registrations.some((reg) => reg.handler === listener))
+  ) {
+    return;
+  }
+  for (let i = registrations.length - 1; i >= 0; i--) {
+    const handler = registrations[i].handler;
+    if (handler && !listeners.includes(handler)) {
+      registrations.splice(i, 1);
+    }
+  }
+}
+
 // another copy's branded listeners go, returns how many were removed
 function removeForeignBrandedHandlers(): number {
   const listeners = readProcessListeners();
@@ -148,6 +164,7 @@ function tryRegister(
   options?: RegisterOptions,
   expectSiblings?: boolean,
 ): void {
+  forgetStaleProcessRegistrations();
   const existingSameType = registrations.find((r) => r.type === type);
   if (existingSameType) {
     warnSafe(`Handler already registered for type "${type}". Replacing it with the new options.`, options);
