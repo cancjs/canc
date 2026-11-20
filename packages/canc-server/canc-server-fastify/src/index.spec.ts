@@ -2830,18 +2830,17 @@ describe('generic cancel body', () => {
     ['instance handler', 'secret'],
     ['route handler with autoWrap disabled', 'secret'],
     ['encapsulated handler', 'secret'],
-    ['late route handler', 'Request canceled'],
-    ['route config replaced late', 'Request canceled'],
+    ['late route handler', 'late route diagnostic'],
+    ['route config replaced late', 'replaced config diagnostic'],
     ['UTF-8 message', 'secret \u2603'],
   ] as const)('preserves JSON authored by a %s', async (mode, message) => {
     const instance = Fastify();
     await instance.register(cancelPlugin, { autoWrap: mode !== 'route handler with autoWrap disabled' });
+    let customCalls = 0;
     const custom = ((error, _request, reply) => {
+      customCalls += 1;
       const cancellation = error as CancelError;
-      const text =
-        mode === 'late route handler' || mode === 'route config replaced late' ?
-          cancellation.message
-        : (cancellation.cause as Error | undefined)?.message;
+      const text = (cancellation.cause as Error | undefined)?.message;
 
       reply.status(503).send({ statusCode: 503, error: 'Service Unavailable', message: text });
     }) satisfies ReturnType<typeof cancelErrorHandler>;
@@ -2880,7 +2879,9 @@ describe('generic cancel body', () => {
     }
 
     const port = await listen(instance);
-    expectBody(await sendExchange(port, '/custom'), 503, 'Service Unavailable', message);
+    const response = await sendExchange(port, '/custom');
+    expect(customCalls).toBe(1);
+    expectBody(response, 503, 'Service Unavailable', message);
   });
 
   it.each([
