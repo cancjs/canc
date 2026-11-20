@@ -1,3 +1,5 @@
+import { STATUS_CODES } from 'node:http';
+
 import { isCancelError } from '@cancjs/promise';
 import { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
@@ -52,6 +54,34 @@ function isGeneratorFunction(value: unknown): value is (...args: never[]) => Gen
   return typeof value === 'function' && Object.prototype.toString.call(value) === '[object GeneratorFunction]';
 }
 
+const DEFAULT_BODY_KEYS = ['code', 'error', 'message', 'statusCode'];
+
+function concealDefaultBody(reply: FastifyReply, payload: string, message: string): string {
+  let body: unknown;
+
+  try {
+    body = JSON.parse(payload);
+  } catch {
+    return payload;
+  }
+
+  if (
+    body === null ||
+    typeof body !== 'object' ||
+    Object.keys(body).some((key) => !DEFAULT_BODY_KEYS.includes(key)) ||
+    (body as { message?: unknown }).message !== message ||
+    (body as { statusCode?: unknown }).statusCode !== reply.statusCode
+  ) {
+    return payload;
+  }
+
+  const concealedPayload = JSON.stringify({ ...body, message: STATUS_CODES[reply.statusCode] ?? 'Error' });
+  // fastify set the length for the original body before onSend ran
+  reply.header('content-length', Buffer.byteLength(concealedPayload));
+
+  return concealedPayload;
+}
+
 const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(fastify, pluginOptions) {
   const { autoWrap, ...options } = pluginOptions;
   // the instance holds its server from the start, so a shutdown knows every request, plain ones too
@@ -89,6 +119,29 @@ const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(f
     done();
   });
 
+  // fastify ignores expose in its default body, so conceal non-exposed cancellation messages
+  // per plugin registration: no module-level mutable state
+  const concealed = new WeakMap<object, string>();
+  fastify.addHook('onError', (request, _reply, error, done) => {
+    if (isCancelError(error) && (error as { expose?: unknown }).expose === false) {
+      concealed.set(request.raw, error.message);
+    }
+    done();
+  });
+
+  fastify.addHook('onSend', (request, reply, payload, done) => {
+    const message = concealed.get(request.raw);
+
+    if (message === undefined || typeof payload !== 'string') {
+      done(null, payload);
+
+      return;
+    }
+
+    concealed.delete(request.raw);
+    done(null, concealDefaultBody(reply, payload, message));
+  });
+
   return Promise.resolve();
 };
 
@@ -110,7 +163,10 @@ const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(f
  *
  * It also registers a `preClose` hook that drains the server inside fastify's own close, so a plain
  * `await app.close()` lets in-flight requests finish and cancels the rest, with the options given
- * to `createShutdown` or the defaults. Register it after plugins whose `preClose` hooks end
+ * to `createShutdown` or the defaults. Fastify's default error body prints an error's message and
+ * ignores `expose`, so for a cancellation this package raised (deadline, shutdown, client gone)
+ * this plugin replaces that message with the status text, such as `Service Unavailable`. The error
+ * keeps its message for logs and error handlers. Register it after plugins whose `preClose` hooks end
  * long-lived connections: hooks run in registration order.
  */
 export const cancelPlugin = fastifyPlugin(plugin, {

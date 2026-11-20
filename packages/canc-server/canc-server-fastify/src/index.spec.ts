@@ -277,7 +277,8 @@ describe('deadline', () => {
     const response = await send(port, '/slow');
 
     expect(response.statusCode).toBe(504);
-    expect(JSON.parse(response.body)).toMatchObject({ message: 'route took too long' });
+    expect(JSON.parse(response.body)).toMatchObject({ message: 'Gateway Timeout' });
+    expect(reported?.message).toBe('route took too long');
     expect(reported?.timedOut).toBe(true);
   });
 
@@ -2642,5 +2643,98 @@ describe('cancelablePlugin', () => {
     await new Promise<void>((resolve) => setTimeout(resolve, 30));
     expect(await shutdown({ closeServer: false })).toEqual({ canceled: 0, completed: 0, timedOut: false });
     await expect(ready).resolves.toBe(instance);
+  });
+});
+
+describe('generic cancel body', () => {
+  it('conceals a deadline reason and fixes the body length', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get(
+      '/secret',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+        },
+        { timeout: { ms: 30, message: 'secret' } },
+      ),
+    );
+
+    const port = await listen(instance);
+    const response = await sendExchange(port, '/secret');
+
+    expect(response.statusCode).toBe(503);
+    expect(response.body).toBe('{"statusCode":503,"error":"Service Unavailable","message":"Service Unavailable"}');
+    expect(response.headers['content-length']).toBe(String(Buffer.byteLength(response.body)));
+  });
+
+  it('conceals a shutdown reason', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    const reached = deferred();
+    instance.get(
+      '/hang',
+      cancelableHandler(function* () {
+        reached.resolve();
+        yield new Promise(() => undefined);
+      }),
+    );
+
+    const port = await listen(instance);
+    const response = send(port, '/hang');
+    await reached.promise;
+    await createShutdown(instance)({ reason: 'deploy 1.2.3 by ci-bot', cancelAfter: 0 });
+    expect(await response).toEqual({
+      body: '{"statusCode":503,"error":"Service Unavailable","message":"Service Unavailable"}',
+      statusCode: 503,
+    });
+  });
+
+  it('leaves a user cancellation message untouched', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.get('/own', () => {
+      throw new CancelError('own cancel');
+    });
+    const port = await listen(instance);
+    const response = await send(port, '/own');
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body)).toMatchObject({ message: 'own cancel' });
+  });
+
+  it('leaves a custom error handler body untouched', async () => {
+    const instance = Fastify();
+    await instance.register(cancelPlugin);
+    instance.setErrorHandler((error, _request, reply) => {
+      reply.status(503).send({ mine: (error as Error).message });
+    });
+    instance.get(
+      '/custom',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+        },
+        { timeout: { ms: 30 } },
+      ),
+    );
+    const port = await listen(instance);
+    const response = await send(port, '/custom');
+    expect(response.body).toBe('{"mine":"handler timeout"}');
+  });
+
+  it('leaves default errors alone without cancelPlugin', async () => {
+    const instance = Fastify();
+    instance.get(
+      '/secret',
+      cancelableHandler(
+        function* () {
+          yield new Promise(() => undefined);
+        },
+        { timeout: { ms: 30, message: 'secret' } },
+      ),
+    );
+    const port = await listen(instance);
+    const response = await send(port, '/secret');
+    expect(JSON.parse(response.body)).toMatchObject({ message: 'secret' });
   });
 });
