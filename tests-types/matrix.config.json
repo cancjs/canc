@@ -39,6 +39,7 @@
     "../common/signal-types.ts"
   ],
   "serverTypesComment": "common/server-express-types.ts, common/server-node-types.ts, common/server-fastify-types.ts, common/server-hono-types.ts and common/server-koa-types.ts compile only in versions marked serverExpressTypes / serverFastifyTypes / serverHonoTypes / serverKoaTypes (server-node rides the express gate; see each file header). None of these gates are a defect in what this repo ships: express and koa pull in @types/node dependencies that hit syntax/recursive-type limitations on TS 4.2/4.7; fastify requires NoInfer (TS 5.4+); hono requires TS 5.9+ for generic Uint8Array types. See each fixture file's own header for the measured errors.",
+  "serverFloorsComment": "5.9-server-floors compiles the server fixtures against the lowest framework versions the server peer ranges admit (same table as scripts/install-server-framework-floor.js). Keep both in step when a floor moves.",
   "versions": [
     {
       "id": "4.2",
@@ -121,6 +122,37 @@
         "@types/node": "latest"
       },
       "fixtures": ["node/node-types.ts"]
+    },
+    {
+      "id": "5.9-server-floors",
+      "typescript": "5.9.3",
+      "moduleResolution": "bundler",
+      "lib": ["es2022", "dom"],
+      "packages": [
+        "canc-promise",
+        "canc-coroutine",
+        "canc-server/canc-server-express",
+        "canc-server/canc-server-fastify",
+        "canc-server/canc-server-node",
+        "canc-server/canc-server-hono",
+        "canc-server/canc-server-koa"
+      ],
+      "peerDependencies": {
+        "express": "4.18.0",
+        "@types/express": "4.17.25",
+        "fastify": "5.0.0",
+        "fastify-plugin": "5.0.0",
+        "hono": "4.8.0",
+        "@hono/node-server": "1.9.0",
+        "koa": "2.13.0",
+        "@types/koa": "2.15.2",
+        "@types/node": "~20.19.43"
+      },
+      "commonFixtures": false,
+      "serverExpressTypes": true,
+      "serverFastifyTypes": true,
+      "serverHonoTypes": true,
+      "serverKoaTypes": true
     }
   ],
   "typesNodeComment": "Lanes whose id contains `types-node` vary @types/node instead of TypeScript: the default lanes pin one @types/node for every fixture, so a name some @types/node major removes could never fail them. `18` is the floor major (engines.node >= 18) and floats to the newest 18.x; `latest` is deliberately a dist-tag, so the next @types/node major turns this lane red before it reaches a user. A lane's own `peerDependencies` replace the config-level ones, `packages` limits what it packs, `commonFixtures: false` drops the shared fixtures, `types` lists the ambient type packages the project loads."
