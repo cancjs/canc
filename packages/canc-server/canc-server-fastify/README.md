@@ -127,59 +127,59 @@ A cancellation the request does not own, such as your own `CancelError` or a tim
 
 ### Request hooks
 
-\`cancelableHook(hook, options?)\` wraps an \`onRequest\`, \`preValidation\` or \`preHandler\` hook, and \`cancelablePreParsing(hook, options?)\` a \`preParsing\` hook: the stages before the route handler. Both are typed as Fastify's own async hooks, and one \`cancelableHook\` value mounts on any of its three stages:
+`cancelableHook(hook, options?)` wraps an `onRequest`, `preValidation` or `preHandler` hook, and `cancelablePreParsing(hook, options?)` a `preParsing` hook: the stages before the route handler.
+Both are typed as Fastify's own async hooks, and one `cancelableHook` value mounts on any of its three stages:
 
-\`\`\`js
-app.addHook('preHandler', cancServer.cancelableHook(function*(request) {
-request.user = yield* canc.await(users.findBySession(request.headers.cookie));
+```js
+app.addHook('preHandler', cancServer.cancelableHook(function* (request) {
+  request.user = yield* canc.await(users.findBySession(request.headers.cookie));
 }));
-\`\`\`
+```
 
-Wrapped stages share the request's cancel state. A disconnect, a deadline or a shutdown stops a wrapped hook at its current \`yield\` and runs its \`finally\` blocks, and the route handler never starts. A wrapped hook settling hands the request on with the deadline still running. A \`preParsing\` hook gets the payload stream as its third argument, and a stream it returns replaces the payload, as Fastify does for any async \`preParsing\` hook. An \`onRequestAbort\` hook is refused with a \`TypeError\`: its request is already aborted when it runs, so there is nothing left to cancel. A hook called with a payload or an error, such as \`onSend\` or \`onError\`, is refused the same way.
+Wrapped stages share the request's cancel state. A disconnect, a deadline or a shutdown stops a wrapped hook at its current `yield` and runs its `finally` blocks, and the route handler never starts. A wrapped hook settling hands the request on with the deadline still running. A `preParsing` hook gets the payload stream as its third argument, and a stream it returns replaces the payload, as Fastify does for any async `preParsing` hook. An `onRequestAbort` hook is refused with a `TypeError`: its request is already aborted when it runs, so there is nothing left to cancel. A hook called with a payload or an error, such as `onSend` or `onError`, is refused the same way.
 
-A plain hook cannot be stopped from outside. It can take the signal from \`getRequestSignal(request, reply)\` and pass it to the work it starts. A deadline is checked only where a wrapped stage runs: a plain hook still running when it fires keeps running, and the \`503\` goes out when the next wrapped stage starts, or never if that hook never settles. Once any stage answers or hijacks the reply, Fastify skips the stages after it.
+A plain hook cannot be stopped from outside. It can take the signal from `getRequestSignal(request, reply)` and pass it to the work it starts. A deadline is checked only where a wrapped stage runs: a plain hook still running when it fires keeps running, and the `503` goes out when the next wrapped stage starts, or never if that hook never settles. Once any stage answers or hijacks the reply, Fastify skips the stages after it.
 
-A plain hook that passed the signal on sees a disconnect as a \`CancelError\` from the call it made. Fastify then logs that at error level and tries to answer a connection that is gone. Wrapped stages drop that answer themselves; for plain hooks, \`cancelErrorHandler()\` drops it too, or check for it in your own error handler:
+A plain hook that passed the signal on sees a disconnect as a `CancelError` from the call it made. Fastify then logs that at error level and tries to answer a connection that is gone. Wrapped stages drop that answer themselves; for plain hooks, `cancelErrorHandler()` drops it too, or check for it in your own error handler:
 
-\`\`\`js
+```js
 import { isCancelError } from '@cancjs/promise';
 
 app.setErrorHandler((error, request, reply) => {
-if (isCancelError(error) && !reply.raw.writable) {
-reply.hijack();
+  if (isCancelError(error) && !reply.raw.writable) {
+    reply.hijack();
 
     return;
+  }
 
-}
-
-reply.send(error);
+  reply.send(error);
 });
-\`\`\`
+```
 
-Fastify's own \`handlerTimeout\` answers \`503\` without canceling this work, which runs on and makes Fastify warn that the reply was already sent. Use the \`timeout\` option for work that should stop.
+Fastify's own `handlerTimeout` answers `503` without canceling this work, which runs on and makes Fastify warn that the reply was already sent. Use the `timeout` option for work that should stop.
 
 ### Generator routes
 
-With \`cancelPlugin\` registered, a generator function given as a route handler, or as a route-level \`onRequest\`, \`preParsing\`, \`preValidation\` or \`preHandler\` hook, is wrapped as the route is registered, so \`app.get('/x', function* () { ... })\` works without \`cancelableHandler\`. Fastify cannot run a generator function itself: a bare one answers with an empty body, and a bare generator hook never lets the request go on. Plain and async functions are left as they are.
+With `cancelPlugin` registered, a generator function given as a route handler, or as a route-level `onRequest`, `preParsing`, `preValidation` or `preHandler` hook, is wrapped as the route is registered, so `app.get('/x', function* () { ... })` works without `cancelableHandler`. Fastify cannot run a generator function itself: a bare one answers with an empty body, and a bare generator hook never lets the request go on. Plain and async functions are left as they are.
 
-Only routes registered after the plugin are seen, and hooks added with \`app.addHook\` still need \`cancelableHook\` or \`cancelablePreParsing\`. The check looks for a native generator function, so a build that compiles generators down to ES5 hides them from it. TypeScript rejects a bare generator on a route that declares a \`Reply\` type; wrap that one with \`cancelableHandler\`. Pass \`autoWrap: false\` to \`cancelPlugin\` to turn this off.
+Only routes registered after the plugin are seen, and hooks added with `app.addHook` still need `cancelableHook` or `cancelablePreParsing`. The check looks for a native generator function, so a build that compiles generators down to ES5 hides them from it. TypeScript rejects a bare generator on a route that declares a `Reply` type; wrap that one with `cancelableHandler`. Pass `autoWrap: false` to `cancelPlugin` to turn this off.
 
 ### Plugin startup
 
-Fastify's \`pluginTimeout\` only stops waiting for a plugin: the plugin keeps running after startup failed, and opens its connection anyway. \`cancelablePlugin(plugin, options?)\` runs the plugin under a cancel scope instead:
+Fastify's `pluginTimeout` only stops waiting for a plugin: the plugin keeps running after startup failed, and opens its connection anyway. `cancelablePlugin(plugin, options?)` runs the plugin under a cancel scope instead:
 
-\`\`\`js
-app.register(cancServer.cancelablePlugin(function*(instance) {
-const db = yield* canc.await(connectDb(process.env.DATABASE_URL));
+```js
+app.register(cancServer.cancelablePlugin(function* (instance) {
+  const db = yield* canc.await(connectDb(process.env.DATABASE_URL));
 
-instance.decorate('db', db);
-instance.addHook('onClose', () => db.close());
+  instance.decorate('db', db);
+  instance.addHook('onClose', () => db.close());
 }));
-\`\`\`
+```
 
-A generator plugin stops at its next \`yield\` and runs its \`finally\` blocks when it runs longer than its \`timeout\`, when a \`signal\` you pass aborts, or when the \`shutdown()\` from \`createShutdown\` starts during startup. The default \`timeout\` ends just under the instance's \`pluginTimeout\`, so the cancel lands while Fastify is still waiting; with \`pluginTimeout: 0\` there is none. A nested plugin gets less time from Fastify than its parent, so give it its own \`timeout\`. A plain function runs signal-only: a cancelable promise it returns is canceled, an \`async\` body runs on. Wrap the result with \`fastify-plugin\` as usual to share decorators. A plain \`app.close()\` during startup still waits for startup to finish, because Fastify waits for it before closing; call \`shutdown()\` or pass a signal to stop it.
+A generator plugin stops at its next `yield` and runs its `finally` blocks when it runs longer than its `timeout`, when a `signal` you pass aborts, or when the `shutdown()` from `createShutdown` starts during startup. The default `timeout` ends just under the instance's `pluginTimeout`, so the cancel lands while Fastify is still waiting; with `pluginTimeout: 0` there is none. A nested plugin gets less time from Fastify than its parent, so give it its own `timeout`. A plain function runs signal-only: a cancelable promise it returns is canceled, an `async` body runs on. Wrap the result with `fastify-plugin` as usual to share decorators. A plain `app.close()` during startup still waits for startup to finish, because Fastify waits for it before closing; call `shutdown()` or pass a signal to stop it.
 
-A startup that runs past its \`timeout\` fails with a \`CancelError\` whose \`timedOut\` is \`true\` and whose \`code\` is \`FST_ERR_PLUGIN_TIMEOUT\`, the code Fastify gives its own plugin timeout, so existing \`err.code\` checks keep working. An \`instanceof\` check against Fastify's error classes does not match it; test \`isCancelError(err)\` or \`err.code\`.
+A startup that runs past its `timeout` fails with a `CancelError` whose `timedOut` is `true` and whose `code` is `FST_ERR_PLUGIN_TIMEOUT`, the code Fastify gives its own plugin timeout, so existing `err.code` checks keep working. An `instanceof` check against Fastify's error classes does not match it; test `isCancelError(err)` or `err.code`.
 
 ## Description
 
