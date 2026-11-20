@@ -159,4 +159,97 @@ describe('@cancjs/unhandled-rejection across copies', () => {
       expect(res.status).toBe(0);
     });
   });
+
+  describe('who owns the outcome', () => {
+    it('a listener that is not canc defers the crash to itself', () => {
+      const res = runChild(`
+        const { register } = require(${JSON.stringify(unhandledSrc)});
+        register();
+        process.on('unhandledRejection', (r) => process.stdout.write('OTHER:' + r.message));
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.stdout).toBe('OTHER:real failure');
+      expect(res.status).toBe(0);
+    });
+
+    it('two canc handlers of different targets alone still crash on a real error', () => {
+      const res = runChild(`
+        const { registerBun, registerNode } = require(${JSON.stringify(unhandledSrc)});
+        console.warn = () => {};
+        registerBun();
+        registerNode();
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toContain('real failure');
+    });
+  });
+
+  describe('a process that reports wrapped listeners', () => {
+    const wrapped = `
+      const original = process.listeners.bind(process);
+      process.listeners = (event) => original(event).map((fn) => (...args) => fn(...args));
+      const { register } = require(${JSON.stringify(unhandledSrc)});
+    `;
+
+    it('falls back to counting listeners: alone, the real error still crashes', () => {
+      const res = runChild(`
+        ${wrapped}
+        register();
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toContain('real failure');
+    });
+
+    it('falls back to counting listeners: another listener defers the crash', () => {
+      const res = runChild(`
+        ${wrapped}
+        register();
+        process.on('unhandledRejection', (r) => process.stdout.write('OTHER:' + r.message));
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.stdout).toBe('OTHER:real failure');
+      expect(res.status).toBe(0);
+    });
+  });
+
+  describe('a process that cannot list its listeners', () => {
+    const noListeners = `
+      Object.defineProperty(process, 'listeners', { value: undefined, configurable: true });
+      const { register } = require(${JSON.stringify(unhandledSrc)});
+    `;
+
+    it('falls back to counting listeners: another listener defers the crash', () => {
+      const res = runChild(`
+        ${noListeners}
+        register();
+        process.on('unhandledRejection', (r) => process.stdout.write('OTHER:' + r.message));
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.stdout).toBe('OTHER:real failure');
+      expect(res.status).toBe(0);
+    });
+
+    it('falls back to counting listeners: alone, the real error still crashes', () => {
+      const res = runChild(`
+        ${noListeners}
+        register();
+        Promise.reject(new Error('real failure'));
+      `);
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toContain('real failure');
+    });
+
+    it('register() and unregister() do not throw', () => {
+      const res = runChild(`
+        ${noListeners}
+        register();
+        require(${JSON.stringify(unhandledSrc)}).unregister();
+        process.stdout.write('OK');
+      `);
+      expect(res.stdout).toBe('OK');
+      expect(res.status).toBe(0);
+    });
+  });
 });

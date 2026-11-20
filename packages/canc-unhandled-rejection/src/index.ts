@@ -106,6 +106,20 @@ function removeForeignBrandedHandlers(): number {
   return removed;
 }
 
+function isOwnOrBrandedHandler(listener: RejectionListener): boolean {
+  return isBrandedHandler(listener) || registrations.some((reg) => reg.handler === listener);
+}
+
+// another listener owns the outcome, crashing here would preempt it
+function hasOtherOwner(): boolean {
+  const listeners = readProcessListeners();
+  // a list without any handler of ours is unreliable, so count instead
+  if (listeners?.some(isOwnOrBrandedHandler)) {
+    return listeners.some((listener) => !isOwnOrBrandedHandler(listener));
+  }
+  return typeof process.listenerCount === 'function' && process.listenerCount('unhandledRejection') > 1;
+}
+
 function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boolean {
   const isSuppressedLeaf = (error: unknown): boolean =>
     isCancelError(error) ||
@@ -289,8 +303,7 @@ function makeNodeSetup(options?: RegisterOptions): () => Pick<Registration, 'rem
       if (mode === 'strict') {
         return;
       }
-      // another listener owns the outcome, crashing here would preempt it
-      if (typeof process.listenerCount === 'function' && process.listenerCount('unhandledRejection') > 1) {
+      if (hasOtherOwner()) {
         return;
       }
       rethrowLater(reason);
