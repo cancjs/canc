@@ -80,7 +80,8 @@
   "jsdelivr": "dist/index.umd.min.js",
   "typesVersions": {
     "<4.7": {
-      "dist/types/*": ["dist/types-ts4.2/*"]
+      "dist/types/*": ["dist/types-ts4.2/*"],
+      "register": ["dist/types-ts4.2/register.d.ts"]
     },
     "*": {
       "register": ["dist/types/register.d.ts"]
