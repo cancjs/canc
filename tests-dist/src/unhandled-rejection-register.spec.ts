@@ -1,4 +1,4 @@
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vm from 'vm';
@@ -54,7 +54,7 @@ const callbackProbe = `
   const count = () => process.listenerCount('unhandledRejection');
 `;
 
-describe('unhandled-rejection built entry points share one registry (CommonJS)', () => {
+describe('unhandled-rejection built entry points share one handler (CommonJS)', () => {
   it('a side-effect import plus register with a callback leaves one listener that calls the callback', () => {
     runCjs(`
       ${callbackProbe}
@@ -100,14 +100,14 @@ describe('unhandled-rejection built entry points share one registry (CommonJS)',
     `);
   });
 
-  it('the register entry holds no registry of its own', () => {
+  it('the register entry holds no registration list of its own', () => {
     const source = fs.readFileSync(distUnhandled, 'utf8');
     expect(source).not.toContain('registrations');
     expect(source).toContain("require('@cancjs/unhandled-rejection')");
   });
 });
 
-describe('unhandled-rejection built entry points share one registry (ESM and CommonJS together)', () => {
+describe('unhandled-rejection built entry points share one handler (ESM and CommonJS together)', () => {
   it('an ESM side-effect import plus register with a callback leaves one listener', () => {
     runEsm(`
       ${callbackProbe}
@@ -124,7 +124,7 @@ describe('unhandled-rejection built entry points share one registry (ESM and Com
     `);
   });
 
-  it('the ESM copy and the CommonJS copy of the package see the same registration', () => {
+  it('the ESM copy and the CommonJS copy of the package share one handler', () => {
     runEsm(`
       ${callbackProbe}
       import assert from 'node:assert/strict';
@@ -145,7 +145,78 @@ describe('unhandled-rejection built entry points share one registry (ESM and Com
   });
 });
 
-describe.each(['umd.js', 'umd.min.js'])('unhandled-rejection UMD builds share one registry (%s)', (variant) => {
+describe('unhandled-rejection built copies in separate realms of one process', () => {
+  // each call evaluates the CommonJS build in its own vm context while sharing the one process
+  const loadCopy = `
+    const vm = require('node:vm');
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const file = path.resolve('packages/canc-unhandled-rejection/dist/index.cjs');
+    const loadCopy = () => {
+      const context = vm.createContext({ process, console, setImmediate, setTimeout, clearTimeout });
+      const mod = { exports: {} };
+      vm.runInContext('(function (exports, require, module) {' + fs.readFileSync(file, 'utf8') + '\\n})', context, { filename: file })(
+        mod.exports,
+        require,
+        mod,
+      );
+      return mod.exports;
+    };
+    const a = loadCopy();
+    const b = loadCopy();
+    assert.notEqual(a.register, b.register);
+  `;
+
+  it('registering from both realms leaves one listener and the later callback fires', () => {
+    runCjs(`
+      ${callbackProbe}
+      const assert = require('node:assert/strict');
+      ${loadCopy}
+      const first = probe('first');
+      const second = probe('second');
+      a.register(first);
+      b.register(second);
+      assert.equal(count(), 1);
+      Promise.reject(new Error('real failure'));
+      await second.fired;
+      assert.deepEqual(calls, ['second:real failure']);
+    `);
+  });
+
+  it('unregister() from one realm removes the listener the other realm installed', () => {
+    runCjs(`
+      const assert = require('node:assert/strict');
+      ${loadCopy}
+      a.register();
+      assert.equal(process.listenerCount('unhandledRejection'), 1);
+      b.unregister();
+      assert.equal(process.listenerCount('unhandledRejection'), 0);
+    `);
+  });
+
+  it('two realms with no callback still crash on a real error instead of swallowing it', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '-e',
+        `
+          const assert = require('node:assert/strict');
+          ${loadCopy}
+          console.warn = () => {};
+          a.register();
+          b.register();
+          Promise.reject(new Error('real failure'));
+        `,
+      ],
+      { cwd: repoRoot, encoding: 'utf8', timeout: 20000 },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('real failure');
+  });
+});
+
+describe.each(['umd.js', 'umd.min.js'])('unhandled-rejection UMD builds share one handler (%s)', (variant) => {
   const packagesDir = path.resolve(__dirname, '../../packages');
 
   // classic scripts in a bare context, with a fake event target that tracks live listeners
@@ -167,8 +238,15 @@ describe.each(['umd.js', 'umd.min.js'])('unhandled-rejection UMD builds share on
     return scope;
   }
 
-  it('the register bundle loads alone and installs one listener', () => {
-    const scope = createScope(['unhandled-rejection/register']);
+  it('the register bundle needs the index bundle loaded first', () => {
+    expect(() => createScope(['promise/index', 'unhandled-rejection/register'])).toThrow(/register/);
+    expect(() => createScope(['promise/index', 'unhandled-rejection/register', 'unhandled-rejection/index'])).toThrow(
+      /register/,
+    );
+  });
+
+  it('the register bundle after the index bundle installs one listener', () => {
+    const scope = createScope(['promise/index', 'unhandled-rejection/index', 'unhandled-rejection/register']);
 
     expect(vm.runInContext('live.length', scope)).toBe(1);
   });

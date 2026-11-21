@@ -73,7 +73,11 @@ Without an `onUnhandledRejection` callback the handler does not crash the proces
 
 The handler reads `--unhandled-rejections` from the command line and `NODE_OPTIONS`. With `warn`, `warn-with-error-code` or `none` it logs the real error through `console.warn` and never throws. With `warn-with-error-code` it also sets `process.exitCode = 1`, as Node does, so the flag keeps its meaning. With `strict` Node raises every rejection as an uncaught exception before any listener runs, so `CancelError` cannot be suppressed. `register()` prints one warning saying the package is inert in that mode. Pass `onUnhandledRejection` if you need to keep the process alive regardless of the mode.
 
-Registrations live in one list per process, kept on `globalThis` under `Symbol.for('@cancjs/unhandled-rejection:registry')`. The side-effect import, `register()`, the CommonJS build and the ESM build all share it, so `unregister()` removes every handler whichever entry installed it. Calling `register()` again for the same target replaces the earlier handler and its options with the new ones, and prints one warning. A side-effect import followed by `register({ onUnhandledRejection })` therefore ends with a single listener that calls your callback.
+On Node.js, Bun and Electron main processes the handler this package installs carries a `Symbol.for('@cancjs/unhandled-rejection:handler')` mark, and every copy of the package in the process reads that mark from `process.listeners('unhandledRejection')`. The side-effect import, `register()`, the CommonJS build, the ES build and a second installed copy therefore agree on one handler: `register()` removes a handler that another copy installed before it adds its own, `unregister()` removes the handlers of all copies, and a handler never treats another copy of this package as an owner of the outcome. Calling `register()` again for the same target replaces the earlier handler and its options with the new ones, and prints one warning. A side-effect import followed by `register({ onUnhandledRejection })` therefore ends with a single listener that calls your callback.
+
+Where `process.listeners` is missing, or does not hand back this package's own handler, copies cannot see each other and the handler falls back to counting: it leaves the rejection to the other listeners whenever more than one `unhandledRejection` listener exists. Browsers, Deno, Web Workers, Service Workers and edge runtimes offer no way to list event listeners, so each copy of the package there keeps its own handler. Call `register()` once from application code, not from a library, and note that `setWarn` applies to the copy it was imported from.
+
+The script tag builds expose `canc_unhandled_rejection` from `index.umd.js`. Load `@cancjs/promise`, then `index.umd.js`, then `register.umd.js`: the register script calls the index script and throws on load when it is missing.
 
 In web browsers, Deno, Web Workers, Service Workers, and Cloudflare Workers, it attaches an `unhandledrejection` event listener to `globalThis`. When a `CancelError` is encountered, the listener calls `event.preventDefault()` to prevent default browser console reporting or script termination. Non-cancellation rejections are passed to your custom callback (with `preventDefault()`) or left alone to let default runtime behavior proceed.
 
@@ -314,7 +318,7 @@ Libraries should not invoke `register()` or `@cancjs/unhandled-rejection/registe
 ### Lifecycle & Configuration
 
 - `unregister(): void`: Removes all handlers registered by this package and resets registration tracking.
-- `setWarn(enabled: boolean): void`: Globally enables or disables diagnostic warnings.
+- `setWarn(enabled: boolean): void`: Enables or disables diagnostic warnings for this copy of the package.
 
 ### Types
 

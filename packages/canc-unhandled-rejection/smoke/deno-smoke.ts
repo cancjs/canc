@@ -4,6 +4,12 @@ import { register } from '../src/index.ts';
 
 register();
 
+// event-target path keeps its list inside the module, no global write
+if ((globalThis as any)[Symbol.for('@cancjs/unhandled-rejection:registry')] !== undefined) {
+  console.error('deno: a global registry was written');
+  Deno.exit(1);
+}
+
 // Abandoned rejection, would crash the process without the handler.
 const p = Promise.reject(
   Object.assign(new Error(), {
