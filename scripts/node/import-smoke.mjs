@@ -8,7 +8,8 @@ const require = createRequire(import.meta.url);
 const rootDir = path.resolve(fileURLToPath(import.meta.url), '../../..');
 const pkgJson = require(path.join(rootDir, 'packages/canc-node/package.json'));
 
-const exportKeys = Object.keys(pkgJson.exports);
+// a json file, import() refuses it without an attribute
+const exportKeys = Object.keys(pkgJson.exports).filter((key) => key !== './package.json');
 
 async function main() {
   const nodeMajor = parseInt(process.versions.node.split('.')[0], 10);
