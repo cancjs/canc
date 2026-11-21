@@ -40,6 +40,20 @@ function spawnNpm(args, opts = {}) {
   return spawnSync(process.execPath, [npmCli, ...args], opts);
 }
 
+function describePackage(manifest, relDir) {
+  const meta = manifest.peerDependenciesMeta || {};
+
+  return {
+    name: manifest.name,
+    relDir,
+    version: manifest.version,
+    exports: manifest.exports || {},
+    optionalPeers: Object.entries(manifest.peerDependencies || {})
+      .filter(([name]) => meta[name] && meta[name].optional)
+      .map(([name, range]) => `${name}@${range}`),
+  };
+}
+
 function getPublishablePackages() {
   const rootPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const packages = [];
@@ -56,7 +70,7 @@ function getPublishablePackages() {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         if (manifest.private !== true) {
           const relDir = path.relative(ROOT, dir).split(path.sep).join('/');
-          packages.push({ name: manifest.name, relDir, version: manifest.version });
+          packages.push(describePackage(manifest, relDir));
         }
       }
     } else {
@@ -66,7 +80,7 @@ function getPublishablePackages() {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
         if (manifest.private !== true) {
           const relDir = path.relative(ROOT, dir).split(path.sep).join('/');
-          packages.push({ name: manifest.name, relDir, version: manifest.version });
+          packages.push(describePackage(manifest, relDir));
         }
       }
     }
@@ -244,37 +258,160 @@ function verifyPromiseDeduped(tempDirectory, expectedVersion) {
   console.log(`[check-beta-install] PASS: Exactly one @cancjs/promise copy (${expectedVersion}) found and deduped.`);
 }
 
-function verifyModuleLoading(packages, tempDirectory) {
+const PACKAGE_JSON_KEY = './package.json';
+
+// loads fine and exports nothing, runs only for its side effect
+const EMPTY_ENTRY_POINTS = ['@cancjs/node/fs/register-graceful', '@cancjs/unhandled-rejection/register'];
+
+// package -> [class, guard], each build's guard must accept the other's instance
+const BRAND_CROSSINGS = {
+  '@cancjs/promise': ['CancelError', 'isCancelError'],
+  '@cancjs/coroutine': ['BreakError', 'isBreakError'],
+  '@cancjs/toolbox': ['SupersededError', 'isSupersededError'],
+  '@cancjs/node': ['JsonParseError', 'isJsonParseError'],
+};
+
+// brand owners whose keys mark shared state instead of public error classes
+const BRAND_EXEMPT = {
+  '@cancjs/server-node': 'brands mark shared shutdown and request state, no public error class',
+  '@cancjs/server-fastify': 'brands mark shared shutdown state, no public error class',
+  '@cancjs/unhandled-rejection': 'brand marks the shared process handler, no public error class',
+};
+
+// every entry point a package publishes, read from its exports map
+function enumerateEntryPoints(packages) {
+  const entries = [];
+
+  for (const pkg of packages) {
+    for (const key of Object.keys(pkg.exports)) {
+      if (!key.startsWith('.')) {
+        throw new Error(`${pkg.name} exports key "${key}" is not a subpath`);
+      }
+      if (key === PACKAGE_JSON_KEY) continue;
+      entries.push({ pkg: pkg.name, key, specifier: key === '.' ? pkg.name : `${pkg.name}/${key.slice(2)}` });
+    }
+  }
+
+  return entries;
+}
+
+// packages that own a brand key, read from the brand registry
+function brandOwners() {
+  const registry = JSON.parse(fs.readFileSync(path.join(__dirname, 'brand-keys.json'), 'utf8'));
+  const owners = new Set();
+
+  for (const key of [...registry.published, ...registry.pending]) {
+    owners.add(key.slice(0, key.indexOf(':')));
+  }
+
+  return [...owners].sort();
+}
+
+function verifyBrandCoverage(packages) {
+  const names = new Set(packages.map((pkg) => pkg.name));
+  const problems = [];
+
+  for (const owner of brandOwners()) {
+    if (!names.has(owner)) {
+      problems.push(`${owner} owns a brand key but is not a publishable package`);
+    } else if (!BRAND_CROSSINGS[owner] && !BRAND_EXEMPT[owner]) {
+      problems.push(`${owner} owns a brand key but has neither a crossing nor an exemption`);
+    }
+  }
+
+  if (problems.length > 0) {
+    throw new Error(problems.join('; '));
+  }
+}
+
+function verifyModuleLoading(packages, entries, tempDirectory) {
   const verifyScriptPath = path.join(tempDirectory, 'verify-loader.mjs');
   const verifyScriptContent = `
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const packages = ${JSON.stringify(packages.map((p) => p.name))};
+const entries = ${JSON.stringify(entries)};
+const packages = ${JSON.stringify(packages.map((p) => ({ name: p.name, version: p.version })))};
+const emptyEntryPoints = ${JSON.stringify(EMPTY_ENTRY_POINTS)};
+const crossings = ${JSON.stringify(BRAND_CROSSINGS)};
+const failures = [];
+const firstLine = (error) => String(error && error.message).split('\\n')[0];
 
-console.log('[check-beta-install] Loading packages via ESM import() and CJS require():');
+console.log('[check-beta-install] Loading every entry point via ESM import() and CJS require():');
 
-for (const pkgName of packages) {
-  const esmModule = await import(pkgName);
-  const esmKeys = Object.keys(esmModule);
-  const esmCount = esmKeys.length;
+for (const entry of entries) {
+  let esm = null;
+  let cjs = null;
 
-  const cjsModule = require(pkgName);
-  const cjsCount = cjsModule && (typeof cjsModule === 'object' || typeof cjsModule === 'function')
-    ? Object.keys(cjsModule).length
-    : 0;
-
-  if (esmCount === 0) {
-    throw new Error('Zero exports found in ESM module for ' + pkgName);
+  try {
+    esm = await import(entry.specifier);
+  } catch (error) {
+    failures.push('import() ' + entry.specifier + ': ' + firstLine(error));
   }
-  if (cjsCount === 0) {
-    throw new Error('Zero exports found in CJS module for ' + pkgName);
+  try {
+    cjs = require(entry.specifier);
+  } catch (error) {
+    failures.push('require() ' + entry.specifier + ': ' + firstLine(error));
   }
+  if (esm === null || cjs === null) continue;
 
-  console.log('  ' + pkgName + ': ESM (' + esmCount + ' exports), CJS (' + cjsCount + ' exports)');
+  const esmNames = Object.keys(esm).filter((name) => name !== 'default');
+  const cjsNames = Object.keys(cjs);
+
+  if (!emptyEntryPoints.includes(entry.specifier) && (esmNames.length === 0 || cjsNames.length === 0)) {
+    failures.push('exports ' + entry.specifier + ': ESM has ' + esmNames.length + ' names, CJS has ' + cjsNames.length);
+  }
+  for (const name of esmNames) {
+    if (!(name in cjs)) {
+      failures.push('parity ' + entry.specifier + ': ESM export ' + name + ' is missing from require()');
+    } else if (typeof cjs[name] !== typeof esm[name]) {
+      failures.push('parity ' + entry.specifier + ': ' + name + ' is ' + typeof esm[name] + ' in ESM and ' + typeof cjs[name] + ' in CJS');
+    }
+  }
+  console.log('  ' + entry.specifier + ': ESM (' + esmNames.length + ' exports), CJS (' + cjsNames.length + ' exports)');
 }
 
-console.log('[check-beta-install] All ' + packages.length + ' packages loaded successfully.');
+for (const pkg of packages) {
+  try {
+    const manifest = require(pkg.name + '/package.json');
+
+    if (manifest.name !== pkg.name || manifest.version !== pkg.version) {
+      failures.push('manifest ' + pkg.name + '/package.json reads ' + manifest.name + '@' + manifest.version);
+    }
+  } catch (error) {
+    failures.push('require() ' + pkg.name + '/package.json: ' + firstLine(error));
+  }
+}
+
+for (const [name, [className, guardName]] of Object.entries(crossings)) {
+  try {
+    const esm = await import(name);
+    const cjs = require(name);
+    const fromEsm = new esm[className]();
+    const fromCjs = new cjs[className]();
+
+    if (esm[guardName](fromCjs) !== true) {
+      failures.push('brand ' + name + ': ESM ' + guardName + ' rejects a ' + className + ' made by the CJS build');
+    }
+    if (cjs[guardName](fromEsm) !== true) {
+      failures.push('brand ' + name + ': CJS ' + guardName + ' rejects a ' + className + ' made by the ESM build');
+    }
+    if (esm[guardName](new Error('plain')) !== false) {
+      failures.push('brand ' + name + ': ' + guardName + ' accepts a plain Error');
+    }
+  } catch (error) {
+    failures.push('brand ' + name + ': ' + firstLine(error));
+  }
+}
+
+if (failures.length > 0) {
+  for (const failure of failures) console.error('FAIL ' + failure);
+  process.exit(1);
+}
+
+console.log('[check-beta-install] Entry points: ' + entries.length + ' loaded by import() and require(), ESM exports present on require() with equal types.');
+console.log('[check-beta-install] Manifests: ' + packages.length + ' package.json files resolve through exports.');
+console.log('[check-beta-install] Brand crossings: ' + Object.keys(crossings).length + ' packages, ' + Object.keys(crossings).join(', ') + '.');
 `;
 
   fs.writeFileSync(verifyScriptPath, verifyScriptContent, 'utf8');
@@ -357,6 +494,11 @@ function queryRegistryVersion(pkg) {
 function main() {
   try {
     const packages = getPublishablePackages();
+    verifyBrandCoverage(packages);
+    const entries = enumerateEntryPoints(packages);
+    console.log(
+      `[check-beta-install] Entry points from exports: ${entries.length} across ${packages.length} packages (plus ${packages.length} package.json)`,
+    );
     const useRegistryRest = process.argv.includes('--registry-rest');
 
     let localPackages = packages;
@@ -409,7 +551,11 @@ function main() {
       );
     }
 
-    const installRes = spawnNpm(['install', ...installTargets], {
+    // an optional peer is not installed alone, an entry point may need it
+    const optionalPeers = [...new Set(packages.flatMap((pkg) => pkg.optionalPeers))];
+    console.log(`[check-beta-install] Optional peers installed beside them: ${optionalPeers.join(', ') || 'none'}`);
+
+    const installRes = spawnNpm(['install', ...installTargets, ...optionalPeers], {
       cwd: tempDir,
       stdio: 'inherit',
     });
@@ -422,7 +568,7 @@ function main() {
     const expectedPromiseVersion = packedPromiseVersion || (promisePkg ? promisePkg.version : null);
 
     verifyPromiseDeduped(tempDir, expectedPromiseVersion);
-    verifyModuleLoading(packages, tempDir);
+    verifyModuleLoading(packages, entries, tempDir);
 
     console.log('[check-beta-install] All checks passed successfully.');
   } catch (err) {
@@ -437,4 +583,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { resolveNpmCli };
+module.exports = { resolveNpmCli, enumerateEntryPoints };
