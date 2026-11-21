@@ -192,7 +192,8 @@
         "types": "./dist/types/dgram/index.d.ts",
         "default": "./dist/dgram.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",

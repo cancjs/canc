@@ -81,6 +81,31 @@ function normalize(p) {
   return p.startsWith('./') ? p.slice(2) : p;
 }
 
+// TypeScript reads only the first matching typesVersions range
+// missing "<4.7" mappings hide subpaths even when exports points to their older types
+function collectTypesVersionsGaps(manifest) {
+  const gaps = [];
+  const legacy = (manifest.typesVersions || {})['<4.7'] || {};
+
+  for (const [subpath, condition] of Object.entries(manifest.exports || {})) {
+    if (subpath === '.' || !condition || typeof condition !== 'object') continue;
+    if (!/types@</.test(JSON.stringify(condition))) continue;
+
+    const key = subpath.slice(2);
+    const target = condition.require && condition.require['types@<4.7'];
+    const expected = target ? normalize(target) : null;
+    const actual = legacy[key];
+
+    if (!expected || !actual || actual.length !== 1 || actual[0] !== expected) {
+      gaps.push(
+        `typesVersions["<4.7"]["${key}"] is ${JSON.stringify(actual)}, exports subpath ${subpath} expects ["${expected}"]`,
+      );
+    }
+  }
+
+  return gaps;
+}
+
 // The interop shim copies every barrel export onto the default export object,
 // so in a package that has a default export, a barrel name matching one of that
 // object's own properties overwrites the property in CJS and UMD builds
@@ -514,6 +539,7 @@ async function checkPackage(pkgName, workspace, plannedVersions) {
   if (declaresLegacyTypesCondition && !hasDownlevelDts) {
     problems.push('exports declares a "types@<range>" condition but no dist/types-ts* output is packed');
   }
+  problems.push(...collectTypesVersionsGaps(manifest));
   if (!hasAnyCancDep) {
     for (const f of packedFiles) {
       if (/\.d\.(m|c)?ts$/.test(f)) {
@@ -748,4 +774,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { firstPackResult };
+module.exports = { firstPackResult, collectTypesVersionsGaps };

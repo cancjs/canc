@@ -373,6 +373,10 @@ export default defineConfig(
       'package-json/no-wildcard-dependencies': 'off',
       // devDependencies are pinned with ~ by convention across this repo.
       'package-json/dependency-version-range': 'off',
+      // npm always packs package.json, so no-redundant-files rejects it in files,
+      // and this rule wants the ./package.json export covered by files.
+      // check-package-validation checks every export target against the tarball
+      'package-json/prefer-files-field': 'off',
 
       // Real gaps in the manifests, not disagreements with the rules. They need content
       // decisions (what a package is called in one line, which keywords it claims), so they

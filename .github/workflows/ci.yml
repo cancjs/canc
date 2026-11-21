@@ -191,7 +191,8 @@ jobs:
       - run: npm run test:dist
 
   package-validation:
-    # Asserts packed tarball files, publint, and attw (arethetypeswrong) per package
+    # Asserts packed tarball files, publint, and attw (arethetypeswrong) per package, then installs
+    # every tarball in an empty project and loads and type-resolves each entry point
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -202,6 +203,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node scripts/check-package-validation.js
+      - run: node scripts/check-beta-install.js --no-build
       - run: npm run surface:check
 
 
