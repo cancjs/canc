@@ -24,7 +24,8 @@
         "types": "./dist/types/index.d.ts",
         "default": "./dist/index.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
