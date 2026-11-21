@@ -36,7 +36,8 @@
         "types": "./dist/types/gen.d.ts",
         "default": "./dist/gen.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
