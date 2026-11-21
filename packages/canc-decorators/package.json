@@ -94,7 +94,9 @@
   "jsdelivr": "dist/index.umd.min.js",
   "typesVersions": {
     "<4.7": {
-      "dist/types/*": ["dist/types-ts4.2/*"]
+      "dist/types/*": ["dist/types-ts4.2/*"],
+      "legacy": ["dist/types-ts4.2/legacy.d.ts"],
+      "babel-legacy": ["dist/types-ts4.2/babel-legacy.d.ts"]
     },
     "*": {
       "legacy": ["dist/types/legacy.d.ts"],
