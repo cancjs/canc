@@ -342,6 +342,7 @@ console.log('[check-beta-install] Loading every entry point via ESM import() and
 for (const entry of entries) {
   let esm = null;
   let cjs = null;
+  let cjsLoaded = false;
 
   try {
     esm = await import(entry.specifier);
@@ -350,10 +351,15 @@ for (const entry of entries) {
   }
   try {
     cjs = require(entry.specifier);
+    cjsLoaded = true;
   } catch (error) {
     failures.push('require() ' + entry.specifier + ': ' + firstLine(error));
   }
-  if (esm === null || cjs === null) continue;
+  if (esm === null || !cjsLoaded) continue;
+  if (cjs === null || (typeof cjs !== 'object' && typeof cjs !== 'function')) {
+    failures.push('exports ' + entry.specifier + ': CJS module.exports must be an object or function');
+    continue;
+  }
 
   const esmNames = Object.keys(esm).filter((name) => name !== 'default');
   const cjsNames = Object.keys(cjs);
