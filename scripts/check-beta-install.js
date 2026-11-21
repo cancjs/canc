@@ -426,6 +426,50 @@ console.log('[check-beta-install] Brand crossings: ' + Object.keys(crossings).le
   }
 }
 
+// the compiler resolves each entry point the way a consumer's editor would
+function verifyTypeResolution(entries, tempDirectory) {
+  const tsc = require.resolve('typescript/lib/tsc.js');
+  const imports = `${entries.map((entry) => `import type {} from '${entry.specifier}';`).join('\n')}\nexport {};\n`;
+  const modes = [
+    { id: 'node16-esm', file: 'resolve-esm.mts', options: { module: 'node16', moduleResolution: 'node16' } },
+    { id: 'node16-cjs', file: 'resolve-cjs.cts', options: { module: 'node16', moduleResolution: 'node16' } },
+    { id: 'bundler', file: 'resolve-bundler.ts', options: { module: 'esnext', moduleResolution: 'bundler' } },
+  ];
+
+  for (const mode of modes) {
+    fs.writeFileSync(path.join(tempDirectory, mode.file), imports, 'utf8');
+    fs.writeFileSync(
+      path.join(tempDirectory, `tsconfig.${mode.id}.json`),
+      JSON.stringify({
+        compilerOptions: {
+          noEmit: true,
+          strict: true,
+          skipLibCheck: true,
+          target: 'es2022',
+          lib: ['es2022', 'dom'],
+          types: [],
+          ...mode.options,
+        },
+        files: [mode.file],
+      }),
+      'utf8',
+    );
+
+    const res = spawnSync(process.execPath, [tsc, '-p', `tsconfig.${mode.id}.json`], {
+      cwd: tempDirectory,
+      encoding: 'utf8',
+    });
+
+    if (res.status !== 0) {
+      throw new Error(`Type resolution failed under ${mode.id}:\n${res.stdout}${res.stderr}`);
+    }
+  }
+
+  console.log(
+    `[check-beta-install] Type resolution: ${entries.length} entry points resolve under ${modes.map((mode) => mode.id).join(', ')}.`,
+  );
+}
+
 function queryRegistryVersion(pkg) {
   const spec = `${pkg.name}@${pkg.version}`;
   const res = spawnNpm(['view', spec, 'version', '--json'], {
@@ -569,6 +613,7 @@ function main() {
 
     verifyPromiseDeduped(tempDir, expectedPromiseVersion);
     verifyModuleLoading(packages, entries, tempDir);
+    verifyTypeResolution(entries, tempDir);
 
     console.log('[check-beta-install] All checks passed successfully.');
   } catch (err) {
