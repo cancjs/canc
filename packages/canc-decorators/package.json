@@ -48,7 +48,8 @@
         "types": "./dist/types/babel-legacy.d.ts",
         "default": "./dist/babel-legacy.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
