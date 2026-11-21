@@ -7,17 +7,36 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 
-function resolveNpmCli() {
-  if (process.env.npm_execpath) return process.env.npm_execpath;
+// npm sits beside node: bin/node_modules on windows, lib/node_modules on unix
+function resolveNpmCli(env = process.env, execPath = process.execPath, exists = fs.existsSync) {
+  if (env.npm_execpath) {
+    return env.npm_execpath;
+  }
+
+  const bin = path.dirname(execPath);
+  const candidates = [
+    path.join(bin, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(bin, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ];
+  const found = candidates.find((candidate) => exists(candidate));
+
+  if (found) {
+    return found;
+  }
+
   try {
     return require.resolve('npm/bin/npm-cli.js');
   } catch {
-    return path.join(path.dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
+    throw new Error('npm-cli.js not found, run the script through npm or put npm beside node');
   }
 }
-const npmCli = resolveNpmCli();
+
+let npmCli = null;
 
 function spawnNpm(args, opts = {}) {
+  if (npmCli === null) {
+    npmCli = resolveNpmCli();
+  }
   return spawnSync(process.execPath, [npmCli, ...args], opts);
 }
 
@@ -414,4 +433,8 @@ function main() {
   }
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { resolveNpmCli };
