@@ -36,7 +36,8 @@
         "types": "./dist/types/register.d.ts",
         "default": "./dist/register.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
