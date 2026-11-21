@@ -36,7 +36,8 @@
         "types": "./dist/types/async-iter.d.ts",
         "default": "./dist/async-iter.cjs"
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
