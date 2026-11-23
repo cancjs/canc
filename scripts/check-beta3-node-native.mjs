@@ -359,6 +359,94 @@ async function exercise(load, resolve, format, file, wanted) {
       assert.equal(error.required, '24');
     };
   } else {
+    for (const kind of ['throwing-then', 'single-read-then', 'private-getters', 'unbranded-duck']) {
+      cases['lock-foreign-' + kind] = async () => {
+        const n = name(kind);
+        const marker = new Error(kind);
+        let reads = 0,
+          privateReads = 0,
+          signal;
+        const body = Object.defineProperty({}, 'then', {
+          get() {
+            reads++;
+            if (kind === 'throwing-then' || (kind === 'single-read-then' && reads > 1)) throw marker;
+            return (resolve) => resolve(42);
+          },
+        });
+        for (const key of ['_subscribe', '_retainRef']) {
+          Object.defineProperty(body, key, {
+            get() {
+              privateReads++;
+              if (kind === 'private-getters') throw marker;
+              return () => {
+                throw new Error('foreign protocol invoked');
+              };
+            },
+          });
+        }
+        const result = await outcome(
+          cw.requestLock(n, (_lock, bodySignal) => {
+            signal = bodySignal;
+            return body;
+          }),
+        );
+        assert.equal(result, kind === 'throwing-then' ? marker : 42);
+        assert.equal(isCancelError(result), false);
+        assert.equal(reads, 1);
+        assert.equal(privateReads, 0);
+        assert.equal(signal.aborted, false);
+        assert.equal(await cw.requestLock(n, () => 23), 23);
+      };
+    }
+    cases['lock-branded-incomplete'] = async () => {
+      const { CANCEL_PROMISE_BRAND } = await load('@cancjs/promise');
+      let reads = 0;
+      const body = {
+        [CANCEL_PROMISE_BRAND]: true,
+        get then() {
+          reads++;
+          return (resolve) => resolve(42);
+        },
+      };
+      assert.equal(await cw.requestLock(name('brand-incomplete'), () => body), 42);
+      assert.equal(reads, 1);
+    };
+    cases['lock-brand-inaccessible'] = async () => {
+      const { CANCEL_PROMISE_BRAND } = await load('@cancjs/promise');
+      const body = new Proxy(Promise.resolve(42), {
+        get(target, key) {
+          if (key === CANCEL_PROMISE_BRAND) throw new Error('brand inaccessible');
+          if (key === 'then') return target.then.bind(target);
+          return Reflect.get(target, key);
+        },
+      });
+      assert.equal(await cw.requestLock(name('brand-inaccessible'), () => body), 42);
+    };
+    cases['lock-branded-setup-error'] = async () => {
+      const { CANCEL_PROMISE_BRAND } = await load('@cancjs/promise');
+      const n = name('brand-setup-error');
+      const marker = new Error('broken branded protocol');
+      const body = {
+        [CANCEL_PROMISE_BRAND]: true,
+        get _subscribe() {
+          throw marker;
+        },
+        then() {
+          throw new Error('unexpected then call');
+        },
+      };
+      let signal;
+      const result = await outcome(
+        cw.requestLock(n, (_lock, bodySignal) => {
+          signal = bodySignal;
+          return body;
+        }),
+      );
+      assert.equal(result, marker);
+      assert.equal(isCancelError(result), false);
+      assert.equal(signal.aborted, false);
+      assert.equal(await cw.requestLock(n, () => 23), 23);
+    };
     for (const [shared, foreignCopy] of [
       [true, false],
       [false, false],
@@ -650,6 +738,13 @@ function checkMutants(consumer, scratch, node18) {
     ['event-error-detach', 'events.cjs', 'event-owner', /stopListening\(\);\s+throw error;/, 'throw error;'],
     ['dns-sync-finish', 'dns.cjs', 'dns-owner', /finished\(\);\s+throw error;/, 'throw error;'],
     ['public-observer', 'fs/index.cjs', 'open-unobserved', null, null],
+    [
+      'old-lock-classifier',
+      'worker-threads.cjs',
+      'lock-foreign-single-read-then',
+      /function isCurrentSource\(value\) \{[\s\S]*?\n\}/,
+      "function isCurrentSource(value) { const source = value; return typeof source?.then === 'function' && typeof source._subscribe === 'function' && typeof source._retainRef === 'function'; }",
+    ],
   ];
   let killed = 0;
   for (const [id, relative, label, anchor, replacement] of mutants) {
@@ -719,7 +814,7 @@ function checkMutants(consumer, scratch, node18) {
       fs.rmSync(copy, { recursive: true, force: true });
     }
   }
-  assert.equal(killed, 14);
+  assert.equal(killed, 15);
   console.log('MUTANT SUMMARY', killed);
 }
 
@@ -791,7 +886,7 @@ try {
           label === 'main' ?
             host === node18 ?
               26
-            : 32
+            : 39
           : 1;
         const summary = 'FIXTURE SUMMARY ' + expectedCases + ' 0';
         const valid =
