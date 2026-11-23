@@ -72,10 +72,4 @@ describe('Toolbox utilities - cancellation behavior', () => {
     // After cancel, timer must be cleared.
     expect(jest.getTimerCount()).toBe(0);
   });
-
-  test('both flavors typecheck', () => {
-    // Imports succeed and types are compatible.
-    // This assertion is a no-op but confirms TS does not error on the module.
-    expect(true).toBe(true);
-  });
 });
