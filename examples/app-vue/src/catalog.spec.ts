@@ -51,6 +51,7 @@ describe('canc CatalogPage', () => {
     await flush();
 
     wrapper.unmount();
+    await flush();
     jest.advanceTimersByTime(LATENCY);
     await flush();
 
@@ -94,7 +95,7 @@ describe('vanilla CatalogPage', () => {
     wrapper.unmount();
   });
 
-  it('leaves the superseded load running after a fast filter change — the leak we teach', async () => {
+  it('leaves the superseded load running after a fast filter change (the leak we teach)', async () => {
     const api = createMarketplaceApi({ latency: LATENCY });
     const wrapper = mount(VanillaCatalogPage, { props: { api } });
 
