@@ -6,6 +6,7 @@ import type { Unlisted } from '../../../_util';
 
 // upper bound on how long a canceled call waits for the child, so cancel can never hang
 const EXIT_WAIT_MS = 5000;
+const closedChildren = new WeakSet<ChildProcess>();
 
 /**
  * Sends the termination signal node would send on abort and waits for the child to close.
@@ -20,9 +21,10 @@ const EXIT_WAIT_MS = 5000;
  * @returns A promise settling once the child has closed, or once the wait times out.
  */
 export function killAndWaitForExit(child: ChildProcess, killSignal?: NodeJS.Signals | number): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) {
+  if (closedChildren.has(child)) {
     return Promise.resolve();
   }
+  const alreadyExited = child.exitCode !== null || child.signalCode !== null;
 
   // nothing here is cancelable, so a vanilla promise is the right primitive
   return new Promise<void>((resolve) => {
@@ -41,6 +43,7 @@ export function killAndWaitForExit(child: ChildProcess, killSignal?: NodeJS.Sign
     }
 
     child.once('close', onClose);
+    if (alreadyExited) return;
 
     try {
       child.kill(killSignal ?? 'SIGTERM');
@@ -108,6 +111,7 @@ export function createSink<T>(): ISettlementSink<T> {
  * @param create Factory building the promise on first access.
  */
 export function defineProcessPromise<T>(child: ChildProcess, create: () => CancelablePromise<T, Unlisted>): void {
+  child.once('close', () => closedChildren.add(child));
   let memo: CancelablePromise<T, Unlisted> | undefined;
 
   Object.defineProperty(child, 'promise', {
