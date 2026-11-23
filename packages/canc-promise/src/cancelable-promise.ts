@@ -727,6 +727,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: readonly TResult[],
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<Awaited<TResult>[], FailureOf<TResult>>;
+  static all<T>(
+    values: Iterable<T>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<Awaited<T>[], FailureOf<T>>;
   static all<TAll>(
     values: Iterable<TAll | PromiseLike<TAll>>,
     options?: ICancelablePromiseOptions,
