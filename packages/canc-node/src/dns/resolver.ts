@@ -142,7 +142,13 @@ function stoppable(
         query.cancel();
       });
 
-      const answer = (nodeMethod as unknown as (...a: unknown[]) => Promise<unknown>).apply(query, args);
+      let answer: Promise<unknown>;
+      try {
+        answer = (nodeMethod as unknown as (...a: unknown[]) => Promise<unknown>).apply(query, args);
+      } catch (error) {
+        finished();
+        throw error;
+      }
       answer.then(finished, finished);
       resolve(answer);
     });
