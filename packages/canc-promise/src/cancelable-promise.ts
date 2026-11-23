@@ -815,27 +815,22 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<ISettledResult<any>[] | { [P in keyof any]: ISettledResult<any> }, never> {
-    let items: T[];
-    try {
-      items = [...values];
-    } catch (error) {
-      // like native allSettled, an iterable throw rejects instead of throwing
-      return this.reject<ISettledResult<any>[], never>(error, options);
-    }
+    const observed: CancelablePromise<ISettledResult<any>, never>[] = [];
 
-    return this.all(
-      items.map(
-        (promiseOrValue) =>
-          // `_adopt` reuses a same-constructor canc input as-is and only wraps raw values /
-          // foreign thenables, dropping the former unconditional resolve() wrap that ran a full
-          // construction per item on top of the one all() performs on the mapped result.
+    try {
+      for (const promiseOrValue of values) {
+        observed.push(
           this._adopt(promiseOrValue, INPUT_OPTIONS).then(
             (value) => ({ status: 'fulfilled', value }),
             (reason: unknown) => ({ status: 'rejected', reason }),
           ) as CancelablePromise<ISettledResult<any>, never>,
-      ),
-      options,
-    );
+        );
+      }
+    } catch (error) {
+      return this.reject<ISettledResult<any>[], never>(error, options);
+    }
+
+    return this.all(observed, options);
   }
 
   /**

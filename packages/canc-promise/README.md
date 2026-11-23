@@ -157,7 +157,7 @@ An input stops once its last consumer is gone, on the same schedule as a cancele
 
 - `race` and `any` give up the losers once a winner settles.
 - `all` gives up the remaining inputs on the first rejection.
-- `allSettled` gives up nothing while it waits, because it needs every input to settle.
+- `allSettled` gives up nothing while it waits, because it needs every input to settle. It observes each yielded input before requesting the next iterator value, even if a later iterator step throws.
 - Canceling the result of `all`, `allSettled`, `any` or `race` gives up every input it still holds.
 - Options (`shield`, `bubble: false`, `forceCancelable: false`, `signal`) apply to the result only. Inputs are
   not reconfigured (a `CancelablePromise` input keeps its own flags), and a `signal` adds one abort listener however many inputs there are. An already
@@ -343,6 +343,27 @@ Two different states both look like "no failure type", and they mean different t
 A promise is undeclared when nobody stated what it rejects with. This is the default: `CancelablePromise<User>` with one type argument has `TFailure = unknown`, and `FailureOf` reads `unknown`. Code written for 1.0 and code that ignores failure typing keeps compiling as it did.
 
 A promise declares nothing when it is known not to reject with an expected failure. That is `never`, either written (`CancelablePromise<User, never>`) or computed. A handled rejection (`catch(() => 0)`, `then(onFulfilled, onRejected)`), `resolve`, `allSettled`, and `reject` with an untyped reason all produce it.
+
+`allSettled` declares no input rejection failures. An exception thrown while obtaining or advancing an input iterator still rejects the returned promise. This exception is not represented in its declared failure type, including when the result is passed to `race` or awaited in a coroutine.
+
+```ts
+function* failingInputs() {
+  yield Promise.resolve(1);
+  throw new Error('iteration failed');
+}
+
+try {
+  await CancelablePromise.allSettled(failingInputs());
+} catch (error) {
+  // The input iterator failed, despite the declared failure type being never.
+}
+
+try {
+  await CancelablePromise.race([CancelablePromise.allSettled(failingInputs())]);
+} catch (error) {
+  // Composing the result does not add this iterator exception to declared failures.
+}
+```
 
 How the two behave:
 
