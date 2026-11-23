@@ -20,6 +20,10 @@ function countByStatus(api: OrdersApi, endpoint: string, status: string): number
   return api.calls.filter((c) => c.endpoint === endpoint && c.status === status).length;
 }
 
+async function flushCancellationMicrotasks(): Promise<void> {
+  for (let i = 0; i < 16; i++) await Promise.resolve();
+}
+
 // drives ngOnChanges/onDestroy by hand to test cancel logic under plain ts-jest
 
 describe('canc detail pane (decorator service)', () => {
@@ -100,6 +104,7 @@ describe('canc detail pane (decorator service)', () => {
     await Promise.resolve();
 
     TestBed.resetTestingModule(); // triggers DestroyRef.onDestroy
+    await flushCancellationMicrotasks();
     jest.advanceTimersByTime(LATENCY);
     await Promise.resolve();
 
@@ -321,6 +326,7 @@ describe('orders table', () => {
     await Promise.resolve();
 
     TestBed.resetTestingModule();
+    await flushCancellationMicrotasks();
     jest.advanceTimersByTime(LATENCY);
     await Promise.resolve();
 
