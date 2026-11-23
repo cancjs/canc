@@ -1,3 +1,4 @@
+import { isCancelError } from '@cancjs/promise';
 import { createMockApi } from '@shared/mock-api';
 
 import { sendEmailWithDelay as sendEmailWithDelayCanc } from './email-delay-canc';
@@ -32,23 +33,25 @@ describe('Toolbox utilities - cancellation behavior', () => {
     expect(pendingTimers).toBe(0);
   });
 
-  test('chargeWithRetry: cancel stops retry loop and in-flight attempt', async () => {
-    const { payments } = createMockApi({ seedMode: true });
-    const promise = chargeWithRetryCanc(payments, 'payment-1');
+  test('chargeWithRetry: cancel during backoff prevents another native attempt', async () => {
+    const { api, payments } = createMockApi({ seedMode: false, latency: 0, jitter: 0 });
+    const promise = chargeWithRetryCanc(payments, 'payment-2');
+    const settled = promise.then(
+      () => 'resolved',
+      (error: unknown) => error,
+    );
 
-    jest.advanceTimersByTime(50);
-    promise.cancel?.();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(api.calls.map((call) => call.status)).toEqual(['failed']);
 
-    try {
-      await promise;
-    } catch (_err) {
-      // expected to reject with CancelError
-    }
+    await jest.advanceTimersByTimeAsync(50);
+    promise.cancel();
+    const error = await settled;
+    expect(isCancelError(error)).toBe(true);
 
-    // Retry backoff timer must be cleared.
-    jest.runOnlyPendingTimers();
-    const pendingTimers = jest.getTimerCount();
-    expect(pendingTimers).toBe(0);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(api.calls).toHaveLength(1);
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   test('sendEmailWithDelay: cancel clears the delay timer', async () => {
