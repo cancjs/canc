@@ -296,6 +296,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
     let cleanupFailure: { error: any } | undefined;
     let cleanupReported = false;
     let drain: { promise: CancelablePromise<any, any>; resolve: (value?: any) => void } | undefined;
+    let failedTransform: { error: unknown } | undefined;
     // the generator is on the stack, so a cancel only marks and the running call unwinds after it
     let executing = false;
     let pendingSource: CancelablePromise<any, any> | undefined;
@@ -380,7 +381,7 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       own.promise = promise;
       // the step stays pending while the body unwinds, like the cancAsync coroutine promise
       promise.cancel = function (reason?: any, _disposing?: boolean): any {
-        if (canceled && !drained) {
+        if ((canceled || failedTransform) && !drained) {
           return promise.asyncCancel ? drain!.promise : undefined;
         }
 
@@ -485,11 +486,23 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       try {
         rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
       } catch (error) {
-        if (!preservedReturnStep) {
-          throw error;
+        if (preservedReturnStep) {
+          pumpDrain(callGen('throw', error));
+          return;
         }
 
-        pumpDrain(callGen('throw', error));
+        if (result.done) {
+          settle('throw', error);
+          return;
+        }
+
+        failedTransform = { error };
+        done = true;
+        stopListening();
+        const deferred = CancelablePromise.withResolvers<any>({ shield: true });
+        drain = { promise: deferred.promise, resolve: deferred.resolve as (value?: any) => void };
+        clearStepSource();
+        pumpDrain(callGen('return', undefined));
         return;
       }
       const awaitedValue = isAwaited(rawValue) ? rawValue : undefined;
@@ -589,7 +602,14 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
         return;
       }
 
-      const rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
+      let rawValue: unknown;
+      try {
+        rawValue = transformYield ? transformYield(result.value, awaited) : result.value;
+      } catch (error) {
+        cancelDeferred = false;
+        pumpDrain(callGen('throw', error));
+        return;
+      }
       if (isAwaited(rawValue) && awaitStep(rawValue[awaitedSymbol])) {
         return;
       }
@@ -693,6 +713,33 @@ export function cancGenAsync(genFn: IGeneratorLikeFn, options: TCancelableCorout
       currentStep = null;
       queuedStep = null;
       preservedReturnStep = undefined;
+
+      if (failedTransform) {
+        const originalError = failedTransform.error;
+        failedTransform = undefined;
+        let active = true;
+        while (step) {
+          if (active) {
+            step.reject(originalError);
+            active = false;
+          } else if (step.method === 'return') {
+            if (failed) {
+              step.reject(outcome);
+            } else {
+              step.resolve({ value: step.value, done: true });
+            }
+          } else if (step.method === 'throw') {
+            step.reject(step.value);
+          } else {
+            step.resolve({ value: undefined, done: true });
+          }
+
+          step = step.next;
+        }
+
+        drain!.resolve();
+        return;
+      }
 
       // a cleanup error rejects the canceled step, else the first one still waiting
       let errorTarget: TAsyncGeneratorStep | null = null;
