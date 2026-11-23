@@ -171,6 +171,8 @@ export interface ICancelablePromiseFlagOptions {
    * Awaitable cancel mode: cancel() returns a promise covering all transitive cleanup. With
    * `asyncCancel: false` cancel() returns `undefined`, and the cleanup of a parent reached by
    * bubbling runs two microtasks after cancel() returns.
+   *
+   * Awaiting cancel() covers transitive cleanup when the participating CancelablePromise copies implement the current cancellation protocol. Across distinct legacy 1.0 runtime copies, cancellation can still propagate while the initiating cancel() resolves before a remote cleanup handler finishes. If the cleanup barrier matters, upgrade or deduplicate the participating runtime copies.
    */
   asyncCancel?: boolean;
   /**
@@ -2033,7 +2035,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * promise. It settles once all cancel handlers in the entire cancellation cascade have settled,
    * including handlers registered on ancestor promises reached by bubble propagation and on race
    * inputs canceled after the race settles. An explicit `await cancel()` therefore postpones until
-   * the complete cleanup is done, not just the local handlers. A second call while that cleanup
+   * the complete cleanup is done, not just the local handlers. With participating CancelablePromise
+   * copies implementing the current cancellation protocol, this also covers transitive cleanup.
+   * Across distinct legacy 1.0 runtime copies, cancellation may propagate while the initiating
+   * cancel() resolves before remote cleanup finishes. Upgrade or deduplicate participating copies
+   * if the cleanup barrier matters. A second call while that cleanup
    * runs returns a promise for the same cleanup. A call made while another cancel is running (from
    * a cancel handler, for example) adds its cleanup to that cancel and returns a promise for its
    * own part. On a settled or shielded promise the returned promise resolves with an empty list.

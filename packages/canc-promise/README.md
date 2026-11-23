@@ -145,6 +145,8 @@ consumer subscribed in a later turn (after an unrelated `await`) arrives late an
 `await child.cancel()` waits for it. A chain of promises with an overridden `cancel` bubbles recursively;
 very deep chains of them can exhaust the stack.
 
+Awaiting cancel() covers transitive cleanup when the participating CancelablePromise copies implement the current cancellation protocol. Across distinct legacy 1.0 runtime copies, cancellation can still propagate while the initiating cancel() resolves before a remote cleanup handler finishes. If the cleanup barrier matters, upgrade or deduplicate the participating runtime copies.
+
 Bubbling is on by default. Turn it off per promise with `bubble: false` when the work has side
 effects that should not be discarded implicitly, for example a write that must complete once
 started.
@@ -565,6 +567,8 @@ await checkout.cancel();
 Handlers start synchronously the moment the cancel takes effect, whatever triggered it. Only
 waiting for their results is asynchronous. With `asyncCancel: false` handlers run synchronously
 and `cancel()` returns nothing.
+
+Awaiting cancel() covers transitive cleanup when the participating CancelablePromise copies implement the current cancellation protocol. Across distinct legacy 1.0 runtime copies, cancellation can still propagate while the initiating cancel() resolves before a remote cleanup handler finishes. If the cleanup barrier matters, upgrade or deduplicate the participating runtime copies.
 
 ### Adopting a foreign promise
 
