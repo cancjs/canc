@@ -149,6 +149,125 @@ function createFixture(consumer, format) {
   return fixture;
 }
 
+function createLockFixture(consumer, format) {
+  const prelude =
+    format === 'cjs' ?
+      'const load = async id => require(id); const resolve = id => require.resolve(id);'
+    : "import {fileURLToPath} from 'node:url'; const load = id => import(id); const resolve = id => fileURLToPath(import.meta.resolve(id));";
+  const body = async (load, resolve, format) => {
+    const fs = (await load('node:fs')).default ?? (await load('node:fs'));
+    const path = (await load('node:path')).default ?? (await load('node:path'));
+    const assert = (await load('node:assert/strict')).default ?? (await load('node:assert/strict'));
+    const { register } = await load('@cancjs/unhandled-rejection');
+    const { CancelablePromise } = await load('@cancjs/promise');
+    const { requestLock } = await load('@cancjs/node/worker-threads');
+    for (const id of ['@cancjs/promise', '@cancjs/unhandled-rejection', '@cancjs/node/worker-threads']) {
+      const entry = fs.realpathSync(await resolve(id));
+      assert.ok(entry.startsWith(fs.realpathSync(path.join(process.cwd(), 'node_modules')) + path.sep));
+      assert.ok(entry.endsWith('.' + format));
+      console.log('ENTRY ' + entry);
+    }
+    const { kind, callback } = JSON.parse(process.argv[2]);
+    const marker = new Error('genuine-lock-failure');
+    const name = 'host-lock-' + process.pid;
+    let count = 0,
+      monitor = 0,
+      same = true,
+      hits = 0,
+      entered = false,
+      advanced = false;
+    register(
+      callback ?
+        {
+          warn: false,
+          onUnhandledRejection(reason, promise) {
+            count++;
+            same = same && reason === marker && promise === holder;
+          },
+        }
+      : { warn: false },
+    );
+    process.on('uncaughtExceptionMonitor', (reason) => {
+      monitor++;
+      same = same && reason === marker;
+    });
+    process.on('exit', () =>
+      console.log('RESULT ' + JSON.stringify({ count, monitor, same, hits, entered, advanced })),
+    );
+    let notify;
+    const ready = new Promise((resolve) => {
+      notify = resolve;
+    });
+    const holder = requestLock(name, () => {
+      entered = true;
+      notify();
+      if (kind === 'body-throw') throw marker;
+      if (kind === 'cancel') return new CancelablePromise(() => {});
+      return Object.defineProperty({}, 'then', {
+        get() {
+          hits++;
+          throw marker;
+        },
+      });
+    });
+    await ready;
+    if (kind === 'cancel') await holder.cancel();
+    assert.equal(await requestLock(name, () => 17), 17);
+    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(resolve));
+    advanced = true;
+  };
+  const fixture = path.join(consumer, 'lock-host.' + format);
+  fs.writeFileSync(
+    fixture,
+    prelude +
+      '\n(' +
+      body.toString() +
+      ')(load,resolve,' +
+      JSON.stringify(format) +
+      ').catch(error=>{console.error(error);process.exitCode=2;});',
+  );
+  return fixture;
+}
+
+function checkLockHost(host, consumer, fixture, format, kind, callback) {
+  const label = 'lock-host-' + kind + (callback ? '-callback' : '-default');
+  const result = run(host, ['--unhandled-rejections=throw', fixture, JSON.stringify({ kind, callback })], consumer);
+  console.log(
+    'PROCESS',
+    JSON.stringify({
+      label,
+      host,
+      format,
+      pid: result.pid,
+      status: result.status,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    }),
+  );
+  const lines = result.stdout.split(/\r?\n/);
+  const summary = lines.find((line) => line.startsWith('RESULT '));
+  assert.equal(lines.filter((line) => line.startsWith('ENTRY ')).length, 3, label + ': installed entries');
+  assert.ok(summary, label + ': missing exit observation');
+  const fatal = kind !== 'cancel' && !callback;
+  assert.equal(result.status, fatal ? 1 : 0, label + ': exit');
+  const info = JSON.parse(summary.slice(7));
+  assert.deepEqual(
+    { count: info.count, monitor: info.monitor, same: info.same, hits: info.hits, entered: info.entered },
+    {
+      count: kind !== 'cancel' && callback ? 1 : 0,
+      monitor: fatal ? 1 : 0,
+      same: true,
+      hits: kind === 'getter-throw' ? 1 : 0,
+      entered: true,
+    },
+    label + ': genuine reporting',
+  );
+  if (fatal) assert.ok(result.stderr.includes('genuine-lock-failure'), label + ': missing original error');
+  else assert.equal(info.advanced, true, label + ': subsequent ordinary grant');
+  console.log('PASS packed lock host', format, kind, callback ? 'callback' : 'default');
+}
+
 function checkCase(host, consumer, fixture, format, label, config, expected) {
   const args = [
     '--unhandled-rejections=' + (config.mode ?? 'throw'),
@@ -225,7 +344,7 @@ function modeCase(host, consumer, fixture, format, row) {
 function install(consumer, archives, versions) {
   fs.mkdirSync(consumer);
   npmRun(['install', '--prefix', consumer, ...installFlags, ...archives], root);
-  for (const pkg of packages) {
+  for (const pkg of Object.keys(versions)) {
     const installed = path.join(consumer, 'node_modules/@cancjs', pkg);
     assert.equal(JSON.parse(fs.readFileSync(path.join(installed, 'package.json'), 'utf8')).version, versions[pkg]);
     assert.equal(fs.lstatSync(installed).isSymbolicLink(), false);
@@ -271,7 +390,7 @@ try {
   const tarDir = path.join(scratch, 'tar');
   fs.mkdirSync(tarDir);
   const versions = {};
-  const archives = packages.map((pkg) => {
+  const archives = [...packages, 'node'].map((pkg) => {
     const cwd = path.join(root, 'packages', 'canc-' + pkg);
     versions[pkg] = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8')).version;
     const archive = path.join(
@@ -295,6 +414,14 @@ try {
       ),
       ...modeCases.map((row) => () => modeCase(host, consumer, fixture, format, row)),
     ];
+    if (major === '24') {
+      const lockFixture = createLockFixture(consumer, format);
+      for (const kind of ['body-throw', 'getter-throw', 'cancel']) {
+        for (const callback of [false, true]) {
+          probes.push(() => checkLockHost(host, consumer, lockFixture, format, kind, callback));
+        }
+      }
+    }
     let passed = 0;
     for (const probe of probes) {
       try {
