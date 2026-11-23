@@ -26,3 +26,59 @@ export function chargeWithRetry(paymentsApi: PaymentsApi, paymentId: string): Pr
     tryCharge();
   });
 }
+
+/**
+ * Manually aborts the current payment request and cancels any scheduled retry.
+ * A new controller is required for every attempt.
+ */
+export function chargeWithRetryAbortable(
+  paymentsApi: PaymentsApi,
+  paymentId: string,
+): { promise: Promise<string>; cancel(): void } {
+  let attempts = 0;
+  let stopped = false;
+  let settled = false;
+  let controller: AbortController | undefined;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  let rejectOuter!: (error: Error) => void;
+
+  const promise = new Promise<string>((resolve, reject) => {
+    rejectOuter = reject;
+    const tryCharge = () => {
+      if (stopped) return;
+
+      attempts++;
+      controller = new AbortController();
+      paymentsApi.charge(paymentId, controller.signal).then(
+        (value) => {
+          if (stopped) return;
+          settled = true;
+          resolve(value);
+        },
+        (error: unknown) => {
+          if (stopped) return;
+          if (attempts <= 3) {
+            const delay = Math.pow(2, attempts - 1) * 100;
+            retryTimer = setTimeout(tryCharge, delay);
+          } else {
+            settled = true;
+            reject(error);
+          }
+        },
+      );
+    };
+    tryCharge();
+  });
+
+  return {
+    promise,
+    cancel() {
+      if (stopped || settled) return;
+
+      stopped = true;
+      if (retryTimer !== undefined) clearTimeout(retryTimer);
+      controller?.abort();
+      rejectOuter(new Error('Canceled by client'));
+    },
+  };
+}

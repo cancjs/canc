@@ -240,7 +240,12 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+Node.js 18 or later. Requires `@cancjs/promise >=1.1.0-0` and `@cancjs/coroutine >=1.0.0` as peers. The combinations below were checked with isolated installed package copies, not a shared workspace.
+
+| Framework peers    | Node host and optional peers | TypeScript | @types/node | Resolver / skipLibCheck    | Status                    |
+| ------------------ | ---------------------------- | ---------- | ----------- | -------------------------- | ------------------------- |
+| Native `node:http` | Node.js 18+                  | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, strict         |
+| Native `node:http` | Node.js 18+                  | 4.2.4      | 18.19.0     | Node CJS / false           | Advisory, older toolchain |
 
 HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 

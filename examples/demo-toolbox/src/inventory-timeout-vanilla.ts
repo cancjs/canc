@@ -14,3 +14,22 @@ export function fetchInventoryWithTimeout(inventoryApi: InventoryApi, productId:
 
   return Promise.race([inventoryApi.check(productId), timeoutPromise]);
 }
+
+/**
+ * Aborts a pending inventory request when a manually managed deadline expires.
+ * The deadline error wins over the API's abort rejection.
+ */
+export function fetchInventoryWithTimeoutAbortable(inventoryApi: InventoryApi, productId: string): Promise<number> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout>;
+  const deadline = new Promise<number>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error('timeout'));
+      controller.abort();
+    }, 500);
+  });
+
+  return Promise.race([inventoryApi.check(productId, controller.signal), deadline]).finally(() => {
+    clearTimeout(timer);
+  });
+}

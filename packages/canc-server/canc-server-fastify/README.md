@@ -300,9 +300,19 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, Fastify 5 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility). The lowest Fastify version is type-checked and tested in CI.
+The Fastify 5 adapter requires **Node.js 22 or later**. Requires `@cancjs/promise >=1.1.0-0` and `@cancjs/coroutine >=1.0.0` as peers. The combinations below were checked with isolated installed package copies, not a shared workspace.
 
-Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
+| Framework peers                      | Node host and optional peers        | TypeScript | @types/node | Resolver / skipLibCheck    | Status                                          |
+| ------------------------------------ | ----------------------------------- | ---------- | ----------- | -------------------------- | ----------------------------------------------- |
+| Fastify 5.0.0, fastify-plugin 5.0.0  | Node.js 22.12+ for tested injection | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, strict                               |
+| Fastify 5.12.8, fastify-plugin 6.0.1 | Node.js 22.12+ for tested injection | 5.4.5      | 22.20.5     | NodeNext CJS + ESM / false | Supported, strict                               |
+| Fastify 5.12.8, fastify-plugin 6.0.1 | Node.js 22.12+                      | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, strict                               |
+| Fastify 5.0.0, fastify-plugin 5.0.0  | Node.js 22+                         | 5.0.4      | 18.19.0     | Node CJS / true            | Advisory, strict library checking fails         |
+| Fastify 5.0.0, fastify-plugin 5.0.0  | Node.js 22+                         | 4.2.4      | 18.19.0     | Node CJS / either          | Unsupported, framework declaration syntax fails |
+
+Node.js 20 is unsupported: the adapter declares Node.js 22+ and strict npm installation can reject the peer graph. Relaxed Node.js 20 installation is diagnostic only. HTTP sockets were verified on Node.js 22.0, including a normal scripts-enabled strict `npm ci`. On early Node.js 22 patches, `inject()` depends on the resolved `cookie` and `light-my-request` graph; Node.js 22.12 is the verified injection host.
+
+Client disconnect detection depends on the network. A connection dropped without a FIN may produce no event until TCP times out. A buffering reverse proxy may not forward an abort.
 
 HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 

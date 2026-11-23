@@ -1,14 +1,14 @@
 # demo-toolbox
 
-Learn how cancellation transforms common async patterns: pollers stop polling, retries stop backoffing and in-flight attempts, delays clear timers, signals propagate.
+Learn how cancellation stops polling, retry backoff, pending network requests and delayed work. Compare the same native mock API with plain promises and manually managed AbortControllers.
 
 ## What this shows
 
 Six scenarios demonstrating how CancelablePromise improves control over async work compared to vanilla promises or AbortController threading alone:
 
 1. **Deployment poller** (waitFor): Cancel stops polling immediately. Vanilla keeps calling the API.
-2. **Payment retry loop**: Cancel mid-backoff clears the timer AND cancels the in-flight attempt. Vanilla still charges.
-3. **Inventory timeout**: Canceling the timeout cancels the underlying API call (vs. Promise.race leaving it running).
+2. **Payment retry loop**: Cancel during backoff prevents another attempt; cancel during an active charge aborts the pending client request. Plain vanilla keeps working, while the manual vanilla alternative manages its own controller and retry timer.
+3. **Inventory timeout**: A 500ms deadline aborts the pending signal-aware inventory request. Plain `Promise.race` only stops waiting. Vanilla can abort the same API call with an explicit `AbortController`.
 4. **Email delay (undo window)**: Cancel clears the timer so the email never sends. Vanilla sends it anyway.
 5. **Gateway with signal**: Combine CancelablePromise cancel() with external AbortSignal.
 6. **Cleanup with suppress**: One declarative line to swallow cancellation errors in finally blocks.
@@ -54,15 +54,17 @@ None in this example; helpers are simple enough to inline.
 
 Compare twins side-by-side to spot the delta: `diff src/poll-deploy-vanilla.ts src/poll-deploy-canc.ts`. Key differences:
 - Vanilla comments on waste: `// keeps running`, `// result discarded`
-- Canc cleanup: `handleCancel()` clears timers, cancels child promises
+- Canc cleanup: `cancelify` passes the cancellation signal to each native mock API request
 - Canc error handling: just `catch` (normal promise semantics)
 
 ## Testing
 
-Specs use Jest fake timers to assert:
-- Canceled delay promise has 0 pending timers (jest.getTimerCount())
-- Canceled retry loop doesn't retry
-- Canceled poller makes no more mock API calls
+Specs use Jest fake timers and actual MockApi call records to assert:
+- A canceled delay has no pending timers
+- An inventory timeout or active payment cancel marks native work `aborted`
+- Plain vanilla requests complete after the client stops waiting
+- A canceled retry backoff creates no next native request
+- A canceled poller makes no more mock API calls
 
 ## Notes
 
@@ -70,8 +72,8 @@ All promises in the canc flavor return a `CancelablePromise<T>`, a native `Promi
 
 ## Honesty note
 
-Cancellation in these toolbox utilities operates at the promise and timer layer:
-- **waitFor (poller):** Clears the polling interval timer and cancels the current pending status request.
-- **retry (backoff):** Clears the backoff delay timer and cancels the current active attempt's promise.
-- **delay / timeout:** Clears the underlying timer (`setTimeout`) and cancels the wrapped execution promise.
-However, cancellation cannot undo side effects (like database mutations or external API calls) that have already completed on the server before the cancel event was received.
+Canc's `cancelify` wrapper connects a pending native request to a cancellation signal. The inventory timeout aborts its in-flight check, and payment retry cancellation aborts its active charge. Stopping retry backoff is a separate guarantee: it prevents a future attempt from starting.
+
+Plain `Promise.race` does not abort its losing request. The vanilla `fetchInventoryWithTimeoutAbortable` and `chargeWithRetryAbortable` functions show that native `AbortController` can also stop the same work, at the cost of manually wiring the signal, retry timer and cancellation state.
+
+Aborting a client request does **not** reverse a payment already committed on a server. A completed charge needs a separate refund or reconciliation operation.
