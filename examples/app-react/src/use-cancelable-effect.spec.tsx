@@ -55,6 +55,10 @@ function createDeferred<T = string>(): {
   };
 }
 
+async function flushCancellationMicrotasks(): Promise<void> {
+  for (let i = 0; i < 16; i++) await Promise.resolve();
+}
+
 describe('useCancelableEffect with generator', () => {
   it('cancels the coroutine on unmount without post-unmount warnings', async () => {
     const deferred = createDeferred<string>();
@@ -74,6 +78,7 @@ describe('useCancelableEffect with generator', () => {
     expect(deferred.isCanceled()).toBe(false);
 
     unmount();
+    await flushCancellationMicrotasks();
 
     expect(deferred.isCanceled()).toBe(true);
 
@@ -107,6 +112,7 @@ describe('useCancelableEffect with generator', () => {
     expect(firstDeferred.isCanceled()).toBe(false);
 
     rerender(<TestComponent step={2} />);
+    await flushCancellationMicrotasks();
     expect(firstDeferred.isCanceled()).toBe(true);
     expect(secondDeferred.isCanceled()).toBe(false);
 
@@ -118,7 +124,7 @@ describe('useCancelableEffect with generator', () => {
     expect(screen.getByTestId('state').textContent).toBe('step 2 done');
   });
 
-  it('aborts intermediate steps in a multi-step coroutine upon unmount', () => {
+  it('aborts intermediate steps in a multi-step coroutine upon unmount', async () => {
     const step1 = createDeferred<string>();
     const step2 = createDeferred<string>();
     let step2Started = false;
@@ -136,6 +142,7 @@ describe('useCancelableEffect with generator', () => {
 
     const { unmount } = render(<TestComponent />);
     unmount();
+    await flushCancellationMicrotasks();
 
     expect(step1.isCanceled()).toBe(true);
     expect(step2Started).toBe(false);

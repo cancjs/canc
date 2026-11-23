@@ -205,7 +205,7 @@ describe('toTaskSignal', () => {
     // Taking the signal must not count as consuming the promise, so a single canceled child still
     // bubbles up and cancels the source.
     const child = pending.then((value) => value);
-    child.cancel();
+    await child.cancel();
 
     expect(pending.canceled).toBe(true);
     expect(signal.aborted).toBe(true);
