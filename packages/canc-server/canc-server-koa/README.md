@@ -198,9 +198,15 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, Koa 2.13 and later (including Koa 3), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility). The lowest framework versions are type-checked and tested in CI.
+Node.js 18 or later, Koa 2.13 or later (including Koa 3). Requires `@cancjs/promise >=1.1.0-0` and `@cancjs/coroutine >=1.0.0` as peers. The combinations below were checked with isolated installed package copies, not a shared workspace.
 
-Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
+| Framework peers                 | Node host and optional peers | TypeScript | @types/node | Resolver / skipLibCheck    | Status                                  |
+| ------------------------------- | ---------------------------- | ---------- | ----------- | -------------------------- | --------------------------------------- |
+| Koa 2.13.0, `@types/koa` 2.15.2 | Node.js 18+                  | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, strict                       |
+| Koa 3.3.0, `@types/koa` 3.0.3   | Compatible Node.js host      | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, isolated peer graph          |
+| Koa 2.13.0, `@types/koa` 2.15.2 | Node.js 18+                  | 4.2.4      | 18.19.0     | Node CJS / true            | Advisory, strict library checking fails |
+
+Client disconnect detection depends on the network. A connection dropped without a FIN may produce no event until TCP times out. A buffering reverse proxy may not forward an abort.
 
 HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 

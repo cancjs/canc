@@ -239,7 +239,15 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, express 4.18 and later (including express 5), TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility). The lowest framework versions are type-checked and tested in CI.
+Node.js 18 or later, Express 4.18 or later (including Express 5). Requires `@cancjs/promise >=1.1.0-0` and `@cancjs/coroutine >=1.0.0` as peers. The combinations below were checked with isolated installed package copies, not a shared workspace.
+
+| Framework peers                          | Node host and optional peers | TypeScript | @types/node | Resolver / skipLibCheck    | Status                                  |
+| ---------------------------------------- | ---------------------------- | ---------- | ----------- | -------------------------- | --------------------------------------- |
+| Express 4.18.0, `@types/express` 4.17.25 | Node.js 18+                  | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, strict                       |
+| Express 5.2.1, `@types/express` 5.0.6    | Compatible Node.js host      | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, isolated peer graph          |
+| Express 4.18.0, `@types/express` 4.17.25 | Node.js 18+                  | 4.2.4      | 18.19.0     | Node CJS / true            | Advisory, strict library checking fails |
+
+Some shared Express 5 dependency layouts can resolve conflicting `content-disposition` typings. Use a compatible peer installation; the listed strict result was verified in an isolated graph.
 
 HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 

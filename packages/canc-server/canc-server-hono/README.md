@@ -232,11 +232,17 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-The Hono adapter supports Hono 4.8 and later and can serve Web-standard requests through `app.request()` on Node.js 18 without `@hono/node-server`. The Node-server peer is **optional**: when installed to serve HTTP on Node.js, its own engine restrictions apply. For example, `@hono/node-server@1.9.0` requires Node.js 18.14.1 or later, while version 2.1.6 requires Node.js 20 or later. Do not infer Node-server compatibility from the adapter's Node.js 18 engine floor.
+The Hono adapter supports Hono 4.8 or later. `@hono/node-server` is an optional peer, not required for Web-standard `app.request()` on Node.js 18.0. The Node-server peer has its own engine floor: version 1.9.0 requires Node.js 18.14.1+, and 2.1.6 requires Node.js 20+. Requires `@cancjs/promise >=1.1.0-0` and `@cancjs/coroutine >=1.0.0` as peers. The combinations below were checked with isolated installed package copies, not a shared workspace.
 
-The adapter requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peers. Framework and TypeScript compatibility depends on the compiler and installed peer versions; see the tested combinations below and [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+| Framework peers                          | Node host and optional peers             | TypeScript | @types/node | Resolver / skipLibCheck    | Status                                  |
+| ---------------------------------------- | ---------------------------------------- | ---------- | ----------- | -------------------------- | --------------------------------------- |
+| Hono 4.8.0, `@hono/node-server` 1.9.0    | Node.js 18.14.1+ with Node-server        | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, strict                       |
+| Hono 4.13.16, `@hono/node-server` 1.19.7 | Compatible Node.js host with Node-server | 5.9.3      | 20.19.43    | NodeNext CJS + ESM / false | Supported, strict                       |
+| Hono 4.8.0                               | Node.js 18+; Node-server optional        | 4.2.4      | 18.19.0     | Node CJS / true            | Advisory, strict library checking fails |
+| Hono 4.8.0                               | Compatible Node.js host                  | 5.0.4      | 18.19.0     | Node CJS / false           | Advisory, isolated compiler result      |
+| Hono 4.13.16                             | Compatible Node.js host                  | 5.4.5      | 20.19.43    | Node CJS / true            | Advisory, strict library checking fails |
 
-Tested against `@hono/node-server`. Other Web standard runtimes (Cloudflare Workers, Deno, Bun's fetch handler) take the `Request.signal` path and are not independently verified here; their own disconnect-signal reliability is a property of the runtime, not of this package.
+On Web-standard runtimes the adapter uses `Request.signal`. Only Node.js Web-request behavior was independently exercised for the optional-less case; other runtimes have their own disconnect semantics.
 
 HTTP/1.1 and HTTPS only. HTTP/2 is not supported yet.
 
