@@ -131,17 +131,27 @@ function checkDocs() {
   for (const [name, fragments] of Object.entries(expected)) {
     const text = readme(name);
     const normalized = text.toLowerCase();
-    assert.ok(
-      text.includes(
-        '| Framework peers | Node host and optional peers | TypeScript | @types/node | Resolver / skipLibCheck | Status |',
-      ),
+    const rows = text.split(/\r?\n/).filter((line) => line.startsWith('| ') && !/^\|\s*-+/.test(line));
+    const header = rows[0]
+      ?.split('|')
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    assert.deepEqual(
+      header,
+      [
+        'Framework peers',
+        'Node host and optional peers',
+        'TypeScript',
+        '@types/node',
+        'Resolver / skipLibCheck',
+        'Status',
+      ],
       name + ' missing support table',
     );
     for (const part of [...fragments, 'NodeNext CJS + ESM / false', 'Supported', 'Advisory']) {
       assert.ok(normalized.includes(part.toLowerCase()), name + ' missing verified support tuple ' + part);
     }
     assert.ok(!/TypeScript 4\.2 and later\./.test(text), name + ' has unqualified TypeScript floor');
-    const rows = text.split(/\r?\n/).filter((line) => line.startsWith('| ') && !line.startsWith('|---'));
     assert.ok(rows.length >= 3, 'insufficient support cases ' + name);
     assert.ok(
       rows.every((line) => line.split('|').length === 8),
