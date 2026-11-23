@@ -46,6 +46,20 @@ function wrapSyncIterator<T>(syncIt: Iterator<T>): AsyncIterator<T> {
   };
 }
 
+export function callReturnStrict(it: AsyncIterator<any>): Promise<void> {
+  if (!it.return) {
+    return Promise.resolve();
+  }
+
+  try {
+    return Promise.resolve(it.return()).then(() => undefined);
+  } catch (error) {
+    return Promise.resolve().then(() => {
+      throw error;
+    });
+  }
+}
+
 export function callReturn(it: AsyncIterator<any>): Promise<void> {
   if (!it.return) {
     return Promise.resolve();

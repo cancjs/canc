@@ -1,6 +1,6 @@
 import { isThenableLike } from '../guards';
 import { callbackFactory, type ICallbackDeps, type IItemRun } from './callback';
-import { callReturn, getSource } from './pull';
+import { callReturn, callReturnStrict, getSource } from './pull';
 import type { AnyIterable } from './types';
 
 /**
@@ -135,7 +135,7 @@ function drive<T, R>(
 
       if (outcome.done) {
         stopped = true;
-        closeThen(() => resolve(outcome.value));
+        Impl.resolve(callReturnStrict(it)).then(() => resolve(outcome.value), reject);
 
         return;
       }
