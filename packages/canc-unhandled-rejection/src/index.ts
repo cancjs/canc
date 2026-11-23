@@ -295,7 +295,7 @@ function makeNodeSetup(options?: RegisterOptions): () => Pick<Registration, 'rem
     }
     const isSuppressed = buildIsSuppressed(options);
     const mode = readRejectionMode();
-    if (mode === 'strict' && !options?.onUnhandledRejection) {
+    if (mode === 'strict') {
       warnSafe(
         'Node runs with --unhandled-rejections=strict, which raises every rejection as an uncaught exception before listeners run. Suppression is inert in this mode.',
         options,
