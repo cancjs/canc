@@ -10,6 +10,7 @@
  * Each block names the shape that reaches the signature and the result the next signature down
  * would produce instead, so a regression report says which signature stopped being selected.
  */
+import type { FailureOf, Unlisted } from '@cancjs/promise';
 import CancelablePromise from '@cancjs/promise';
 import type { Assert, Eq, Not } from './assert-type';
 
@@ -53,5 +54,17 @@ type _rejectionOnly = Assert<Eq<typeof rejectionOnly, CancelablePromise<string, 
 // pinned to `number`, so the mixed-element signature is the only one that accepts the call at all.
 const mixedRace = CancelablePromise.race<number>([chainedSource, 3]);
 type _mixedRace = Assert<Eq<typeof mixedRace, CancelablePromise<number, never>>>;
+
+const setOfDeclared = CancelablePromise.all(new Set([declared]));
+type _setOfDeclaredFailure = Assert<Eq<FailureOf<typeof setOfDeclared>, OverloadError>>;
+
+const setOfNative = CancelablePromise.all(new Set([Promise.resolve(4)]));
+type _setOfNativeFailure = Assert<Eq<FailureOf<typeof setOfNative>, Unlisted>>;
+
+const setOfValues = CancelablePromise.all(new Set([1, 2]));
+type _setOfValuesFailure = Assert<Eq<FailureOf<typeof setOfValues>, never>>;
+
+const explicitIterable = CancelablePromise.all<number>(new Set([Promise.resolve(4)]));
+type _explicitIterable = Assert<Eq<typeof explicitIterable, CancelablePromise<number[], never>>>;
 
 export {};
