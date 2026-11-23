@@ -15,9 +15,9 @@
     "@cancjs/toolbox:Timer"
   ],
   "pending": [
-    "@cancjs/coroutine:GenReturnUnwind",
     "@cancjs/coroutine:IterationError",
     "@cancjs/coroutine:currentLoop",
+    "@cancjs/coroutine:genReturnUnwind",
     "@cancjs/coroutine:registerCleanup",
     "@cancjs/node:JsonParseError",
     "@cancjs/node:NotImplementedError",

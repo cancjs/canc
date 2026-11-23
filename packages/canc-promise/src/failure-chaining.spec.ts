@@ -157,10 +157,10 @@ describe('failure chaining and statics', () => {
       CancelablePromise<[number, string, number, string, boolean], FooError | BarError | Unlisted>
     > = true;
 
-    // Iterable fallback (TAll inferred as number via PromiseLike<TAll>, FailureOf<number> = never)
+    // Iterable inputs retain declared failure types.
     const iter = [pFoo] as Iterable<CancelablePromise<number, FooError>>;
     const _rAllIter = CancelablePromise.all(iter);
-    const cAllIter: Eq<typeof _rAllIter, CancelablePromise<number[], never>> = true;
+    const cAllIter: Eq<typeof _rAllIter, CancelablePromise<number[], FooError>> = true;
 
     const _rRace = CancelablePromise.race([pFoo, pBar]);
     const cRace: Eq<typeof _rRace, CancelablePromise<number | string, FooError | BarError>> = true;

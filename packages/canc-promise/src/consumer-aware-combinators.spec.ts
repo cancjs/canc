@@ -296,8 +296,7 @@ describe('combinator inputs follow consumer counting', () => {
       });
     });
 
-    // allSettled spreads before taking input, so a throw leaves every input untouched
-    it('allSettled() rejects and leaves the inputs untouched', async () => {
+    it('allSettled() observes inputs but does not cancel them on iterator failure', async () => {
       const sole = pending<string>();
       const shared = pending<string>();
       const consumer = shared.promise.then((value) => value);

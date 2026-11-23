@@ -35,6 +35,7 @@
     "../common/failure-default-compat.ts",
     "../common/coroutine-failure-types.ts",
     "../common/overload-inference.ts",
+    "../common/iterable-all-failures.ts",
     "../common/promiselike-failure-types.ts",
     "../common/promiselike-input-failure-types.ts",
     "../common/axios-all-types.ts",

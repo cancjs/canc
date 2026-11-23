@@ -36,6 +36,20 @@ function countingSource() {
   return { state, source };
 }
 
+describe('generator helper unwind marker', () => {
+  it('emits the canonical marker during a consumer return', () => {
+    const loop = cancGenForAwait([1], () => {});
+    loop.next();
+
+    expect(loop.return(undefined).done).toBe(false);
+    expect(loop.next()).toEqual({
+      done: false,
+      value: Symbol.for('@cancjs/coroutine:genReturnUnwind'),
+    });
+    expect(loop.return(undefined).done).toBe(true);
+  });
+});
+
 describe('canc helpers under cancel in cancAsync', () => {
   it('stops a forAwait whose generator callback awaits in finally, and never resumes the body', async () => {
     const { state, source } = countingSource();

@@ -655,6 +655,25 @@ describe('cancGenAsync: transformYield', () => {
     expect(values).toEqual([3]);
     expect(seen.length).toBeGreaterThanOrEqual(2);
   });
+  it('keeps return cleanup after successful yield transformation', async () => {
+    const log: string[] = [];
+    const it = cancGenAsync(
+      function* (): AsyncGenResult<number> {
+        try {
+          yield 2;
+          yield 3;
+        } finally {
+          yield* cancGenAwait(Promise.resolve());
+          log.push('closed');
+        }
+      },
+      { transformYield: (value: any) => (typeof value === 'number' ? value * 10 : value) },
+    )();
+
+    await expect(it.next()).resolves.toEqual({ value: 20, done: false });
+    await expect(it.return()).resolves.toEqual({ value: undefined, done: true });
+    expect(log).toEqual(['closed']);
+  });
 });
 
 // cancGenDelegate / cancGenForAwait: producer-side consume + re-emit helpers

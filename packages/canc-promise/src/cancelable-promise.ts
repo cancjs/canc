@@ -171,6 +171,8 @@ export interface ICancelablePromiseFlagOptions {
    * Awaitable cancel mode: cancel() returns a promise covering all transitive cleanup. With
    * `asyncCancel: false` cancel() returns `undefined`, and the cleanup of a parent reached by
    * bubbling runs two microtasks after cancel() returns.
+   *
+   * Awaiting cancel() covers transitive cleanup when the participating CancelablePromise copies implement the current cancellation protocol. Across distinct legacy 1.0 runtime copies, cancellation can still propagate while the initiating cancel() resolves before a remote cleanup handler finishes. If the cleanup barrier matters, upgrade or deduplicate the participating runtime copies.
    */
   asyncCancel?: boolean;
   /**
@@ -727,6 +729,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: readonly TResult[],
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<Awaited<TResult>[], FailureOf<TResult>>;
+  static all<T>(
+    values: Iterable<T>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<Awaited<T>[], FailureOf<T>>;
   static all<TAll>(
     values: Iterable<TAll | PromiseLike<TAll>>,
     options?: ICancelablePromiseOptions,
@@ -811,27 +817,22 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: Iterable<T>,
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<ISettledResult<any>[] | { [P in keyof any]: ISettledResult<any> }, never> {
-    let items: T[];
-    try {
-      items = [...values];
-    } catch (error) {
-      // like native allSettled, an iterable throw rejects instead of throwing
-      return this.reject<ISettledResult<any>[], never>(error, options);
-    }
+    const observed: CancelablePromise<ISettledResult<any>, never>[] = [];
 
-    return this.all(
-      items.map(
-        (promiseOrValue) =>
-          // `_adopt` reuses a same-constructor canc input as-is and only wraps raw values /
-          // foreign thenables, dropping the former unconditional resolve() wrap that ran a full
-          // construction per item on top of the one all() performs on the mapped result.
+    try {
+      for (const promiseOrValue of values) {
+        observed.push(
           this._adopt(promiseOrValue, INPUT_OPTIONS).then(
             (value) => ({ status: 'fulfilled', value }),
             (reason: unknown) => ({ status: 'rejected', reason }),
           ) as CancelablePromise<ISettledResult<any>, never>,
-      ),
-      options,
-    );
+        );
+      }
+    } catch (error) {
+      return this.reject<ISettledResult<any>[], never>(error, options);
+    }
+
+    return this.all(observed, options);
   }
 
   /**
@@ -955,14 +956,22 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     try {
       for (const promiseOrValue of values) {
         const promise = this._adopt<T>(promiseOrValue, INPUT_OPTIONS);
+        const noncancelableAtEnrollment = !promise.cancelable;
+        const releaseAfterSettle = (): void => {
+          if (noncancelableAtEnrollment) {
+            void NativePromise.resolve().then(releaseOnSettle);
+          } else {
+            releaseOnSettle();
+          }
+        };
         promise._subscribe(
           (value) => {
             resolveResult(value);
-            releaseOnSettle();
+            releaseAfterSettle();
           },
           (error: unknown) => {
             rejectResult(error as FailureOf<T>);
-            releaseOnSettle();
+            releaseAfterSettle();
           },
         );
 
@@ -2026,7 +2035,11 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * promise. It settles once all cancel handlers in the entire cancellation cascade have settled,
    * including handlers registered on ancestor promises reached by bubble propagation and on race
    * inputs canceled after the race settles. An explicit `await cancel()` therefore postpones until
-   * the complete cleanup is done, not just the local handlers. A second call while that cleanup
+   * the complete cleanup is done, not just the local handlers. With participating CancelablePromise
+   * copies implementing the current cancellation protocol, this also covers transitive cleanup.
+   * Across distinct legacy 1.0 runtime copies, cancellation may propagate while the initiating
+   * cancel() resolves before remote cleanup finishes. Upgrade or deduplicate participating copies
+   * if the cleanup barrier matters. A second call while that cleanup
    * runs returns a promise for the same cleanup. A call made while another cancel is running (from
    * a cancel handler, for example) adds its cleanup to that cancel and returns a promise for its
    * own part. On a settled or shielded promise the returned promise resolves with an empty list.
