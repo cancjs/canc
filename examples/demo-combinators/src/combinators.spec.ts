@@ -95,6 +95,7 @@ describe('combinators', () => {
       })();
 
       expect(winner).toBe('deployed');
+      await Promise.resolve();
 
       const settledCount = mockBundle.api.calls.filter((c) => c.status === 'completed' || c.status === 'failed').length;
       const abortedCount = mockBundle.api.calls.filter((c) => c.status === 'aborted').length;
