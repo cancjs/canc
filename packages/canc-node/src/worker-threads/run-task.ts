@@ -96,11 +96,16 @@ export function runTask<TResult = unknown>(
       const worker = new NodeWorker(script, { ...workerOptions, workerData });
       let exited = false;
       let hasResult = false;
+      let stopping = false;
 
       // registered before anything can settle, so a cancel racing the thread start still stops it
-      handleCancel(() => stopWorker(worker, terminate, gracePeriod, exited));
+      handleCancel(() => {
+        stopping = true;
+        return stopWorker(worker, terminate, gracePeriod, exited);
+      });
 
       worker.once('message', (result: TResult) => {
+        if (stopping) return;
         hasResult = true;
         resolve(result);
         // a worker still listening would keep the process alive after the answer
