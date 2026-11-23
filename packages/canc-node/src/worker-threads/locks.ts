@@ -2,7 +2,6 @@ import * as workerThreads from 'node:worker_threads';
 
 import { CancelablePromise, CancelError } from '@cancjs/promise';
 
-import { isCancelable } from '../../../_util';
 import { features } from '../features';
 import { gated } from '../gate';
 
@@ -26,7 +25,7 @@ export interface ILockOptions {
 
 /**
  * Body run while the lock is held. The signal aborts when the request is canceled or the lock is
- * stolen; the lock stays held until the returned value settles either way.
+ * stolen; an ordinary lock stays held until the returned value and cancellation cleanup settle.
  */
 export type TLockBody<T> = (lock: ILock | null, signal: AbortSignal) => T | PromiseLike<T>;
 
@@ -43,6 +42,27 @@ interface INodeLockManager {
 // manager is read structurally at the mirroring boundary
 const nodeLocks = (workerThreads as { locks?: INodeLockManager }).locks;
 
+interface ICountedInterest {
+  cancel(reason?: unknown): void | PromiseLike<unknown>;
+  _subscribe(onFulfilled?: (value: unknown) => void, onRejected?: (reason: unknown) => void): void;
+}
+
+// Current promise copies share this internal consumer protocol, independent of their constructors.
+interface ICurrentSource<T> {
+  then(): ICountedInterest;
+  _subscribe(onFulfilled: (value: T) => void, onRejected: (reason: unknown) => void): void;
+  _retainRef(): unknown;
+}
+
+function isCurrentSource<T>(value: T | PromiseLike<T>): value is (T | PromiseLike<T>) & ICurrentSource<T> {
+  const source = value as Partial<ICurrentSource<T>> | null | undefined;
+  return (
+    typeof source?.then === 'function' &&
+    typeof source._subscribe === 'function' &&
+    typeof source._retainRef === 'function'
+  );
+}
+
 function requestLockImpl<T>(
   name: string,
   optionsOrFn: ILockOptions | TLockBody<T>,
@@ -57,21 +77,35 @@ function requestLockImpl<T>(
       const bodyController = new AbortController();
       let canceled = false;
       let granted = false;
-      let result: T | PromiseLike<T> | undefined;
+      let bodyReady = false;
+      let stopRequested = false;
+      let interestReleased = false;
+      let stopReason: unknown;
+      let countedInterest: ICountedInterest | undefined;
+      let bodySettled: Promise<void>;
+      let cleanupSettled: Promise<void> = Promise.resolve();
 
-      // only tells the body to stop: the lock is released by the body settling, never by this
+      const releaseInterest = (): void => {
+        if (!granted || !bodyReady || !stopRequested || interestReleased || !countedInterest) return;
+        interestReleased = true;
+        cleanupSettled = Promise.resolve(countedInterest.cancel(stopReason)).then(
+          () => undefined,
+          () => undefined,
+        );
+      };
+
+      // Cancellation may be reentrant while the body registers its result.
       const stopBody = (reason: unknown): void => {
+        if (stopRequested) return;
+        stopRequested = true;
+        stopReason = reason;
         bodyController.abort(reason);
-        if (isCancelable(result)) {
-          result.cancel(reason);
-        }
+        releaseInterest();
       };
 
       handleCancel((reason) => {
         canceled = true;
-        if (granted) {
-          stopBody(reason);
-        }
+        stopBody(reason);
       });
 
       // ifAvailable and steal never queue, and the platform rejects a signal alongside either
@@ -85,18 +119,39 @@ function requestLockImpl<T>(
         }
 
         granted = true;
-        const settled = new Promise<T>((settle) => {
+        let result: T | PromiseLike<T>;
+        try {
           result = fn(lock, bodyController.signal);
-          settle(result);
-        });
+        } catch (error) {
+          reject(error);
+          return undefined;
+        }
 
-        settled.then(resolve, reject);
+        if (isCurrentSource(result)) {
+          const source = result;
+          // only this child counts as the holder's interest, unlike the result and lease observers
+          countedInterest = source.then();
+          countedInterest._subscribe(undefined, () => undefined);
+          source._subscribe(resolve, reject);
+          bodySettled = new Promise<void>((finish) =>
+            source._subscribe(
+              () => finish(),
+              () => finish(),
+            ),
+          );
+        } else {
+          const observed = Promise.resolve(result);
+          observed.then(resolve, reject);
+          bodySettled = observed.then(
+            () => undefined,
+            () => undefined,
+          );
+        }
 
-        // node holds the lock until this settles, so it follows the body and nothing else
-        return settled.then(
-          () => undefined,
-          () => undefined,
-        );
+        bodyReady = true;
+        releaseInterest();
+        // Ordinary holders must wait for both the original body and the released child's cleanup.
+        return bodySettled.then(() => cleanupSettled);
       });
 
       request.catch((err: unknown) => {
@@ -122,9 +177,10 @@ function requestLockImpl<T>(
  * The lock is process-wide, shared with every other thread, and not a file lock: nothing outside
  * this process is serialized by it. Canceling while the lock is still being waited for aborts the
  * acquisition. Canceling while it is held rejects at once with `CancelError` and aborts the signal
- * handed to the body, but the lock stays held until the body's own result settles, so a body that
- * ignores the signal still never overlaps the next holder. A holder whose lock is stolen rejects
- * with `CancelError`, its cause being node's `AbortError`, and its signal aborts the same way.
+ * handed to the body, releasing only the holder's interest in a returned CancelablePromise.
+ * An ordinary lock stays held until the original body and triggered cancellation cleanup settle.
+ * A holder whose lock is stolen rejects with `CancelError`, its cause being node's `AbortError`,
+ * and its signal aborts the same way; a steal may overlap the old body's cleanup.
  *
  * With `ifAvailable`, a lock that is already held hands the body `null` instead of queueing.
  *
