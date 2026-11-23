@@ -954,14 +954,22 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     try {
       for (const promiseOrValue of values) {
         const promise = this._adopt<T>(promiseOrValue, INPUT_OPTIONS);
+        const noncancelableAtEnrollment = !promise.cancelable;
+        const releaseAfterSettle = (): void => {
+          if (noncancelableAtEnrollment) {
+            void NativePromise.resolve().then(releaseOnSettle);
+          } else {
+            releaseOnSettle();
+          }
+        };
         promise._subscribe(
           (value) => {
             resolveResult(value);
-            releaseOnSettle();
+            releaseAfterSettle();
           },
           (error: unknown) => {
             rejectResult(error as FailureOf<T>);
-            releaseOnSettle();
+            releaseAfterSettle();
           },
         );
 
