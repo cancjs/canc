@@ -1,4 +1,4 @@
-import { isAbortError, isCancelError, isTimeoutError } from '@cancjs/promise';
+import { isAbortError, isAggregateError, isCancelError, isTimeoutError } from '@cancjs/promise';
 
 /**
  * Options shared by every `register*` function.
@@ -145,6 +145,7 @@ function buildIsSuppressed(options?: RegisterOptions): (error: unknown) => boole
   // one level only: an any() over canceled members rejects with an aggregate of their CancelErrors
   const isSuppressedAggregate = (error: unknown): boolean => {
     try {
+      if (!isAggregateError(error)) return false;
       const members = (error as { errors?: unknown } | null | undefined)?.errors;
       if (!Array.isArray(members) || members.length === 0) {
         return false;
