@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const owned = path.join(os.tmpdir(), 'canc', 'p105c-fastify-floors');
@@ -123,6 +124,28 @@ function toolchain(key) {
 function install(tool, argv, cwd) {
   return run(tool.node, [tool.cli, ...argv], cwd, { npm_config_userconfig: path.join(owned, 'empty-npmrc') });
 }
+function packedManifest(filename) {
+  const bytes = gunzipSync(fs.readFileSync(filename));
+  for (let offset = 0; offset < bytes.length;) {
+    const name = bytes
+      .subarray(offset, offset + 100)
+      .toString('utf8')
+      .split('\0')[0];
+    const size = Number.parseInt(bytes.subarray(offset + 124, offset + 136).toString('utf8'), 8) || 0;
+    if (name === 'package/package.json') {
+      return JSON.parse(bytes.subarray(offset + 512, offset + 512 + size).toString('utf8'));
+    }
+    offset += 512 + Math.ceil(size / 512) * 512;
+  }
+  throw new Error('packed archive has no package/package.json: ' + filename);
+}
+function checkPackedEngine(filename) {
+  const manifest = packedManifest(filename);
+  assert.equal(manifest.name, '@cancjs/server-fastify');
+  assert.equal(manifest.engines.node, '>=22', 'packed Fastify engine must be >=22');
+  console.log('PASS fastify packed engine>=22: ' + filename);
+}
+
 function pack(name) {
   const folder = path.join(repo, 'packages', name);
   const output = ok(
@@ -156,6 +179,7 @@ function prepare() {
       assert.ok(fs.existsSync(path.join(repo, 'packages', pkg, 'dist', 'index.cjs')), 'missing built ' + pkg);
   }
   const packed = Object.fromEntries(build.map((name) => [name, pack(name)]));
+  checkPackedEngine(packed['canc-server/canc-server-fastify'].filename);
   const manifest = JSON.parse(
     fs.readFileSync(path.join(repo, 'packages/canc-server/canc-server-fastify/package.json'), 'utf8'),
   );
@@ -413,7 +437,10 @@ function summary() {
 }
 
 try {
-  if (has('--prepare')) prepare();
+  if (has('--check-packed-engine')) {
+    const filename = arg('--tar') ?? ready().packed['canc-server/canc-server-fastify'].filename;
+    checkPackedEngine(filename);
+  } else if (has('--prepare')) prepare();
   else if (arg('--lane')) lane(arg('--lane'));
   else if (has('--summary')) summary();
   else {
