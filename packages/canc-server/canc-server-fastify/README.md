@@ -300,7 +300,9 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, Fastify 5 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility). The lowest Fastify version is type-checked and tested in CI.
+The Fastify 5 adapter requires **Node.js 22 or later** and peer dependencies `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0`. Framework and TypeScript support depend on the installed peer and compiler versions; see the tested combinations below and [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
+
+Node.js 20 is not an officially supported host: strict npm installation may reject the Fastify dependency graph, and the adapter itself declares Node.js 22 or later. A relaxed installation is diagnostic only, not a supported configuration. Serving HTTP on a socket was verified on Node.js 22.0; Fastify's `inject()` behavior on early Node.js 22 patches can depend on the resolved `cookie` and `light-my-request` versions. For the verified injected-request path, use Node.js 22.12 or later.
 
 Client disconnect detection is only as good as the network below it. A connection dropped without a FIN produces no event until TCP times out, and a buffering reverse proxy may never pass a client abort to the origin.
 

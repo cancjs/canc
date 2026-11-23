@@ -232,7 +232,9 @@ An upgraded socket still open at `cancelAfter` is destroyed there. To keep new t
 
 ## Compatibility
 
-Node.js 18 and later, Hono 4.8 and later, `@hono/node-server` 1.9 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peer dependencies. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility). The lowest framework versions are type-checked and tested in CI.
+The Hono adapter supports Hono 4.8 and later and can serve Web-standard requests through `app.request()` on Node.js 18 without `@hono/node-server`. The Node-server peer is **optional**: when installed to serve HTTP on Node.js, its own engine restrictions apply. For example, `@hono/node-server@1.9.0` requires Node.js 18.14.1 or later, while version 2.1.6 requires Node.js 20 or later. Do not infer Node-server compatibility from the adapter's Node.js 18 engine floor.
+
+The adapter requires `@cancjs/promise >=1.1.0` and `@cancjs/coroutine >=1.0.0` as peers. Framework and TypeScript compatibility depends on the compiler and installed peer versions; see the tested combinations below and [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).
 
 Tested against `@hono/node-server`. Other Web standard runtimes (Cloudflare Workers, Deno, Bun's fetch handler) take the `Request.signal` path and are not independently verified here; their own disconnect-signal reliability is a property of the runtime, not of this package.
 
