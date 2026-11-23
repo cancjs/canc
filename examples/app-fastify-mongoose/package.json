@@ -15,8 +15,8 @@
     "@cancjs/server-fastify": "file:../../packages/canc-server/canc-server-fastify",
     "@cancjs/toolbox": "file:../../packages/canc-toolbox",
     "@cancjs/unhandled-rejection": "file:../../packages/canc-unhandled-rejection",
-    "fastify": "5.10.0",
-    "fastify-plugin": "6.0.0",
+    "fastify": "5.12.8",
+    "fastify-plugin": "6.0.1",
     "mongoose": "9.7.4"
   },
   "devDependencies": {
