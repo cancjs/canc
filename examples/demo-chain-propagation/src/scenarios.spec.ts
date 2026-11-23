@@ -37,8 +37,7 @@ describe('demo-chain-propagation scenarios', () => {
     const stockConsumer = profilePromise.then((x) => x.stock);
     const ordersConsumer = profilePromise.then((x) => x.orders);
 
-    stockConsumer.cancel();
-    ordersConsumer.cancel();
+    await Promise.all([stockConsumer.cancel(), ordersConsumer.cancel()]);
 
     try {
       await profilePromise;
