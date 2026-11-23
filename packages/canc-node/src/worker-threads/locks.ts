@@ -1,6 +1,6 @@
 import * as workerThreads from 'node:worker_threads';
 
-import { CancelablePromise, CancelError } from '@cancjs/promise';
+import { CANCEL_PROMISE_BRAND, CancelablePromise, CancelError, isAbortError } from '@cancjs/promise';
 
 import { features } from '../features';
 import { gated } from '../gate';
@@ -55,11 +55,17 @@ interface ICurrentSource<T> {
 }
 
 function isCurrentSource<T>(value: T | PromiseLike<T>): value is (T | PromiseLike<T>) & ICurrentSource<T> {
-  const source = value as Partial<ICurrentSource<T>> | null | undefined;
+  const source = value as (Partial<ICurrentSource<T>> & { [CANCEL_PROMISE_BRAND]?: true }) | null | undefined;
+  // A foreign object may reject even a brand lookup, but native assimilation does not need it
+  try {
+    if (source?.[CANCEL_PROMISE_BRAND] !== true) return false;
+  } catch {
+    return false;
+  }
   return (
-    typeof source?.then === 'function' &&
     typeof source._subscribe === 'function' &&
-    typeof source._retainRef === 'function'
+    typeof source._retainRef === 'function' &&
+    typeof source.then === 'function'
   );
 }
 
@@ -119,49 +125,47 @@ function requestLockImpl<T>(
         }
 
         granted = true;
-        let result: T | PromiseLike<T>;
         try {
-          result = fn(lock, bodyController.signal);
+          const result = fn(lock, bodyController.signal);
+          if (isCurrentSource(result)) {
+            const source = result;
+            // only this child counts as the holder's interest
+            countedInterest = source.then();
+            countedInterest._subscribe(undefined, () => undefined);
+            source._subscribe(resolve, reject);
+            let finish!: () => void;
+            bodySettled = new Promise<void>((settle) => {
+              finish = settle;
+            });
+            source._subscribe(finish, finish);
+          } else {
+            const observed = Promise.resolve(result);
+            observed.then(resolve, reject);
+            bodySettled = observed.then(
+              () => undefined,
+              () => undefined,
+            );
+          }
+
+          bodyReady = true;
+          releaseInterest();
+          // Ordinary holders must wait for both the original body and the released child's cleanup.
+          return bodySettled.then(() => cleanupSettled);
         } catch (error) {
+          // Protocol setup failures are body errors, not native steal notifications
           reject(error);
           return undefined;
         }
-
-        if (isCurrentSource(result)) {
-          const source = result;
-          // only this child counts as the holder's interest, unlike the result and lease observers
-          countedInterest = source.then();
-          countedInterest._subscribe(undefined, () => undefined);
-          source._subscribe(resolve, reject);
-          bodySettled = new Promise<void>((finish) =>
-            source._subscribe(
-              () => finish(),
-              () => finish(),
-            ),
-          );
-        } else {
-          const observed = Promise.resolve(result);
-          observed.then(resolve, reject);
-          bodySettled = observed.then(
-            () => undefined,
-            () => undefined,
-          );
-        }
-
-        bodyReady = true;
-        releaseInterest();
-        // Ordinary holders must wait for both the original body and the released child's cleanup.
-        return bodySettled.then(() => cleanupSettled);
       });
 
       request.catch((err: unknown) => {
-        if (!granted) {
+        if (!granted || !isAbortError(err)) {
           // an aborted wait lands here too, after canc already rejected with CancelError
           reject(err);
           return;
         }
 
-        // node rejects a granted request only when another request steals the lock
+        // a native AbortError after grant reports a stolen lock
         const stolen = new CancelError(undefined, { cause: err });
         reject(stolen);
         stopBody(stolen);

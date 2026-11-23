@@ -1,4 +1,4 @@
-import { CancelablePromise, isCancelError } from '@cancjs/promise';
+import { CANCEL_PROMISE_BRAND, CancelablePromise, isCancelError } from '@cancjs/promise';
 
 import { isNotImplementedError } from '../errors/classes';
 import { features } from '../features';
@@ -211,6 +211,96 @@ describeLocks('counted holder and original lock lease (requires native lock mana
       await holderOutcome;
       await requestLock(name, () => undefined);
     }
+  });
+
+  it.each(['throwing-then', 'single-read-then', 'private-getters', 'unbranded-duck'] as const)(
+    'preserves foreign thenable semantics: %s',
+    async (kind) => {
+      const name = lockName();
+      const marker = new Error(kind);
+      let reads = 0;
+      let privateReads = 0;
+      let signal: AbortSignal | undefined;
+      const body = Object.defineProperty({}, 'then', {
+        get() {
+          reads++;
+          if (kind === 'throwing-then' || (kind === 'single-read-then' && reads > 1)) throw marker;
+          return (resolve: (value: number) => void) => resolve(42);
+        },
+      }) as PromiseLike<number>;
+      for (const key of ['_subscribe', '_retainRef']) {
+        Object.defineProperty(body, key, {
+          get() {
+            privateReads++;
+            if (kind === 'private-getters') throw marker;
+            return () => {
+              throw new Error('foreign protocol invoked');
+            };
+          },
+        });
+      }
+      const result = await outcome(
+        requestLock(name, (_lock, bodySignal) => {
+          signal = bodySignal;
+          return body;
+        }),
+      );
+      expect(result).toBe(kind === 'throwing-then' ? marker : 42);
+      expect(isCancelError(result)).toBe(false);
+      expect(reads).toBe(1);
+      expect(privateReads).toBe(0);
+      expect(signal?.aborted).toBe(false);
+      expect(await requestLock(name, () => 23)).toBe(23);
+    },
+  );
+
+  it('assimilates a branded thenable without the current protocol', async () => {
+    let reads = 0;
+    const body = {
+      [CANCEL_PROMISE_BRAND]: true,
+      get then() {
+        reads++;
+        return (resolve: (value: number) => void) => resolve(42);
+      },
+    } as unknown as PromiseLike<number>;
+    expect(await requestLock(lockName(), () => body)).toBe(42);
+    expect(reads).toBe(1);
+  });
+
+  it('does not require a foreign thenable to allow brand lookup', async () => {
+    const body = new Proxy(Promise.resolve(42), {
+      get(target, key) {
+        if (key === CANCEL_PROMISE_BRAND) throw new Error('brand inaccessible');
+        if (key === 'then') return target.then.bind(target);
+        return Reflect.get(target, key);
+      },
+    });
+    expect(await requestLock(lockName(), () => body)).toBe(42);
+  });
+
+  it('preserves genuine errors from branded protocol setup', async () => {
+    const name = lockName();
+    const marker = new Error('broken branded protocol');
+    const body = {
+      [CANCEL_PROMISE_BRAND]: true,
+      get _subscribe() {
+        throw marker;
+      },
+      then() {
+        throw new Error('unexpected then call');
+      },
+    } as unknown as PromiseLike<number>;
+    let signal: AbortSignal | undefined;
+    const result = await outcome(
+      requestLock(name, (_lock, bodySignal) => {
+        signal = bodySignal;
+        return body;
+      }),
+    );
+    expect(result).toBe(marker);
+    expect(isCancelError(result)).toBe(false);
+    expect(signal?.aborted).toBe(false);
+    expect(await requestLock(name, () => 23)).toBe(23);
   });
 
   it('preserves an exact synchronous body error', async () => {
