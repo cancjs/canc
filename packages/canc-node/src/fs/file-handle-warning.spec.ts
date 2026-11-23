@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const hook = `
@@ -101,13 +101,30 @@ async function withOwnedPrefix(prefix: string, run: () => void, cleanup = remove
   await cleanup(prefix);
 }
 
+function explicitNode180(env: NodeJS.ProcessEnv): string | undefined {
+  const node = env.CANC_NODE180;
+  if (node === undefined && env.GITHUB_ACTIONS !== 'true') return undefined;
+  if (!node || !isAbsolute(node) || !existsSync(node)) {
+    throw new Error('CANC_NODE180 must name an existing absolute Node 18.0.0 executable');
+  }
+  const version = spawnSync(node, ['-v'], { encoding: 'utf8', timeout: 5000 });
+  if (version.error) throw version.error;
+  if (version.status !== 0 || version.stdout.trim() !== 'v18.0.0') {
+    throw new Error(`CANC_NODE180 must be Node 18.0.0, got ${version.stdout.trim()}`);
+  }
+  return node;
+}
+
 async function withNode180(run: (node: string) => void): Promise<void> {
+  const explicit = explicitNode180(process.env);
   const packageName = `node-${process.platform === 'win32' ? 'win' : process.platform}-${process.arch}`;
   const cached = runtimePath(join(tmpdir(), 'canc', 'p116e-node180'), packageName);
-  if (process.version === 'v18.0.0') {
+  if (explicit) {
+    run(explicit);
+  } else if (process.version === 'v18.0.0') {
     run(process.execPath);
-  } else if (process.env.CANC_NODE180 || existsSync(cached)) {
-    run(process.env.CANC_NODE180 ?? cached);
+  } else if (existsSync(cached)) {
+    run(cached);
   } else {
     // Provision the exact host in an isolated prefix; no workspace install is changed.
     const base = join(tmpdir(), 'canc');
@@ -151,6 +168,22 @@ function check(node: string, mode: string) {
   const warnings = child.stderr.split(/\r?\n/).filter((line) => line.includes('[canc] fs.FileHandle missing members'));
   return { info, warnings };
 }
+
+describe('explicit oldest runtime provisioning', () => {
+  it('requires a provisioned runtime in GitHub Actions', () => {
+    expect(() => explicitNode180({ GITHUB_ACTIONS: 'true' })).toThrow('CANC_NODE180');
+    expect(() => explicitNode180({ CANC_NODE180: '' })).toThrow('CANC_NODE180');
+    expect(() => explicitNode180({ CANC_NODE180: 'relative-node' })).toThrow('CANC_NODE180');
+  });
+
+  it('rejects a different runtime version before the native probe', () => {
+    if (process.version === 'v18.0.0') {
+      expect(explicitNode180({ CANC_NODE180: process.execPath })).toBe(process.execPath);
+    } else {
+      expect(() => explicitNode180({ CANC_NODE180: process.execPath })).toThrow('must be Node 18.0.0');
+    }
+  });
+});
 
 describe('owned native runtime fixture cleanup', () => {
   const prefix = 'owned-fixture-prefix';
