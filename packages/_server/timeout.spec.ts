@@ -32,8 +32,16 @@ describe('timeout option validation', () => {
     expect(() => checkTimeoutOptions({ ms: Infinity, status: 599 })).not.toThrow();
   });
 
-  it.each([199, 600, NaN, Infinity, 200.5])('rejects invalid status %s', (status) => {
-    expect(() => normalizeTimeout({ ms: -1, status })).toThrow(RangeError);
+  it.each([199, 600, NaN, Infinity, 200.5, 429.1, '429' as never])('rejects invalid status %s', (status) => {
+    const timeout = { ms: -1, status };
+    expect(() => checkTimeoutOptions(timeout)).toThrow(
+      new RangeError(`timeout status (${status}) must be an integer from 200 to 599`),
+    );
+    expect(() => normalizeTimeout(timeout)).toThrow(RangeError);
+  });
+
+  it.each([200, 429, 599])('retains a valid common status %s', (status) => {
+    expect(normalizeTimeout({ ms: 1, status })?.status).toBe(status);
   });
 });
 

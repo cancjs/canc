@@ -119,6 +119,18 @@ afterEach(async () => {
   );
 });
 
+describe('timeout options at setup', () => {
+  it('rejects a fractional status before middleware or a route can run', () => {
+    const handler = jest.fn(() => new Response());
+    const options = { timeout: { ms: 1, status: 200.5 } };
+    const expected = new RangeError('timeout status (200.5) must be an integer from 200 to 599');
+
+    expect(() => cancelableHandler(handler, options)).toThrow(expected);
+    expect(() => cancelMiddleware(options)).toThrow(expected);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
 describe('client disconnect on node', () => {
   it('unwinds the handler and leaves the dead socket alone', async () => {
     const started = deferred();

@@ -146,6 +146,12 @@ describe('request with a body', () => {
 });
 
 describe('timeout options at setup', () => {
+  it('rejects a bad status in middleware at setup', () => {
+    expect(() => cancelMiddleware({ timeout: { ms: 1, status: 600 } })).toThrow(
+      new RangeError('timeout status (600) must be an integer from 200 to 599'),
+    );
+  });
+
   it.each<{ ms: number; headers: Record<string, string> }>([
     { ms: 1, headers: { 'Bad Name': 'ok' } },
     { ms: 1, headers: { 'X-Test': 'bad\nvalue' } },

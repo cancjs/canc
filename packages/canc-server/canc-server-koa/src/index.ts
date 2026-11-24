@@ -15,7 +15,7 @@ import { getRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState, getNodeRequestSignal, stopRequestDeadline } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
-import { IStatusCancelError } from '../../../_server/timeout';
+import { checkTimeoutOptions, IStatusCancelError } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -56,6 +56,7 @@ export function cancelableHandler<StateT = DefaultState, ContextT = DefaultConte
   handler: THandlerFn<(ctx: ParameterizedContext<StateT, ContextT, ResponseBodyT>) => any>,
   options?: ICancelableHandlerOptions,
 ): (ctx: ParameterizedContext<StateT, ContextT, ResponseBodyT>) => Promise<void> {
+  checkTimeoutOptions(options?.timeout);
   checkStatus(timeoutStatus(options?.timeout), 'timeout status');
   const signals = routeSignalsOf(options?.signal);
 
@@ -206,6 +207,7 @@ export function cancelMiddleware<StateT = DefaultState, ContextT = DefaultContex
   options?: ICancelableHandlerOptions & ICancelErrorHandlerOptions,
 ): Middleware<StateT, ContextT> {
   checkStatus(options?.status, 'status');
+  checkTimeoutOptions(options?.timeout);
   checkStatus(timeoutStatus(options?.timeout), 'timeout status');
 
   return async function cancelMiddlewareRoute(ctx, next) {

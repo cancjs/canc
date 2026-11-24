@@ -11,6 +11,7 @@ import {
 } from '../../../_server/exchange';
 import { getRequestRegistry, getRequestState } from '../../../_server/holder';
 import { ensureRequestCancelState } from '../../../_server/node-signal';
+import { checkTimeoutOptions } from '../../../_server/timeout';
 import { ICancelableHandlerOptions } from '../../../_server/types';
 import { cancelableHandler, cancelableHook, cancelablePreParsing } from './handler';
 import { installCloseDrain } from './shutdown';
@@ -52,7 +53,8 @@ function isGeneratorFunction(value: unknown): value is (...args: never[]) => Gen
   return typeof value === 'function' && Object.prototype.toString.call(value) === '[object GeneratorFunction]';
 }
 
-const plugin: FastifyPluginAsync<ICancelPluginOptions> = function cancelPlugin(fastify, pluginOptions) {
+const plugin: FastifyPluginAsync<ICancelPluginOptions> = async function cancelPlugin(fastify, pluginOptions) {
+  checkTimeoutOptions(pluginOptions.timeout);
   const { autoWrap, ...options } = pluginOptions;
   // the instance holds its server from the start, so a shutdown knows every request, plain ones too
   getRequestRegistry(fastify.server, true);

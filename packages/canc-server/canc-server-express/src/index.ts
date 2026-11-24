@@ -148,6 +148,8 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * layers it passes.
  */
 export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHandler {
+  checkTimeoutOptions(options?.timeout);
+
   return function cancelMiddlewareRoute(req, res, next) {
     getNodeRequestSignal(toRequestLike(req), toResponseLike(res), options);
     next();
