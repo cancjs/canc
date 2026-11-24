@@ -42,3 +42,26 @@ describe('timeout options at setup', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+describe('native hook registration errors', () => {
+  it.each([false, true])('preserves invalid async callback array rejection (plugin=%s)', async (auto) => {
+    const instance = Fastify();
+
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- retain native AsyncFunction identity under ES5 tests
+    const requestHook = new Function('return async function (request, reply, done) {}')();
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval -- retain native AsyncFunction identity under ES5 tests
+    const parserHook = new Function('return async function (request, reply, payload, done) {}')();
+
+    try {
+      if (auto) await instance.register(cancelPlugin);
+      expect(() => instance.get('/bad-request', { onRequest: [requestHook] }, () => 'ok')).toThrow(
+        expect.objectContaining({ code: 'FST_ERR_HOOK_INVALID_ASYNC_HANDLER' }),
+      );
+      expect(() => instance.post('/bad-parser', { preParsing: [parserHook] }, () => 'ok')).toThrow(
+        expect.objectContaining({ code: 'FST_ERR_HOOK_INVALID_ASYNC_HANDLER' }),
+      );
+    } finally {
+      await instance.close();
+    }
+  });
+});
