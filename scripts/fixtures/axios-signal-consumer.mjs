@@ -383,21 +383,99 @@ try {
   });
 
   await check('stream after headers abort and listener cleanup', async () => {
-    const a = new AbortController();
-    const started = startIngress('/stream/live', () =>
-      wrapAxios(native()).get('/stream/live', { signal: a.signal, responseType: 'stream' }),
-    );
-    const record = await started.ingress();
-    const response = await deadline(started.cp, 'stream headers');
-    assert.equal(response.data.destroyed, false);
-    const chunk = deferred();
-    response.data.once('data', chunk.resolve);
-    assert.equal(String(await deadline(chunk.promise, 'stream chunk')), 'chunk');
-    a.abort();
-    await closeOf(record);
-    assert.equal(response.data.destroyed, true);
-    assert.equal(getEventListeners(a.signal, 'abort').length, 0);
-    console.log('LISTENERS stream=0');
+    for (const mode of ['retained', 'replaced', 'scope', 'quiet']) {
+      const external = new AbortController();
+      const replacement = new AbortController();
+      const raw = native();
+      if (mode === 'replaced') {
+        raw.interceptors.request.use((config) => ({ ...config, signal: replacement.signal }));
+      }
+      const requestPath = '/stream/live-' + mode;
+      const started = startIngress(requestPath, () =>
+        wrapAxios(raw).get(requestPath, { signal: external.signal, responseType: 'stream' }),
+      );
+      const record = await started.ingress();
+      const response = await deadline(started.cp, 'stream headers ' + mode);
+      const body = response.data;
+      assert.equal(body.destroyed, false);
+      const chunk = deferred();
+      body.once('data', chunk.resolve);
+      assert.equal(String(await deadline(chunk.promise, 'stream chunk ' + mode)), 'chunk');
+      const errors = [];
+      if (mode !== 'quiet') {
+        body.on('error', (error) => errors.push(error));
+      }
+      const closed = deferred();
+      body.once('close', closed.resolve);
+      const reason = new DOMException('stream ' + mode, mode === 'replaced' ? 'TimeoutError' : 'AbortError');
+      if (mode === 'scope') {
+        response.config.cancelScope.cancel(reason);
+      } else if (mode === 'replaced') {
+        replacement.abort(reason);
+      } else {
+        external.abort(reason);
+      }
+      await deadline(closed.promise, 'body close ' + mode);
+      await closeOf(record);
+      assert.equal(record.res.writableEnded, false);
+      assert.equal(body.destroyed, true);
+      if (mode !== 'quiet') {
+        assert.equal(errors.length, 1, 'stream error count ' + mode);
+        const [error] = errors;
+        assert.equal(isCancelError(error), true, 'stream emitted error identity ' + mode);
+        assert.equal(error.cause, reason, 'stream cause identity ' + mode);
+        assert.equal(error.aborted, mode !== 'replaced', 'stream aborted flag ' + mode);
+        assert.equal(error.timedOut, mode === 'replaced', 'stream timeout flag ' + mode);
+      }
+      assert.equal(getEventListeners(external.signal, 'abort').length, 0, 'live external listeners ' + mode);
+      assert.equal(getEventListeners(response.config.signal, 'abort').length, 0, 'live final listeners ' + mode);
+      console.log('STREAM ' + mode + ' errors=' + (mode === 'quiet' ? 'unobserved' : errors.length) + ' listeners=0/0');
+    }
+
+    for (const terminal of ['end', 'close']) {
+      for (const mode of ['retained', 'replaced']) {
+        const external = new AbortController();
+        const replacement = new AbortController();
+        const raw = native();
+        if (mode === 'replaced') {
+          raw.interceptors.request.use((config) => ({ ...config, signal: replacement.signal }));
+        }
+        raw.interceptors.response.use(async (response) => {
+          const body = response.data;
+          const closed = deferred();
+          body.once('close', closed.resolve);
+          if (terminal === 'end') {
+            body.resume();
+          } else {
+            body.destroy();
+          }
+          await deadline(closed.promise, 'interceptor body close ' + terminal + ' ' + mode);
+          return response;
+        });
+        const requestPath = (terminal === 'end' ? '/ok/' : '/stream/') + 'terminal-' + terminal + '-' + mode;
+        const started = startIngress(requestPath, () =>
+          wrapAxios(raw).get(requestPath, { signal: external.signal, responseType: 'stream' }),
+        );
+        const record = await started.ingress();
+        const response = await deadline(started.cp, 'terminal response ' + terminal + ' ' + mode);
+        await closeOf(record);
+        assert.equal(response.status, 200);
+        assert.equal(response.data.closed, true);
+        assert.equal(response.data.readableEnded, terminal === 'end');
+        assert.equal(record.res.writableEnded, terminal === 'end');
+        assert.equal(
+          getEventListeners(external.signal, 'abort').length,
+          0,
+          'terminal external listeners ' + terminal + ' ' + mode,
+        );
+        assert.equal(
+          getEventListeners(response.config.signal, 'abort').length,
+          0,
+          'terminal final listeners ' + terminal + ' ' + mode,
+        );
+        console.log('STREAM terminal ' + terminal + ' ' + mode + ' listeners=0/0');
+      }
+    }
   });
 
   await check('external listener cleanup after success', async () => {
