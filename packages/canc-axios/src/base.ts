@@ -3,7 +3,7 @@ import { cancelify, TEagerToolboxOptions } from '@cancjs/toolbox';
 
 import { isFunction, isObject } from '../../_util';
 import { createInterceptorFacade } from './interceptors';
-import { CancelScope, SCOPE_KEY } from './scope';
+import { AbortControllerCtor, CancelScope, listenForAbort, SCOPE_KEY } from './scope';
 import type { IAxiosInstanceLike, ICancelableAxiosInstance, ICancelableAxiosOptions } from './types';
 
 export type ICancelableAxiosWrapOptions = ICancelableAxiosOptions & TEagerToolboxOptions;
@@ -53,10 +53,70 @@ const define = (target: any, name: string, get: () => any, set?: (value: any) =>
   });
 };
 
+// Provisional external abort affects transport only until Axios selects its final signal
+const composeSignals = (
+  internal: any,
+  external: any,
+  ControllerCtor?: AbortControllerCtor,
+): { signal: any; detach: () => void } => {
+  if (!external || external === internal) {
+    return { signal: internal, detach: function () {} };
+  }
+
+  const Ctor = ControllerCtor || (AbortController as unknown as AbortControllerCtor);
+  const controller = new Ctor();
+  let detach = function () {};
+  let detached = false;
+
+  const cleanup = () => {
+    if (!detached) {
+      detached = true;
+      detach();
+    }
+  };
+
+  const attach = (source: any) => {
+    if (controller.signal.aborted) {
+      return;
+    }
+
+    const abort = () => {
+      try {
+        if (!controller.signal.aborted) {
+          controller.abort(source.reason);
+        }
+      } finally {
+        cleanup();
+      }
+    };
+
+    if (source.aborted) {
+      abort();
+    } else {
+      const remove = listenForAbort(source, abort);
+      const earlier = detach;
+      detach = () => {
+        earlier();
+        remove();
+      };
+    }
+  };
+
+  try {
+    attach(internal);
+    attach(external);
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
+
+  return { signal: controller.signal, detach: cleanup };
+};
+
 /**
- * Wraps an axios instance so its request methods return a CancelablePromise. Canceling aborts the
- * underlying request through an AbortSignal, and rejects with a CancelError whatever the adapter
- * threw.
+ * Wraps an axios instance so its request methods return a CancelablePromise. Canceling rejects
+ * with a CancelError and aborts the underlying request if its effective signal retains Canc's
+ * signal.
  *
  * The wrapper holds no axios state of its own: defaults, interceptors and create() all forward to
  * the instance, so config merging, header deep-merge and instance seeding stay axios's own code.
@@ -76,14 +136,8 @@ export function wrapAxios(
     const config = configInput || {};
     const scope = new CancelScope(ControllerCtor);
 
-    // axios would keep only one signal once the wrapper sets its own
-    const defaultSignal = instance.defaults?.signal;
-
-    if (defaultSignal !== config.signal) {
-      scope.watch(defaultSignal);
-    }
-
-    scope.watch(config.signal);
+    const entrySignal = config.signal === undefined ? instance.defaults?.signal : config.signal;
+    const composed = composeSignals(scope.signal, entrySignal, ControllerCtor);
 
     if (isFunction(ctx.handleCancel)) {
       (ctx.handleCancel as unknown as (onCancel: (reason?: any) => void) => void)(function (reason?: any) {
@@ -92,17 +146,51 @@ export function wrapAxios(
     }
 
     // a class instance under a string key survives axios config merging
-    const requestConfig = { ...config, signal: scope.signal, [SCOPE_KEY]: scope };
+    const requestConfig = { ...config, signal: composed.signal, [SCOPE_KEY]: scope };
 
     return new Promise(function (resolve, reject) {
       scope.rejectOnAbort(reject);
 
-      call(requestConfig)
+      let request: Promise<any>;
+
+      try {
+        request = call(requestConfig);
+      } catch (error) {
+        composed.detach();
+        scope.finalize();
+        throw scope.toRejection(error);
+      }
+
+      request
         .then(
           function (response) {
-            if (isStreamResponse(response)) {
-              scope.holdStream(response.data);
+            if (
+              isStreamResponse(response) &&
+              !response.data.readableEnded &&
+              !response.data.closed &&
+              !response.data.destroyed
+            ) {
+              const stream = response.data;
+              const release = () => {
+                composed.detach();
+                if (isFunction(stream.removeListener)) {
+                  stream.removeListener('end', release);
+                  stream.removeListener('close', release);
+                }
+              };
+              stream.on('end', release);
+              stream.on('close', release);
+              scope.holdStream(stream);
+
+              if (!scope.aborted) {
+                scope.watch(response.config?.signal);
+              }
+
+              if (scope.aborted) {
+                release();
+              }
             } else {
+              composed.detach();
               scope.finalize();
             }
 
@@ -113,6 +201,7 @@ export function wrapAxios(
             return response;
           },
           function (error) {
+            composed.detach();
             scope.finalize();
             throw scope.toRejection(error);
           },

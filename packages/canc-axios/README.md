@@ -14,8 +14,9 @@ Axios instances whose request methods return cancelable promises.
 ## Introduction
 
 A drop-in replacement for the axios default export whose request methods return a
-`CancelablePromise`. Calling `.cancel()` aborts the request and rejects with a `CancelError`, so
-cancellation reads as an ordinary rejection in `try`/`catch`.
+`CancelablePromise`. Calling `.cancel()` rejects with a `CancelError` and aborts cooperative
+transport when Canc's signal is retained, so cancellation reads as an ordinary rejection in
+`try`/`catch`.
 
 The wrapper holds no state of its own. It forwards to a real axios instance, so config merging,
 header handling, interceptor chains and `create()` seeding are still axios's own code.
@@ -23,9 +24,9 @@ header handling, interceptor chains and `create()` seeding are still axios's own
 ## Features
 
 - same call shapes and signatures as axios, including the full `AxiosResponse` result
-- `.cancel()` aborts the in-flight request through an AbortSignal
+- `.cancel()` rejects promptly and aborts cooperative transport through the retained signal
 - cancellation is supported through the full request lifecycle, including interceptors
-- a caller-supplied `config.signal` also rejects with a `CancelError`
+- cancellation through the final Axios signal is normalized to a `CancelError`
 - instances from `create()` are wrapped too, with their own defaults and interceptors
 - works with the xhr, http and fetch adapters, and with axios 0.22 and up
 - no Proxy, ES5-friendly output
@@ -103,24 +104,30 @@ pending.cancel(); // aborts the request
 
 ## How It Works
 
-Each request method (`get`, `post`, `put` and the rest) creates its own `AbortController`, merges
-the signal into the request config, and returns a `CancelablePromise`. Canceling the promise
-aborts that controller, so axios handles the transport-level abort through whichever adapter it is
-using (xhr, http or fetch).
+Each request method (`get`, `post` and the rest) creates its own `AbortController` and returns a
+`CancelablePromise`. Calling `.cancel()` rejects the promise promptly and cancels linked work,
+even if the adapter ignores the signal. With Canc's signal retained, it also aborts cooperative
+transport through the Axios adapter (xhr, http or fetch).
 
-Cancellation is supported through the full lifecycle of a request, not just the network call.
-When a request is canceled, interceptors that are still running are canceled too. An interceptor
-that returns a cancelable promise has that promise canceled along with the request, so work
-started in an interceptor (a token refresh, a retry) does not keep going after the caller has
-walked away.
+A supplied request signal overrides the instance default. An omitted or `undefined` signal
+inherits the default; in JavaScript, `null` clears it. Canc composes that signal with its
+controller before passing the config to Axios.
 
-An existing `config.signal` from the caller is composed with the internal one. Either source can
-abort the request, and in both cases the promise rejects with a `CancelError`, normalizing the
-error regardless of which signal aborted.
+Axios uses the final `config.signal` after request interceptors run. Aborting an earlier signal
+does not reject the request if an interceptor replaces it before dispatch. External abort depends
+on the final signal and adapter cooperation. A signal-ignoring adapter may stay pending, and an
+external abort after the adapter succeeds need not reject a pending response interceptor.
 
-A caller abort rejects the promise right away, even when the adapter ignores the signal. An abort that lands while response interceptors are still running rejects as well, and the signal listener is removed as soon as the request settles.
+Native cancellation errors become a `CancelError`. If the adapter exposes the final signal,
+Canc can preserve its abort or timeout reason as the cause. Axios 0.22's HTTP adapter does not
+expose this information in its native cancellation error, so the original signal reason and
+timeout or abort flags may be unavailable. Listeners are detached on settlement or abort.
 
-With `responseType: 'stream'` the promise fulfills at the response headers, so the body is still readable afterwards. The request stays abortable until the stream ends or closes: aborting the caller signal, or calling `response.config.cancelScope.cancel()`, destroys the stream. A consumer that listens for errors (`for await`, `pipeline`, an `'error'` handler) sees the `CancelError`. A stream nobody listens to for errors is destroyed without one, so the abort cannot crash the process.
+With `responseType: 'stream'` the promise fulfills at the response headers, so the body is still
+readable afterwards. The request stays abortable until the stream ends or closes: aborting the
+final signal, or calling `response.config.cancelScope.cancel()`, destroys the stream. A consumer
+that listens for errors (`for await`, `pipeline`, an `'error'` handler) sees the `CancelError`.
+A stream without an error listener is destroyed quietly.
 
 The wrapper holds no state beyond what axios itself holds. `defaults` on the wrapper is a live
 accessor onto the underlying instance's defaults, and `interceptors` is a facade over the real
@@ -132,32 +139,46 @@ still run. `create()` returns another wrapped instance with its own defaults and
 
 ### Interceptors
 
-Interceptors receive a second argument carrying the cancellation context of the request they run
-for. The context exposes `signal`, `isCanceled()`, `cancel()` and `link(promise)`:
+Return a cancelable promise from an interceptor to link its work to the request. Adapt a
+signal-only dependency once at its boundary, for example a token refresh using Fetch:
 
 ```js
-api.interceptors.request.use((config, ctx) => {
-  if (ctx.isCanceled()) {
-    return config;
-  }
+import { cancelify } from '@cancjs/toolbox';
 
-  return refreshToken({ signal: ctx.signal }).then((token) => {
+const refreshToken = cancelify(({ signal }) =>
+  fetch('/auth/refresh', { signal }).then((response) => {
+    if (!response.ok) throw new Error('Token refresh failed');
+    return response.text();
+  })
+);
+
+api.interceptors.request.use((config) =>
+  refreshToken().then((token) => {
     config.headers.Authorization = `Bearer ${token}`;
     return config;
-  });
-});
+  })
+);
 ```
 
-A cancelable promise returned from an interceptor is canceled along with the request. In the
-example above, if the request is canceled while the token refresh is in flight, the refresh
-promise is canceled too. `ctx.link(promise)` explicitly ties any cancelable promise to the
-request's lifecycle, so work started outside the return path is still canceled with the request.
+Canceling the request cancels the returned refresh promise too. Interceptors receive a second
+argument, the cancellation context, which exposes `signal`, `isCanceled()`, `cancel()` and
+`link(promise)`. Use `ctx.link(work)` for independently started cancelable work and `ctx.signal`
+for direct integration with a signal-only API.
+
+**Signal replacement:** Assigning `config.signal = replacement.signal` inside a request
+interceptor replaces the existing transport signal, including Canc's composed signal. This is
+standard Axios behavior. Calling `job.cancel()` still rejects the Canc promise and cancels its
+linked work, but the HTTP request may continue. Prefer returned or linked cancelable promises
+for interceptor work.
+
+For multiple-signal interoperability, runtimes supporting `AbortSignal.any()` can combine the
+existing transport signal with an additional one, rather than replacing it.
 
 An interceptor that unwraps the response (`(response) => response.data`) still hands the next
 interceptor the live context, because the returned object is remembered for its request. The next
 interceptor gets a detached context (`signal` is `undefined`, `cancel()` does nothing) when the
 previous one returned a primitive, a value it resolved from a promise, or an object that another
-request also returned. The request itself still cancels through its signal.
+request also returned. The request itself still follows its effective signal.
 
 ### Combinators
 

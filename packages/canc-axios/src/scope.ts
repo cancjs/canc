@@ -16,6 +16,77 @@ interface PolyfilledAbortSignal {
   removeEventListener?: (type: string, listener: (event: any) => void) => void;
 }
 
+// Legacy onabort-only signals need one shared handler so requests can detach in any order.
+type AbortListener = (event: any) => void;
+interface AbortSubscription {
+  callback: AbortListener;
+  active: boolean;
+}
+
+interface AbortBinding {
+  signal: PolyfilledAbortSignal;
+  previous: PolyfilledAbortSignal['onabort'];
+  handler: BoundAbortHandler;
+  listeners: AbortSubscription[];
+}
+type BoundAbortHandler = AbortListener & { cancAbortBinding?: AbortBinding };
+
+export const listenForAbort = (signal: PolyfilledAbortSignal, listener: AbortListener): (() => void) => {
+  if (isFunction(signal.addEventListener)) {
+    signal.addEventListener!('abort', listener);
+    return () => {
+      if (isFunction(signal.removeEventListener)) {
+        signal.removeEventListener!('abort', listener);
+      }
+    };
+  }
+
+  if (!('onabort' in signal)) {
+    return function () {};
+  }
+
+  let binding = (signal.onabort as BoundAbortHandler | null | undefined)?.cancAbortBinding;
+  if (binding?.signal !== signal || binding.handler !== signal.onabort) {
+    const previous = signal.onabort;
+    const listeners: AbortSubscription[] = [];
+    const handler: BoundAbortHandler = function (this: any, event: any) {
+      for (const subscription of listeners.slice().reverse()) {
+        if (subscription.active) {
+          subscription.callback(event);
+        }
+      }
+
+      if (isFunction(previous)) {
+        previous.call(this, event);
+      }
+    };
+
+    binding = { signal, previous, handler, listeners };
+    handler.cancAbortBinding = binding;
+    signal.onabort = handler;
+  }
+
+  const entry = binding;
+  const subscription = { callback: listener, active: true };
+  entry.listeners.push(subscription);
+
+  return () => {
+    if (!subscription.active) {
+      return;
+    }
+
+    subscription.active = false;
+    entry.listeners.splice(entry.listeners.indexOf(subscription), 1);
+    if (!entry.listeners.length) {
+      if (signal.onabort === entry.handler) {
+        signal.onabort = entry.previous;
+      }
+
+      delete entry.handler.cancAbortBinding;
+    }
+  };
+};
+
 /** The config key carrying the per-request scope. Enumerable and string-keyed on purpose: axios
  * merges configs by walking Object.keys, so a symbol or a non-enumerable property would be dropped
  * before interceptors and the adapter ever see it. */
@@ -69,7 +140,7 @@ const toAbortCancelError = (reason?: any): CancelError => {
  * cancels whatever promises interceptors registered.
  */
 export class CancelScope {
-  /** The signal passed to axios as `config.signal`. */
+  /** The Canc-owned signal used to compose the initial transport signal. */
   signal: any;
   aborted: boolean;
   /** The cancellation the caller should see, recorded before axios can replace it. */
@@ -174,9 +245,42 @@ export class CancelScope {
       return;
     }
 
+    // Native Axios can emit a cancellation error synchronously, before the scope's signal listener.
+    // Normalize at the public stream event boundary without changing ordinary stream errors.
+    const emit = stream.emit;
+    const ownEmit = Object.getOwnPropertyDescriptor(stream, 'emit');
+    const normalize = (error: any) => this.toRejection(error);
+    const normalizedEmit = function (this: any, event: any, ...args: any[]): any {
+      if (event === 'error' && isAxiosCancel(args[0])) {
+        if (isFunction(this.listenerCount) && this.listenerCount('error') === 0) {
+          return false;
+        }
+
+        args[0] = normalize(args[0]);
+      }
+
+      return emit.apply(this, [event, ...args]);
+    };
+
+    if (isFunction(emit)) {
+      stream.emit = normalizedEmit;
+    }
+
     const release = () => {
       this._stream = undefined;
       this.finalize();
+      if (stream.emit === normalizedEmit) {
+        if (ownEmit) {
+          Object.defineProperty(stream, 'emit', ownEmit);
+        } else {
+          delete stream.emit;
+        }
+      }
+
+      if (isFunction(stream.removeListener)) {
+        stream.removeListener('close', release);
+        stream.removeListener('end', release);
+      }
     };
 
     stream.on('close', release);
@@ -187,7 +291,7 @@ export class CancelScope {
     const stream = this._stream;
     this._stream = undefined;
 
-    if (stream) {
+    if (stream && !stream.destroyed) {
       // an unheard error event crashes, only a watched stream gets one
       const watched = isFunction(stream.listenerCount) && stream.listenerCount('error') > 0;
       stream.destroy(watched ? this.reason : undefined);
@@ -202,45 +306,12 @@ export class CancelScope {
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-this-alias -- onabort forwards its receiver
-    const self = this;
-
     if (original.aborted) {
       this.abort(toAbortCancelError(original.reason));
       return;
     }
 
-    if (isFunction(original.addEventListener)) {
-      const listener = function () {
-        self.abort(toAbortCancelError(original.reason));
-      };
-
-      original.addEventListener!('abort', listener);
-
-      if (isFunction(original.removeEventListener)) {
-        this._chainDetach(function () {
-          original.removeEventListener!('abort', listener);
-        });
-      }
-
-      return;
-    }
-
-    if ('onabort' in original) {
-      const previous = original.onabort;
-
-      original.onabort = function (this: any, event: any) {
-        self.abort(toAbortCancelError(original.reason));
-
-        if (isFunction(previous)) {
-          previous.call(this, event);
-        }
-      };
-
-      this._chainDetach(function () {
-        original.onabort = previous || null;
-      });
-    }
+    this._chainDetach(listenForAbort(original, () => this.abort(toAbortCancelError(original.reason))));
   }
 
   private _chainDetach(detach: () => void): void {
@@ -271,6 +342,13 @@ export class CancelScope {
     }
 
     if (isAxiosCancel(reason)) {
+      const finalSignal = isObject(reason) ? (reason as any).config?.signal : undefined;
+
+      // Without final config, a provisional signal cannot identify the abort source
+      if (finalSignal?.aborted) {
+        return toAbortCancelError(finalSignal.reason);
+      }
+
       return new CancelError(isObject(reason) ? (reason as any).message : undefined, { cause: reason });
     }
 
