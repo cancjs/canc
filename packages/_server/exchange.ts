@@ -161,7 +161,13 @@ export function cancelHeadersFor(error: CancelError, option: number | undefined)
 }
 
 /** Content headers a route may have set for its own body, which a cancellation answer must not keep. */
-export const STALE_CONTENT_HEADERS = ['Content-Type', 'Content-Encoding', 'Content-Language', 'Content-Range'] as const;
+export const STALE_CONTENT_HEADERS = [
+  'Content-Type',
+  'Content-Encoding',
+  'Content-Language',
+  'Content-Range',
+  'Content-Length',
+] as const;
 
 /** What a request's cancellation is attributed to: the reason the request was canceled with. */
 export interface IAttribution {

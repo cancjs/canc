@@ -650,16 +650,24 @@ describe('cancel error handler', () => {
 });
 
 describe('framework headers on a cancel answer', () => {
-  it('answers a deadline clean: no stale content headers, the timeout headers applied', async () => {
+  it.each(['route', 'option'])('answers a deadline without stale content headers from %s', async (origin) => {
     const port = await listen(
       cancelableHandler(
         function* (_req: IncomingMessage, res: ServerResponse) {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Content-Encoding', 'gzip');
+          if (origin === 'route') {
+            res.setHeader('Content-Length', '7');
+          }
           yield never();
           res.end('unreachable');
         },
-        { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+        {
+          timeout: {
+            ms: 25,
+            headers: { 'Retry-After': '5', ...(origin === 'option' ? { 'Content-Length': '7' } : {}) },
+          },
+        },
       ),
     );
 
@@ -669,6 +677,8 @@ describe('framework headers on a cancel answer', () => {
     expect(response.headers['retry-after']).toBe('5');
     expect(response.headers['content-type']).toBeUndefined();
     expect(response.headers['content-encoding']).toBeUndefined();
+    expect(response.body).toBe('');
+    expect(Number(response.headers['content-length'] ?? 0)).toBe(0);
   });
 
   it('logs a late failure once through the console', async () => {

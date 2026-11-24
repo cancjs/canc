@@ -205,11 +205,11 @@ function answerCancellation(
     return;
   }
 
-  answerWith(res, status, cancelHeadersFor(error, options.status), true);
+  answerWith(res, status, cancelHeadersFor(error, options.status));
 }
 
 /** Sends a bare status to a response that can still carry one. */
-function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}, cancel = false): void {
+function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}): void {
   if (!isResponseLive(res)) {
     return;
   }
@@ -221,16 +221,14 @@ function answerWith(res: ServerResponse, status: number, headers: Record<string,
     return;
   }
 
-  // a cancellation answer is not the route's body, so the content headers it set go too
-  if (cancel) {
-    for (const name of STALE_CONTENT_HEADERS) {
-      res.removeHeader(name);
-    }
-  }
-
   for (const [name, value] of Object.entries(headers)) {
     res.setHeader(name, value);
   }
+
+  for (const name of STALE_CONTENT_HEADERS) {
+    res.removeHeader(name);
+  }
+
   res.statusCode = status;
   res.end();
 }

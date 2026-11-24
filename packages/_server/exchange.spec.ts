@@ -2,7 +2,7 @@ import { CancelError } from '@cancjs/promise';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { cancelHeadersOf, cancelStatusOf, hasClientLeft, isResponseLive } from './exchange';
+import { cancelHeadersOf, cancelStatusOf, hasClientLeft, isResponseLive, STALE_CONTENT_HEADERS } from './exchange';
 import { createShutdownError, createTimeoutError } from './timeout';
 
 const DISCONNECT_PREDICATE = '!res.writableEnded && (res.destroyed || !res.writable)';
@@ -13,6 +13,10 @@ function stamped(error: CancelError, status: number): CancelError {
 }
 
 describe('exchange', () => {
+  it('includes the discarded body length in stale content headers', () => {
+    expect(STALE_CONTENT_HEADERS).toContain('Content-Length');
+  });
+
   describe('cancelStatusOf', () => {
     it('keeps the stamped status of a deadline over the handler status option', () => {
       const deadline = createTimeoutError({ ms: 100, message: 'late', status: 504 });

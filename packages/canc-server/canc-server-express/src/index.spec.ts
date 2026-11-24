@@ -561,7 +561,7 @@ describe('cancel error handler', () => {
 });
 
 describe('framework headers on a cancel answer', () => {
-  it('answers a deadline clean: no stale content headers, the timeout headers applied', async () => {
+  it.each(['route', 'option'])('answers a deadline without stale content headers from %s', async (origin) => {
     const app = express();
 
     app.get(
@@ -570,10 +570,18 @@ describe('framework headers on a cancel answer', () => {
         function* (_req, res) {
           res.type('json');
           res.set('Content-Encoding', 'gzip');
+          if (origin === 'route') {
+            res.set('Content-Length', '7');
+          }
           yield never();
           res.send('unreachable');
         },
-        { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+        {
+          timeout: {
+            ms: 25,
+            headers: { 'Retry-After': '5', ...(origin === 'option' ? { 'Content-Length': '7' } : {}) },
+          },
+        },
       ),
     );
     app.use(cancelErrorHandler());
@@ -585,6 +593,8 @@ describe('framework headers on a cancel answer', () => {
     expect(response.headers['retry-after']).toBe('5');
     expect(response.headers['content-type']).toBeUndefined();
     expect(response.headers['content-encoding']).toBeUndefined();
+    expect(response.body).toBe('');
+    expect(Number(response.headers['content-length'] ?? 0)).toBe(0);
   });
 
   it('lets express answer a user cancellation through its own handling', async () => {

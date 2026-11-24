@@ -188,14 +188,14 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
       return;
     }
 
-    for (const name of STALE_CONTENT_HEADERS) {
-      res.removeHeader(name);
-    }
-
     const headers = cancelHeadersFor(error, options.status);
 
     if (headers) {
       res.set(headers);
+    }
+
+    for (const name of STALE_CONTENT_HEADERS) {
+      res.removeHeader(name);
     }
 
     res.status(status).end();

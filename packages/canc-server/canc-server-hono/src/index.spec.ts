@@ -2103,7 +2103,7 @@ describe('answer headers', () => {
     expect(response.headers.get('retry-after')).toBe('5');
   });
 
-  it('answers a wrapped deadline through cancelErrorHandler with the timeout Retry-After', async () => {
+  it.each(['route', 'option'])('answers a wrapped deadline without stale content length from %s', async (origin) => {
     const app = new Hono();
 
     app.onError(cancelErrorHandler());
@@ -2111,11 +2111,20 @@ describe('answer headers', () => {
       '/slow',
       cancelableHandler(
         function* (c) {
+          if (origin === 'route') {
+            c.header('Content-Length', '7');
+          }
           yield new Promise(() => undefined);
 
           return c.text('never');
         },
-        { timeout: { headers: { 'retry-after': '5' }, message: 'route took too long', ms: 20 } },
+        {
+          timeout: {
+            headers: { 'retry-after': '5', ...(origin === 'option' ? { 'Content-Length': '7' } : {}) },
+            message: 'route took too long',
+            ms: 20,
+          },
+        },
       ),
     );
 
@@ -2124,6 +2133,8 @@ describe('answer headers', () => {
 
     expect(response.status).toBe(503);
     expect(response.headers.get('retry-after')).toBe('5');
+    expect(await response.text()).toBe('');
+    expect(Number(response.headers.get('content-length') ?? 0)).toBe(0);
   });
 
   it('keeps a user onError docs style 500 on a deadline', async () => {

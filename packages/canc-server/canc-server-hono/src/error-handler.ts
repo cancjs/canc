@@ -74,12 +74,12 @@ export function cancelErrorHandler<E extends Env = any>(options: ICancelErrorHan
     const response = new Response(null, { headers: c.body(null).headers, status });
     const headers = response.headers;
 
-    for (const name of STALE_CONTENT_HEADERS) {
-      headers.delete(name);
-    }
-
     for (const [name, value] of Object.entries(cancelHeadersFor(error as CancelError, options.status) ?? {})) {
       headers.set(name, value);
+    }
+
+    for (const name of STALE_CONTENT_HEADERS) {
+      headers.delete(name);
     }
 
     return response;
