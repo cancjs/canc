@@ -97,6 +97,7 @@ describe('wrapAxios', () => {
 
     expect(isCancelError(error)).toBe(true);
     expect((error as unknown as CancelError).aborted).toBe(true);
+    expect((error as unknown as CancelError).cause).toMatchObject({ name: 'AbortError' });
   });
 
   it('aborts a pending request when the instance default signal aborts', async () => {
@@ -129,7 +130,7 @@ describe('wrapAxios', () => {
     expect(stub.aborted).toBe(true);
   });
 
-  it('honors the default signal and a per-call signal together', async () => {
+  it('per-call signal overrides the default rather than watching both', async () => {
     const stub = createStubAdapter();
     const defaultController = new AbortController();
     const callController = new AbortController();
@@ -146,7 +147,9 @@ describe('wrapAxios', () => {
     await nextTick();
     defaultController.abort();
 
-    await expect(second).rejects.toBeInstanceOf(CancelError);
+    expect(stub.calls[1].signal.aborted).toBe(false);
+    stub.respond();
+    await expect(second).resolves.toMatchObject({ status: 200 });
   });
 
   it('rejects a pre-aborted request before it reaches the adapter', async () => {
@@ -241,7 +244,7 @@ describe('wrapAxios', () => {
 });
 
 describe('wrapAxios caller abort lifecycle', () => {
-  it('rejects on caller abort within a macrotask when the adapter ignores the signal', async () => {
+  it('does not force external abort settlement when the adapter ignores its signal', async () => {
     const calls: any[] = [];
     const api = wrapAxios(
       axios.create({
@@ -259,8 +262,10 @@ describe('wrapAxios caller abort lifecycle', () => {
 
     const outcome = await Promise.race([promise.catch((reason) => reason), nextTick().then(() => 'pending')]);
 
-    expect(isCancelError(outcome)).toBe(true);
+    expect(outcome).toBe('pending');
     expect(calls).toHaveLength(1);
+    promise.cancel('canc still cancels');
+    await expect(promise).rejects.toBeInstanceOf(CancelError);
   });
 
   it('leaves no listeners on a long-lived signal after many canceled requests', async () => {
@@ -277,7 +282,7 @@ describe('wrapAxios caller abort lifecycle', () => {
     expect(getEventListeners(controller.signal as any, 'abort')).toHaveLength(0);
   });
 
-  it('rejects when the abort happens while a response interceptor awaits', async () => {
+  it('follows native Axios completion when external abort happens during a response interceptor', async () => {
     const stub = createStubAdapter({ auto: true });
     const api = wrapAxios(axios.create({ adapter: stub.adapter }));
     const controller = new AbortController();
@@ -286,19 +291,26 @@ describe('wrapAxios caller abort lifecycle', () => {
       entered = resolve;
     });
 
-    api.interceptors.response.use((response) => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    api.interceptors.response.use(async (response) => {
       entered();
-      return new Promise((resolve) => setTimeout(() => resolve(response), 50));
+      await gate;
+      return response;
     });
 
     const promise = api.get('/issues', { signal: controller.signal });
     await inside;
     controller.abort();
+    release();
 
-    await expect(promise).rejects.toBeInstanceOf(CancelError);
+    await expect(promise).resolves.toMatchObject({ status: 200 });
   });
 
-  it('rejects when the abort lands after the adapter succeeded', async () => {
+  it('follows native Axios completion when external abort happens after adapter success', async () => {
     const stub = createStubAdapter({ auto: true });
     const api = wrapAxios(axios.create({ adapter: stub.adapter }));
     const controller = new AbortController();
@@ -308,7 +320,7 @@ describe('wrapAxios caller abort lifecycle', () => {
       return response;
     });
 
-    await expect(api.get('/issues', { signal: controller.signal })).rejects.toBeInstanceOf(CancelError);
+    await expect(api.get('/issues', { signal: controller.signal })).resolves.toMatchObject({ status: 200 });
   });
 
   it('keeps a stream response abortable until it closes', async () => {
@@ -417,7 +429,15 @@ describe('wrapAxios caller abort lifecycle', () => {
 describe('wrapAxios timeouts and linked cancels', () => {
   it('marks a caller AbortSignal.timeout as a timeout with the signal reason as cause', async () => {
     const stub = createStubAdapter();
-    const api = wrapAxios(axios.create({ adapter: stub.adapter }));
+    const api = wrapAxios(
+      axios.create({
+        adapter: (config: any) =>
+          stub.adapter(config).catch((error) => {
+            error.config = config;
+            throw error;
+          }),
+      }),
+    );
     const signal = AbortSignal.timeout(5);
 
     const error = (await api.get('/issues', { signal }).catch((reason) => reason)) as unknown as CancelError;
@@ -440,6 +460,7 @@ describe('wrapAxios timeouts and linked cancels', () => {
 
     expect(error.timedOut).toBe(false);
     expect(error.aborted).toBe(true);
+    expect(error.cause).toBe(controller.signal.reason);
   });
 
   it('cancels every linked promise even when one cancel throws', async () => {
