@@ -171,6 +171,51 @@ function timeoutProbe() {
 }
 const es5Probe = () => distProbe('fastify-es5-conditional');
 
+const iteratorProbe = String.raw`
+const assert = require('node:assert/strict');
+const Fastify = require('fastify');
+const { cancelPlugin } = require('@cancjs/server-fastify');
+const route = '/iterator';
+
+async function exchange(wrapped) {
+  const app = Fastify();
+  let calls = 0;
+  let pulls = 0;
+  try {
+    if (wrapped) await app.register(cancelPlugin, { autoWrap: true });
+    app.get(route, () => {
+      calls++;
+      return {
+        kind: 'iterator',
+        next() { pulls++; return { done: true }; },
+        [Symbol.iterator]() { pulls++; return this; },
+      };
+    });
+    const response = await app.inject(route);
+    const record = { status: response.statusCode, body: response.json(), calls, pulls };
+    console.log('ITERATOR', route, wrapped ? 'wrapped' : 'native', JSON.stringify(record));
+    return record;
+  } finally {
+    await app.close();
+  }
+}
+
+async function main() {
+  const native = await exchange(false);
+  assert.deepEqual(native, { status: 200, body: { kind: 'iterator' }, calls: 1, pulls: 0 });
+  const wrapped = await exchange(true);
+  if (process.argv[1] === 'weak') {
+    assert.equal(wrapped.status, 500);
+    assert.equal(wrapped.body.message,
+      'A coroutine body must be a generator function: expected a generator with a callable return method, received a generator-like without return');
+    assert.equal(wrapped.calls, 1);
+    assert.equal(wrapped.pulls, 0);
+  }
+  assert.deepEqual(wrapped, native, '/iterator response must match native Fastify');
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });
+`;
+
 function fingerprint() {
   const paths = [
     'scripts/check-beta3-server-installed.mjs',
@@ -668,13 +713,16 @@ function fastifyMutants() {
     'routes',
     /INJECT routes cjs "\/es5" 200 \{\}/,
   );
-  generator(
+  mutant(
+    ctx,
     'weak-iterator',
-    "        hasDataMethod(value, 'throw') &&\n        hasDataMethod(value, 'return') &&\n",
-    '',
-    'plain',
-    /INJECT plain cjs "\/iterator" 500|iterator pulls/,
+    'fastify',
+    (s) => exactReplace(s, "        hasDataMethod(value, 'throw') &&\n        hasDataMethod(value, 'return') &&\n", ''),
+    iteratorProbe,
+    ['weak'],
+    /^AssertionError \[ERR_ASSERTION\]: \/iterator response must match native Fastify$/m,
   );
+  probe(ctx, iteratorProbe, [], 'RESTORED weak-iterator');
   generator(
     'getter-read',
     "        hasDataMethod(value, 'next') &&",
