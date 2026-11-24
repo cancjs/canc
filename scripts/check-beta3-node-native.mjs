@@ -199,9 +199,9 @@ async function exercise(load, resolve, format, file, wanted) {
     'const {state,ack,finish}=workerData;',
     "parentPort.on('message', message=>{",
     'if(message!==' + JSON.stringify(cw.STOP_MESSAGE) + ')return;',
-    "if(ack)parentPort.postMessage({type:'ack'});",
+    "if(ack)parentPort.postMessage({type:'stop-grace-ack'});",
     'Atomics.store(state,1,1);',
-    'if(finish){Atomics.wait(state,2,0,1000);Atomics.store(state,0,2);process.exit(0)}',
+    'if(finish){Atomics.wait(state,2,0);Atomics.store(state,0,2);process.exit(0)}',
     '});Atomics.store(state,0,1);',
   ].join('\n');
   async function until(test) {
@@ -211,18 +211,53 @@ async function exercise(load, resolve, format, file, wanted) {
       await delay(5);
     }
   }
-  for (const [label, ack, finish, terminate, expected] of [
+  for (const [label, ack, finish, terminate, expected, delayed = false] of [
     ['worker-ack', true, true, 'graceful', 2],
+    ['worker-ack-delayed', true, true, 'graceful', 2, true],
     ['worker-no-ack', false, true, 'graceful', 2],
     ['worker-immediate', true, true, 'immediate', 1],
     ['worker-expired', true, false, 'graceful', 1],
   ]) {
     cases[label] = async () => {
       const state = new Int32Array(new SharedArrayBuffer(12));
+      const proto = workerNative.Worker.prototype;
+      const originalEmit = proto.emit;
+      const emitDescriptor = Object.getOwnPropertyDescriptor(proto, 'emit');
+      const originalPostMessage = proto.postMessage;
+      const originalTerminate = proto.terminate;
+      const owned = new WeakSet();
+      let pending,
+        dispatched = false,
+        terminateCalls = 0;
+      if (ack && finish && terminate === 'graceful') {
+        proto.postMessage = function (...args) {
+          if (args[0] === cw.STOP_MESSAGE) owned.add(this);
+          return originalPostMessage.apply(this, args);
+        };
+        proto.emit = function (event, ...args) {
+          if (owned.has(this) && event === 'message' && args[0]?.type === 'stop-grace-ack') {
+            const dispatch = () => {
+              const result = originalEmit.call(this, event, ...args);
+              dispatched = true;
+              return result;
+            };
+            if (delayed) {
+              pending = dispatch;
+              return true;
+            }
+            return dispatch();
+          }
+          return originalEmit.call(this, event, ...args);
+        };
+        proto.terminate = function (...args) {
+          if (owned.has(this)) terminateCalls++;
+          return originalTerminate.apply(this, args);
+        };
+      }
       const task = cw.runTask(
         worker,
         { state, ack, finish },
-        { eval: true, terminate, gracePeriod: finish ? 2000 : 150 },
+        { eval: true, terminate, gracePeriod: finish ? 5000 : 150 },
       );
       const done = outcome(task);
       try {
@@ -230,7 +265,22 @@ async function exercise(load, resolve, format, file, wanted) {
         const drain = task.cancel();
         if (finish && terminate === 'graceful') {
           await until(() => Atomics.load(state, 1) === 1);
-          await delay(80);
+          if (ack) {
+            if (delayed) {
+              await until(() => pending !== undefined);
+              assert.equal(Atomics.load(state, 2), 0);
+              assert.equal(dispatched, false);
+              pending();
+            }
+            await until(() => dispatched);
+            assert.equal(Atomics.load(state, 0), 1);
+            assert.equal(Atomics.load(state, 2), 0);
+            console.log(
+              'ACK_DISPATCHED_BEFORE_GATE',
+              JSON.stringify({ label, marker: Atomics.load(state, 0), terminateCalls }),
+            );
+            assert.equal(terminateCalls, 0, 'ack caused termination before cooperative gate');
+          }
           Atomics.store(state, 2, 1);
           Atomics.notify(state, 2);
         }
@@ -240,7 +290,14 @@ async function exercise(load, resolve, format, file, wanted) {
       } finally {
         Atomics.store(state, 2, 1);
         Atomics.notify(state, 2);
-        await task.cancel();
+        try {
+          await task.cancel();
+        } finally {
+          if (emitDescriptor) Object.defineProperty(proto, 'emit', emitDescriptor);
+          else Reflect.deleteProperty(proto, 'emit');
+          proto.postMessage = originalPostMessage;
+          proto.terminate = originalTerminate;
+        }
       }
     };
   }
@@ -685,7 +742,6 @@ function checkMutants(consumer, scratch, node18) {
       'delivered = true;',
       'delivered = true; closeQuietly(nativeHandle);',
     ],
-    ['worker-stop-guard', 'worker-threads.cjs', 'worker-ack', /if \(stopping\)\s+return;/, ''],
     [
       'child-exit-return',
       'child-process.cjs',
@@ -814,8 +870,53 @@ function checkMutants(consumer, scratch, node18) {
       fs.rmSync(copy, { recursive: true, force: true });
     }
   }
-  assert.equal(killed, 15);
+  assert.equal(killed, 14);
   console.log('MUTANT SUMMARY', killed);
+}
+
+function checkWorkerGuard(consumer, scratch, node18, format) {
+  const copy = path.join(scratch, 'mutant-worker-stop-' + format);
+  fs.cpSync(consumer, copy, { recursive: true });
+  const bundle = path.join(copy, 'node_modules', '@cancjs', 'node', 'dist', 'worker-threads.' + format);
+  const original = fs.readFileSync(bundle, 'utf8');
+  const anchor = /if \(stopping\)\s+return;/g;
+  assert.equal([...original.matchAll(anchor)].length, 1);
+  const runCase = (host, label) =>
+    run(
+      host,
+      [
+        ...(host === node18 && format === 'mjs' ? ['--experimental-import-meta-resolve'] : []),
+        path.join(copy, 'fixture.' + format),
+        label,
+      ],
+      copy,
+    );
+  try {
+    let killed = 0;
+    for (const host of [node18, process.execPath]) {
+      for (const label of ['worker-ack', 'worker-ack-delayed']) {
+        fs.writeFileSync(bundle, original.replace(anchor, ''));
+        const red = runCase(host, label);
+        assert.equal(red.status, 1, red.stdout + red.stderr);
+        assert.ok(red.stdout.includes('"marker":1,"terminateCalls":1'), red.stdout);
+        assert.ok(red.stderr.includes('ack caused termination before cooperative gate'), red.stderr);
+        console.log('MUTANT RED worker-stop-guard', host === node18 ? 'v18.0.0' : process.version, format, label);
+        killed++;
+        fs.writeFileSync(bundle, original);
+        const green = runCase(host, label);
+        assert.equal(green.status, 0, green.stdout + green.stderr);
+        assert.ok(green.stdout.includes('"marker":1,"terminateCalls":0'), green.stdout);
+        assert.ok(green.stdout.includes('FIXTURE SUMMARY 1 0'), green.stdout);
+        console.log('RESTORED GREEN worker-stop-guard', host === node18 ? 'v18.0.0' : process.version, format, label);
+      }
+    }
+    assert.equal(killed, 4);
+    console.log('WORKER MUTANT SUMMARY', format, killed);
+  } finally {
+    fs.writeFileSync(bundle, original);
+    assert.equal(fs.readFileSync(bundle, 'utf8'), original);
+    fs.rmSync(copy, { recursive: true, force: true });
+  }
 }
 
 fs.mkdirSync(scratchRoot, { recursive: true });
@@ -885,8 +986,8 @@ try {
         const expectedCases =
           label === 'main' ?
             host === node18 ?
-              26
-            : 39
+              27
+            : 40
           : 1;
         const summary = 'FIXTURE SUMMARY ' + expectedCases + ' 0';
         const valid =
@@ -904,9 +1005,10 @@ try {
         }
       }
     }
-    if (format === 'cjs' && process.argv.includes('--mutants')) {
+    if (process.argv.includes('--mutants')) {
       assert.equal(failures, 0);
-      checkMutants(consumer, scratch, node18);
+      if (format === 'cjs') checkMutants(consumer, scratch, node18);
+      checkWorkerGuard(consumer, scratch, node18, format);
     }
   }
   console.log('PACKED SUMMARY', { passed, failures });
