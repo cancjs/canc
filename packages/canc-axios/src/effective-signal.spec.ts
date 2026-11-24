@@ -1,5 +1,6 @@
 import { CancelablePromise, CancelError } from '@cancjs/promise';
 import axios from 'axios';
+import { getEventListeners } from 'events';
 import { PassThrough } from 'stream';
 
 import { wrapAxios } from './base';
@@ -259,24 +260,114 @@ describe('Axios effective signal semantics', () => {
   });
 
   it('external effective signal destroys a stream after response headers', async () => {
-    const c = new AbortController();
-    const stream = new PassThrough();
-    const raw = axios.create({
-      adapter: async (config) => ({
-        config,
-        data: stream,
-        status: 200,
-        statusText: 'OK',
-        headers: {},
-      }),
-    });
-    const cp = wrapAxios(raw).get('/stream', { signal: c.signal, responseType: 'stream' });
-    const response = await cp;
-    expect(response.data.destroyed).toBe(false);
-    c.abort('after-headers');
-    await tick();
-    expect(response.data.destroyed).toBe(true);
+    for (const mode of ['retained', 'replaced', 'scope', 'quiet', 'ordinary']) {
+      const c = new AbortController();
+      const chosen = new AbortController();
+      const stream = new PassThrough();
+      const originalEmit = stream.emit;
+      const raw = axios.create({
+        adapter: async (config) => {
+          // Model the native HTTP adapter's earlier, synchronous error emission.
+          const signal = config.signal as AbortSignal;
+          const abort = () => {
+            stream.emit('error', Object.assign(new axios.CanceledError(), { config }));
+            stream.destroy();
+          };
+          signal.addEventListener('abort', abort);
+          stream.once('close', () => signal.removeEventListener('abort', abort));
+          return { config, data: stream, status: 200, statusText: 'OK', headers: {} };
+        },
+      });
+      if (mode === 'replaced') {
+        raw.interceptors.request.use((config) => ({ ...config, signal: chosen.signal }));
+      }
+
+      const response = await wrapAxios(raw).get('/stream', { signal: c.signal, responseType: 'stream' });
+      expect(response.data).toBe(stream);
+      expect(stream.destroyed).toBe(false);
+      const errors: Error[] = [];
+      if (mode !== 'quiet') {
+        stream.on('error', (error) => errors.push(error));
+      }
+
+      const closed = new Promise((resolve) => stream.once('close', resolve));
+      const reason = new DOMException('after headers', mode === 'replaced' ? 'TimeoutError' : 'AbortError');
+      if (mode === 'ordinary') {
+        const failure = new Error('ordinary body failure');
+        stream.destroy(failure);
+        await closed;
+        expect(errors).toEqual([failure]);
+        expect(errors[0]).toBe(failure);
+      } else {
+        if (mode === 'scope') {
+          (response.config as any).cancelScope.cancel(reason);
+        } else if (mode === 'replaced') {
+          chosen.abort(reason);
+        } else {
+          c.abort(reason);
+        }
+
+        await closed;
+        if (mode === 'quiet') {
+          expect(errors).toHaveLength(0);
+          expect(stream.errored).toBeNull();
+        } else {
+          expect(errors).toHaveLength(1);
+          expect(errors[0]).toBeInstanceOf(CancelError);
+          const cancellation = errors[0] as CancelError;
+          expect(cancellation.cause).toBe(reason);
+          expect(cancellation.aborted).toBe(mode !== 'replaced');
+          expect(cancellation.timedOut).toBe(mode === 'replaced');
+        }
+      }
+
+      expect(stream.destroyed).toBe(true);
+      expect(stream.emit).toBe(originalEmit);
+      expect(getEventListeners(c.signal, 'abort')).toHaveLength(0);
+      expect(getEventListeners(response.config.signal as AbortSignal, 'abort')).toHaveLength(0);
+    }
   });
+
+  for (const terminal of ['end', 'close']) {
+    it('releases signals when a response interceptor already reached ' + terminal, async () => {
+      for (const replaced of [false, true]) {
+        const external = new AbortController();
+        const final = new AbortController();
+        const stream = new PassThrough();
+        const raw = axios.create({
+          adapter: async (config) => ({ config, data: stream, status: 200, statusText: 'OK', headers: {} }),
+        });
+        if (replaced) {
+          raw.interceptors.request.use((config) => ({ ...config, signal: final.signal }));
+        }
+
+        raw.interceptors.response.use(async (response) => {
+          const closed = new Promise((resolve) => stream.once('close', resolve));
+          if (terminal === 'end') {
+            stream.resume();
+            stream.end('done');
+          } else {
+            stream.destroy();
+          }
+
+          await closed;
+          return response;
+        });
+
+        const response = await wrapAxios(raw).get('/terminal', {
+          responseType: 'stream',
+          signal: external.signal,
+        });
+        expect(response.data).toBe(stream);
+        expect(stream.closed).toBe(true);
+        expect(stream.readableEnded).toBe(terminal === 'end');
+        expect(getEventListeners(external.signal, 'abort')).toHaveLength(0);
+        expect(getEventListeners(response.config.signal as AbortSignal, 'abort')).toHaveLength(0);
+        external.abort();
+        final.abort();
+      }
+    });
+  }
 
   it('never attributes an obsolete entry timeout to final B cancellation without native config', async () => {
     const a = new AbortController();

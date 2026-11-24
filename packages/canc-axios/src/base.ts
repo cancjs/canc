@@ -164,18 +164,30 @@ export function wrapAxios(
       request
         .then(
           function (response) {
-            if (isStreamResponse(response)) {
-              response.data.on('end', composed.detach);
-              response.data.on('close', composed.detach);
+            if (
+              isStreamResponse(response) &&
+              !response.data.readableEnded &&
+              !response.data.closed &&
+              !response.data.destroyed
+            ) {
+              const stream = response.data;
+              const release = () => {
+                composed.detach();
+                if (isFunction(stream.removeListener)) {
+                  stream.removeListener('end', release);
+                  stream.removeListener('close', release);
+                }
+              };
+              stream.on('end', release);
+              stream.on('close', release);
+              scope.holdStream(stream);
 
               if (!scope.aborted) {
                 scope.watch(response.config?.signal);
               }
 
-              scope.holdStream(response.data);
-
               if (scope.aborted) {
-                composed.detach();
+                release();
               }
             } else {
               composed.detach();

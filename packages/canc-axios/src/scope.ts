@@ -245,9 +245,42 @@ export class CancelScope {
       return;
     }
 
+    // Native Axios can emit a cancellation error synchronously, before the scope's signal listener.
+    // Normalize at the public stream event boundary without changing ordinary stream errors.
+    const emit = stream.emit;
+    const ownEmit = Object.getOwnPropertyDescriptor(stream, 'emit');
+    const normalize = (error: any) => this.toRejection(error);
+    const normalizedEmit = function (this: any, event: any, ...args: any[]): any {
+      if (event === 'error' && isAxiosCancel(args[0])) {
+        if (isFunction(this.listenerCount) && this.listenerCount('error') === 0) {
+          return false;
+        }
+
+        args[0] = normalize(args[0]);
+      }
+
+      return emit.apply(this, [event, ...args]);
+    };
+
+    if (isFunction(emit)) {
+      stream.emit = normalizedEmit;
+    }
+
     const release = () => {
       this._stream = undefined;
       this.finalize();
+      if (stream.emit === normalizedEmit) {
+        if (ownEmit) {
+          Object.defineProperty(stream, 'emit', ownEmit);
+        } else {
+          delete stream.emit;
+        }
+      }
+
+      if (isFunction(stream.removeListener)) {
+        stream.removeListener('close', release);
+        stream.removeListener('end', release);
+      }
     };
 
     stream.on('close', release);
@@ -258,7 +291,7 @@ export class CancelScope {
     const stream = this._stream;
     this._stream = undefined;
 
-    if (stream) {
+    if (stream && !stream.destroyed) {
       // an unheard error event crashes, only a watched stream gets one
       const watched = isFunction(stream.listenerCount) && stream.listenerCount('error') > 0;
       stream.destroy(watched ? this.reason : undefined);
