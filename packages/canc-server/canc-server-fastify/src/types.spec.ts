@@ -1,6 +1,13 @@
 import Fastify from 'fastify';
 
-import { cancelableHandler, cancelableHook, cancelablePlugin, cancelablePreParsing, createShutdown } from './index';
+import {
+  cancelableHandler,
+  cancelableHook,
+  cancelablePlugin,
+  cancelablePreParsing,
+  cancelErrorHandler,
+  createShutdown,
+} from './index';
 
 // compile-time coverage: under strict mode a parameter the contextual type failed to reach is an
 // implicit any, so these cases fail the build rather than an assertion
@@ -174,5 +181,38 @@ describe('cancelable plugin typing', () => {
       );
     expect(typeof wrongPlugin).toBe('function');
     expect(typeof badOptions).toBe('function');
+  });
+});
+
+describe('cancelErrorHandler typing', () => {
+  it('accepts synchronous and asynchronous response mappers in the native error slot', async () => {
+    const instance = Fastify();
+
+    instance.setErrorHandler(
+      cancelErrorHandler({
+        onError: (_error, request, reply) => {
+          reply.header('x-request-id', request.id);
+
+          return { marker: request.method };
+        },
+      }),
+    );
+    instance.setErrorHandler(
+      cancelErrorHandler({
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises -- prove the existing void-compatible API accepts a returned promise
+        onError: (_error, request) => Promise.resolve({ marker: request.method }),
+      }),
+    );
+
+    await instance.close();
+  });
+
+  it('rejects an incompatible mapper parameter', () => {
+    const handler = cancelErrorHandler({
+      // @ts-expect-error the request parameter is a FastifyRequest, not a string
+      onError: (_error, _request: string) => ({ marker: 'wrong' }),
+    });
+
+    expect(typeof handler).toBe('function');
   });
 });

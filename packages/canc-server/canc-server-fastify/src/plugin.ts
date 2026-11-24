@@ -24,6 +24,7 @@ export interface ICancelErrorHandlerOptions {
    * Answers an error that is not a cancellation, in place of fastify's own `reply.send(error)`. Set it
    * when the app's own error mapping lives in the same handler. Cancellations do not reach it: the
    * request's own cancel is answered with its status, and any other cancel goes to fastify as it is.
+   * Returned synchronous or asynchronous results and rejections are forwarded to fastify.
    */
   onError?: (error: unknown, request: FastifyRequest, reply: FastifyReply) => void;
 }
@@ -161,9 +162,7 @@ export function cancelErrorHandler(options?: ICancelErrorHandlerOptions): TCance
     }
 
     if (onError && !isCancelError(error)) {
-      onError(error, request, reply);
-
-      return;
+      return onError(error, request, reply);
     }
 
     // a cancellation the request does not own is the caller's, so fastify's own handling takes it
