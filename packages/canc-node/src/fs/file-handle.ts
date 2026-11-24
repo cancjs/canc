@@ -3,7 +3,7 @@ import type * as nodeFsPromises from 'node:fs/promises';
 import { CancelablePromise } from '@cancjs/promise';
 
 import manifest from '../../surface/projected/fs.FileHandle.json';
-import { features } from '../features';
+import { features, meetsLineFloors } from '../features';
 import { adopted, IManifestEntry, passthrough, signalWrapped, TCancelableFileHandle, TNodeFn } from './wrap';
 
 export type { TCancelableFileHandle };
@@ -25,6 +25,11 @@ const OPTIONS_INDEX: Record<string, number> = {
 };
 
 const members = manifest.exports as readonly IMemberEntry[];
+
+const MEMBER_FLOORS: Readonly<Record<string, readonly string[]>> = {
+  readLines: ['18.11.0', '20.0.0', '22.0.0'],
+  '[Symbol.asyncDispose]': ['18.18.0', '20.4.0', '22.0.0'],
+};
 
 let protoCache = new WeakMap<object, object>();
 let cancProtos = new WeakSet<object>();
@@ -83,7 +88,10 @@ function buildProto(nativeProto: Record<string, unknown>) {
 
     if (typeof nativeFn !== 'function') {
       const minMajor = entry.minMajor ?? 18;
-      if (minMajor <= features.nodeMajor && entry.gate === null) {
+      const floors = MEMBER_FLOORS[entry.name];
+      if (
+        floors ? meetsLineFloors(features.nodeVersion, floors) : minMajor <= features.nodeMajor && entry.gate === null
+      ) {
         skipped.push(entry.name);
       }
       continue;

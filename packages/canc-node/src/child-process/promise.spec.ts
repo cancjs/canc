@@ -1,7 +1,9 @@
 import { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 
-import { killAndWaitForExit } from './promise';
+import { CancelablePromise } from '@cancjs/promise';
+
+import { defineProcessPromise, killAndWaitForExit } from './promise';
 
 interface IFakeStream {
   destroy: jest.Mock;
@@ -54,9 +56,11 @@ describe('killAndWaitForExit', () => {
     expect(settled).toBe(true);
   });
 
-  it('resolves at once for a child that already ended, without touching its streams', async () => {
+  it('resolves at once for a child whose close was recorded, without touching its streams', async () => {
     const child = fakeChild();
+    defineProcessPromise(child, () => CancelablePromise.resolve(undefined));
     Object.assign(child, { exitCode: 0 });
+    child.emit('close', 0, null);
 
     await killAndWaitForExit(child);
 

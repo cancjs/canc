@@ -128,12 +128,18 @@ export function on(
           // registered before the pull, so a cancel arriving while it is in flight still ends it
           handleCancel(() => source.return(undefined));
           resolve(
-            source.next().then((result) => {
-              if (result.done) {
+            source.next().then(
+              (result) => {
+                if (result.done) {
+                  stopListening();
+                }
+                return result;
+              },
+              (error) => {
                 stopListening();
-              }
-              return result;
-            }),
+                throw error;
+              },
+            ),
           );
         },
         { signal: callerSignal },

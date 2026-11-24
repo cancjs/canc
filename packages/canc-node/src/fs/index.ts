@@ -73,50 +73,95 @@ function viaFsPromises(name: string): TNodeFn {
   };
 }
 
-/** Cancel teardown for the calls that hand back something holding a descriptor. */
 function closeQuietly(value: unknown): void {
-  const closable = value as { close?: () => unknown } | null | undefined;
-  if (!closable || typeof closable.close !== 'function') {
-    return;
+  try {
+    const closable = value as { close?: () => unknown } | null | undefined;
+    if (closable && typeof closable.close === 'function') {
+      void Promise.resolve(closable.close()).then(undefined, () => {});
+    }
+  } catch {
+    // cleanup failure must not replace the open error
   }
-
-  void Promise.resolve(closable.close()).then(undefined, () => {});
 }
 
-/**
- * Wrap open or opendir with descriptor cleanup if canceled while pending.
- *
- * The rescue branch attaches directly to the raw native promise so cleanup survives cancelation of
- * the outer chain, while cancelation after settling leaves the caller's handle untouched.
- */
 function teardownOpen<R>(
   name: 'open' | 'opendir',
   transform?: (value: unknown) => R,
 ): (...args: unknown[]) => CancelablePromise<R, Unlisted> {
   return function teardownOpenCall(...args: unknown[]): CancelablePromise<R, Unlisted> {
+    let nativeHandle: unknown;
     let canceled = false;
-    return new CancelablePromise<R, Unlisted>((resolve, _reject, { handleCancel }) => {
-      handleCancel(() => {
+    let failed = false;
+    let delivered = false;
+    let closed = false;
+    let cancelReason: unknown;
+    let chain: Pick<CancelablePromise<unknown, unknown>, 'cancel'> | undefined;
+
+    function maybeClose(): void {
+      if (!closed && !delivered && (canceled || failed) && nativeHandle) {
+        closed = true;
+        closeQuietly(nativeHandle);
+      }
+    }
+
+    return new CancelablePromise<R, Unlisted>((resolve, reject, { handleCancel }) => {
+      handleCancel((reason) => {
         canceled = true;
+        cancelReason = reason;
+        maybeClose();
+        chain?.cancel(reason);
       });
 
       const started = retryOpen(() => {
         const raw = viaFsPromises(name)(...args);
+        const acquired = (handle: unknown) => {
+          nativeHandle = handle;
+          maybeClose();
+        };
         if (isThenable(raw)) {
-          void (raw as Promise<unknown>).then(
-            (handle) => {
-              if (canceled) {
-                closeQuietly(handle);
-              }
-            },
-            () => {},
-          );
+          void (raw as Promise<unknown>).then(acquired, () => {});
+        } else {
+          acquired(raw);
         }
         return raw;
       });
 
-      const chain = transform ? started.then(transform) : (started as CancelablePromise<R, Unlisted>);
-      resolve(chain);
+      const currentChain =
+        transform ?
+          started.then((value) => {
+            try {
+              return transform(value);
+            } catch (error) {
+              failed = true;
+              maybeClose();
+              throw error;
+            }
+          })
+        : (started as CancelablePromise<R, Unlisted>);
+      chain = currentChain;
+
+      // only the private chain is observed so public rejections stay host-visible
+      (
+        currentChain as unknown as {
+          _subscribe(onFulfilled: (value: R) => void, onRejected: (reason: unknown) => void): void;
+        }
+      )._subscribe(
+        (value) => {
+          if (canceled) {
+            maybeClose();
+            return;
+          }
+          resolve(value);
+          delivered = true;
+        },
+        (error) => {
+          failed = true;
+          maybeClose();
+          reject(error);
+        },
+      );
+
+      if (canceled) currentChain.cancel(cancelReason);
     });
   };
 }

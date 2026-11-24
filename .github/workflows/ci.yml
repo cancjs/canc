@@ -28,10 +28,24 @@ jobs:
         node-version: ['18.x', '20.x', '22.x', '24.x']
     steps:
       - uses: actions/checkout@v4
+      # The exact oldest-runtime probe uses a job-managed binary, not a Jest-owned install.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.0.0'
+      - name: Record oldest supported runtime
+        shell: bash
+        run: node -e "if (process.version !== 'v18.0.0') throw new Error(process.version); require('node:fs').appendFileSync(process.env.GITHUB_ENV, 'CANC_NODE180=' + process.execPath + '\\n')"
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          # Prefer the current 18.x release over the newly cached 18.0.0 probe binary.
+          check-latest: ${{ matrix.node-version == '18.x' }}
           cache: 'npm'
+      - name: Verify matrix runtime
+        shell: bash
+        env:
+          MATRIX_NODE: ${{ matrix.node-version }}
+        run: node -e "if (process.version === 'v18.0.0' || process.versions.node.split('.')[0] !== process.env.MATRIX_NODE.split('.')[0]) throw new Error('Unexpected matrix Node ' + process.version)"
       - run: npm ci
       - run: npm test
 
