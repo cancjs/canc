@@ -145,6 +145,22 @@ describe('request with a body', () => {
   });
 });
 
+describe('timeout options at setup', () => {
+  it.each<{ ms: number; headers: Record<string, string> }>([
+    { ms: 1, headers: { 'Bad Name': 'ok' } },
+    { ms: 1, headers: { 'X-Test': 'bad\nvalue' } },
+    { ms: Infinity, headers: { 'Bad Name': 'ok' } },
+  ])('rejects malformed headers before invoking a handler: %j', (timeout) => {
+    const handler = jest.fn();
+    expect(() => cancelableHandler(handler, { timeout })).toThrow(TypeError);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid status even with a disabled deadline', () => {
+    expect(() => cancelableHandler(jest.fn(), { timeout: { ms: -1, status: 199 } })).toThrow(RangeError);
+  });
+});
+
 describe('deadline', () => {
   it('answers with the configured status while the client is still connected', async () => {
     const app = express();

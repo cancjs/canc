@@ -2,12 +2,40 @@ import { isCancelError, TimeoutError } from '@cancjs/promise';
 
 import { HANDLER_TIMEOUT } from './reasons';
 import {
+  checkCancelHeaders,
+  checkTimeoutOptions,
   createShutdownError,
   createTimeoutError,
   DEFAULT_TIMEOUT_STATUS,
   MAX_TIMER_MS,
   normalizeTimeout,
 } from './timeout';
+
+describe('timeout option validation', () => {
+  it.each([
+    [{ 'Bad Name': 'ok' }],
+    [{ 'X-Test': 'bad\rvalue' }],
+    [{ 'X-Test': 'bad\nvalue' }],
+    [{ 'X-Test': 1 }],
+    [null],
+    [[]],
+    ['not a record'],
+  ])('rejects invalid headers even for an unusable duration: %j', (headers) => {
+    expect(() => checkCancelHeaders(headers as never)).toThrow(TypeError);
+    expect(() => normalizeTimeout({ ms: Infinity, headers: headers as never })).toThrow(TypeError);
+  });
+
+  it('accepts valid RFC token names, values and numeric or absent deadlines', () => {
+    expect(() => checkCancelHeaders({ 'X-`Token': 'ok', 'Retry-After': '1' })).not.toThrow();
+    expect(() => checkTimeoutOptions()).not.toThrow();
+    expect(() => checkTimeoutOptions(1)).not.toThrow();
+    expect(() => checkTimeoutOptions({ ms: Infinity, status: 599 })).not.toThrow();
+  });
+
+  it.each([199, 600, NaN, Infinity, 200.5])('rejects invalid status %s', (status) => {
+    expect(() => normalizeTimeout({ ms: -1, status })).toThrow(RangeError);
+  });
+});
 
 describe('handler deadline', () => {
   it('reads a number as the millisecond shorthand', () => {

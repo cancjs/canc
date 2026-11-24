@@ -16,6 +16,7 @@ import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
+import { checkTimeoutOptions } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -102,6 +103,7 @@ export function cancelableHandler<
   handler: THandlerFn<TNodeHandler<TReq, TRes>>,
   options?: INodeCancelableHandlerOptions<TReq, TRes>,
 ): (req: TReq, res: TRes) => void {
+  checkTimeoutOptions(options?.timeout);
   const onError = options?.onError;
   const signals = routeSignalsOf(options?.signal);
 
