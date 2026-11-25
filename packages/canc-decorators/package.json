@@ -1,6 +1,6 @@
 {
   "name": "@cancjs/decorators",
-  "version": "1.1.0-beta.2",
+  "version": "1.1.0-beta.3",
   "description": "Class method decorators for cancelable coroutines.",
   "license": "MIT",
   "repository": {
@@ -82,8 +82,8 @@
     "@babel/plugin-proposal-decorators": "7.29.7",
     "@babel/preset-env": "7.28.6",
     "@babel/preset-typescript": "7.29.7",
-    "@cancjs/coroutine": "1.1.0-beta.2",
-    "@cancjs/promise": "1.1.0-beta.2",
+    "@cancjs/coroutine": "1.1.0-beta.3",
+    "@cancjs/promise": "1.1.0-beta.3",
     "babel-jest": "30.4.1",
     "reflect-metadata": "~0.2.2"
   },
