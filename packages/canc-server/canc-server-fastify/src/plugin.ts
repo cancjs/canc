@@ -96,7 +96,7 @@ function isFastifyGeneratorResult(value: unknown): value is Generator {
 function wrapRoute(original: TAnyFn): TFastifyRouteHandler {
   return function (this: FastifyInstance, _request: FastifyRequest, _reply: FastifyReply) {
     // eslint-disable-next-line prefer-rest-params -- preserve Fastify arity and forward the actual arguments
-    const result: unknown = original.apply(this, arguments as unknown as Parameters<TAnyFn>);
+    const result: unknown = Reflect.apply(original, this, arguments);
 
     if (!isFastifyGeneratorResult(result)) {
       return result;
@@ -118,7 +118,7 @@ function wrapRequestHook(original: TAnyFn): TAnyFn {
       done: HookHandlerDoneFunction,
     ) {
       // eslint-disable-next-line prefer-rest-params -- preserve Fastify arity and forward the actual arguments
-      const result: unknown = original.apply(this, arguments as unknown as Parameters<TAnyFn>);
+      const result: unknown = Reflect.apply(original, this, arguments);
 
       if (!isFastifyGeneratorResult(result)) {
         return result;
@@ -130,7 +130,7 @@ function wrapRequestHook(original: TAnyFn): TAnyFn {
 
   return function (this: FastifyInstance, request: FastifyRequest, reply: FastifyReply) {
     // eslint-disable-next-line prefer-rest-params -- preserve Fastify arity and forward the actual arguments
-    const result: unknown = original.apply(this, arguments as unknown as Parameters<TAnyFn>);
+    const result: unknown = Reflect.apply(original, this, arguments);
 
     return isFastifyGeneratorResult(result) ? cancelableHook(() => result).call(this, request, reply) : result;
   };
@@ -146,7 +146,7 @@ function wrapPreParsing(original: TAnyFn): TAnyFn {
       done: Parameters<preParsingHookHandler>[3],
     ) {
       // eslint-disable-next-line prefer-rest-params -- preserve Fastify arity and forward the actual arguments
-      const result: unknown = original.apply(this, arguments as unknown as Parameters<TAnyFn>);
+      const result: unknown = Reflect.apply(original, this, arguments);
 
       if (!isFastifyGeneratorResult(result)) {
         return result;
@@ -161,7 +161,7 @@ function wrapPreParsing(original: TAnyFn): TAnyFn {
 
   return function (this: FastifyInstance, request: FastifyRequest, reply: FastifyReply, payload: RequestPayload) {
     // eslint-disable-next-line prefer-rest-params -- preserve Fastify arity and forward the actual arguments
-    const result: unknown = original.apply(this, arguments as unknown as Parameters<TAnyFn>);
+    const result: unknown = Reflect.apply(original, this, arguments);
 
     return isFastifyGeneratorResult(result) ?
         cancelablePreParsing(() => result).call(this, request, reply, payload)

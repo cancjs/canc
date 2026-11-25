@@ -291,6 +291,135 @@ describe('result-based Fastify generator dispatch', () => {
     expect(await scenario(true)).toEqual(native);
   });
 
+  it.each(['native', 'disabled', 'enabled'] as const)(
+    'preserves native invocation with shadowed apply (%s)',
+    async (mode) => {
+      const stages = ['route', 'onRequest', 'preValidation', 'preHandler', 'preParsing'] as const;
+      const results = [];
+      const expected = [];
+      for (const stage of stages) {
+        for (const shadow of ['value', 'getter']) {
+          for (const callback of stage === 'route' ? [false] : [false, true]) {
+            for (const array of stage === 'route' ? [false] : [false, true]) {
+              const app = Fastify();
+              let calls = 0;
+              let reads = 0;
+              let doneCalls = 0;
+              let sends = 0;
+              const body = { marker: 'OK', payload: { hello: 1 } };
+              const name = [stage, shadow, callback, array].join('/');
+              if (mode !== 'native') await app.register(cancelPlugin, { autoWrap: mode === 'enabled' });
+              app.addHook('onSend', (_request, _reply, payload, done) => {
+                sends++;
+                done(null, payload);
+              });
+
+              const check = (receiver: FastifyInstance, request: FastifyRequest, reply: FastifyReply, argc: number) => {
+                calls++;
+                expect(receiver).toBe(app);
+                expect(request.url).toBe('/probe');
+                expect(reply.request).toBe(request);
+                expect(argc).toBe(
+                  stage === 'route' ? 2
+                  : stage === 'preParsing' ? 4
+                  : 3,
+                );
+              };
+
+              const route = function (this: FastifyInstance, request: FastifyRequest, reply: FastifyReply) {
+                check(this, request, reply, arguments.length);
+
+                return { marker: 'OK', payload: request.body };
+              };
+              const requestPromise = function (this: FastifyInstance, request: FastifyRequest, reply: FastifyReply) {
+                check(this, request, reply, arguments.length);
+
+                return Promise.resolve();
+              };
+              const requestCallback = function (
+                this: FastifyInstance,
+                request: FastifyRequest,
+                reply: FastifyReply,
+                done: () => void,
+              ) {
+                check(this, request, reply, arguments.length);
+                expect(typeof done).toBe('function');
+                doneCalls++;
+                done();
+              };
+              const parserPromise = function (
+                this: FastifyInstance,
+                request: FastifyRequest,
+                reply: FastifyReply,
+                payload: Readable,
+              ) {
+                check(this, request, reply, arguments.length);
+                expect(typeof payload.pipe).toBe('function');
+
+                return Promise.resolve(payload);
+              };
+              const parserCallback = function (
+                this: FastifyInstance,
+                request: FastifyRequest,
+                reply: FastifyReply,
+                payload: Readable,
+                done: (error: null, payload: Readable) => void,
+              ) {
+                check(this, request, reply, arguments.length);
+                expect(typeof payload.pipe).toBe('function');
+                expect(typeof done).toBe('function');
+                doneCalls++;
+                done(null, payload);
+              };
+              const original =
+                stage === 'route' ? route
+                : stage === 'preParsing' ?
+                  callback ? parserCallback
+                  : parserPromise
+                : callback ? requestCallback
+                : requestPromise;
+              Object.defineProperty(
+                original,
+                'apply',
+                shadow === 'value' ?
+                  { value: undefined }
+                : {
+                    get() {
+                      reads++;
+                      throw new Error('apply getter must not run');
+                    },
+                  },
+              );
+              try {
+                if (stage === 'route') app.post('/probe', route);
+                else {
+                  app.post('/probe', { [stage]: array ? [original] : original }, (request) => ({
+                    marker: 'OK',
+                    payload: request.body,
+                  }));
+                }
+                const response = await bounded(app.inject({ method: 'POST', url: '/probe', payload: { hello: 1 } }));
+                results.push({
+                  name,
+                  status: response.statusCode,
+                  body: response.json(),
+                  calls,
+                  reads,
+                  doneCalls,
+                  sends,
+                });
+                expected.push({ name, status: 200, body, calls: 1, reads: 0, doneCalls: callback ? 1 : 0, sends: 1 });
+              } finally {
+                await app.close();
+              }
+            }
+          }
+        }
+      }
+      expect(results).toEqual(expected);
+    },
+  );
+
   it.each(['native', 'es5', 'explicit'] as const)('preabort %s factory boundary', async (mode) => {
     const app = Fastify();
     const controller = new AbortController();
