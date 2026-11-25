@@ -176,6 +176,62 @@ async function main() {
     assert.deepEqual(native.map(result => result.status), [200,200,200,200,200,200,200,200,200,500]);
     assert.equal(native[9].body.message, 'NATIVE_THROW');
     assert.deepEqual(await scenario(true), native);
+
+    async function shadowedInvocation(mode) {
+      const results = [];
+      for (const stage of ['route', 'onRequest', 'preValidation', 'preHandler', 'preParsing'])
+      for (const shadow of ['value', 'getter'])
+      for (const callback of stage === 'route' ? [false] : [false, true])
+      for (const array of stage === 'route' ? [false] : [false, true]) {
+        await use(mode === 'native' ? false : { autoWrap: mode === 'enabled' }, async app => {
+          let calls = 0, reads = 0, doneCalls = 0, sends = 0;
+          const name = [stage, shadow, callback, array].join('/');
+          app.addHook('onSend', (_req, _reply, payload, done) => { sends++; done(null, payload); });
+          function check(receiver, req, reply, argc) {
+            calls++;
+            assert.equal(receiver, app); assert.equal(req.url, '/probe'); assert.equal(reply.request, req);
+            assert.equal(argc, stage === 'route' ? 2 : stage === 'preParsing' ? 4 : 3);
+          }
+          const route = function (req, reply) {
+            check(this, req, reply, arguments.length); return { marker: 'OK', payload: req.body };
+          };
+          const requestPromise = function (req, reply) {
+            check(this, req, reply, arguments.length); return Promise.resolve();
+          };
+          const requestCallback = function (req, reply, done) {
+            check(this, req, reply, arguments.length); assert.equal(typeof done, 'function'); doneCalls++; done();
+          };
+          const parserPromise = function (req, reply, payload) {
+            check(this, req, reply, arguments.length); assert.equal(typeof payload.pipe, 'function');
+            return Promise.resolve(payload);
+          };
+          const parserCallback = function (req, reply, payload, done) {
+            check(this, req, reply, arguments.length); assert.equal(typeof payload.pipe, 'function');
+            assert.equal(typeof done, 'function'); doneCalls++; done(null, payload);
+          };
+          const original = stage === 'route' ? route : stage === 'preParsing' ?
+            (callback ? parserCallback : parserPromise) : (callback ? requestCallback : requestPromise);
+          Object.defineProperty(original, 'apply', shadow === 'value' ? { value: undefined } : {
+            get() { reads++; throw Error('DO_NOT_TOUCH_APPLY'); },
+          });
+          if (stage === 'route') app.post('/probe', route);
+          else app.post('/probe', { [stage]: array ? [original] : original }, req => ({ marker: 'OK', payload: req.body }));
+          const result = await inject(app, { method: 'POST', url: '/probe', payload: { hello: 1 } });
+          const record = { name, ...result, calls, reads, doneCalls, sends };
+          console.log('INVOCATION', mode, JSON.stringify(record));
+          results.push(record);
+        });
+      }
+      return results;
+    }
+    const nativeInvocation = await shadowedInvocation('native');
+    assert.equal(nativeInvocation.length, 34);
+    for (const record of nativeInvocation) {
+      assert.deepEqual(record, { name: record.name, status: 200, body: { marker: 'OK', payload: { hello: 1 } },
+        calls: 1, reads: 0, doneCalls: record.name.split('/')[2] === 'true' ? 1 : 0, sends: 1 });
+    }
+    assert.deepEqual(await shadowedInvocation('disabled'), nativeInvocation, 'disabled invocation parity');
+    assert.deepEqual(await shadowedInvocation('enabled'), nativeInvocation, 'shadowed apply invocation parity');
   } else if (label === 'preabort') {
     for (const mode of ['native', 'es5', 'explicit']) {
       const controller = new AbortController();
