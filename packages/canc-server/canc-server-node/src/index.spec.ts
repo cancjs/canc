@@ -100,6 +100,22 @@ describe('request with a body', () => {
   });
 });
 
+describe('timeout options at setup', () => {
+  it.each<{ ms: number; headers: Record<string, string> }>([
+    { ms: 1, headers: { 'Bad Name': 'ok' } },
+    { ms: 1, headers: { 'X-Test': 'bad\nvalue' } },
+    { ms: Infinity, headers: { 'Bad Name': 'ok' } },
+  ])('rejects malformed headers before invoking a handler: %j', (timeout) => {
+    const handler = jest.fn();
+    expect(() => cancelableHandler(handler, { timeout })).toThrow(TypeError);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid status even with a disabled deadline', () => {
+    expect(() => cancelableHandler(jest.fn(), { timeout: { ms: -1, status: 199 } })).toThrow(RangeError);
+  });
+});
+
 describe('deadline', () => {
   it('answers with the configured status while the client is still connected', async () => {
     const timeouts: CancelError[] = [];
@@ -650,16 +666,24 @@ describe('cancel error handler', () => {
 });
 
 describe('framework headers on a cancel answer', () => {
-  it('answers a deadline clean: no stale content headers, the timeout headers applied', async () => {
+  it.each(['route', 'option'])('answers a deadline without stale content headers from %s', async (origin) => {
     const port = await listen(
       cancelableHandler(
         function* (_req: IncomingMessage, res: ServerResponse) {
           res.setHeader('Content-Type', 'application/json');
           res.setHeader('Content-Encoding', 'gzip');
+          if (origin === 'route') {
+            res.setHeader('Content-Length', '7');
+          }
           yield never();
           res.end('unreachable');
         },
-        { timeout: { ms: 25, headers: { 'Retry-After': '5' } } },
+        {
+          timeout: {
+            ms: 25,
+            headers: { 'Retry-After': '5', ...(origin === 'option' ? { 'Content-Length': '7' } : {}) },
+          },
+        },
       ),
     );
 
@@ -669,6 +693,8 @@ describe('framework headers on a cancel answer', () => {
     expect(response.headers['retry-after']).toBe('5');
     expect(response.headers['content-type']).toBeUndefined();
     expect(response.headers['content-encoding']).toBeUndefined();
+    expect(response.body).toBe('');
+    expect(Number(response.headers['content-length'] ?? 0)).toBe(0);
   });
 
   it('logs a late failure once through the console', async () => {

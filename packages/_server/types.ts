@@ -48,6 +48,8 @@ export type THandlerFn<TFn extends (...args: any) => any, TReturn = unknown> =
 /**
  * Request deadline. A number is the millisecond shorthand; the object form also carries the HTTP
  * status the error is stamped with, the message it reports, and the headers the error answers with.
+ * A supplied status must be an integer from 200 to 599 (and supported by the framework);
+ * malformed status and headers throw when the wrapper is configured, even for a disabled deadline.
  */
 export type TTimeoutOption =
   number | { ms: number; status?: number; message?: string; headers?: Record<string, string> };

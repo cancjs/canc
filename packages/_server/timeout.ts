@@ -43,6 +43,40 @@ export interface IShutdownErrorOptions {
   headers?: Record<string, string>;
 }
 
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+const INVALID_HEADER_VALUE = /[^\t\x20-\x7e\x80-\xff]/;
+
+/** Validates headers before a cancellation can reach a response writer. */
+export function checkCancelHeaders(headers?: Record<string, string>): void {
+  if (headers !== undefined && (typeof headers !== 'object' || headers === null || Array.isArray(headers))) {
+    throw new TypeError('headers must be an object of header names to values');
+  }
+
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    if (!HEADER_NAME.test(name)) {
+      throw new TypeError(`header name (${name}) is not a valid token`);
+    }
+    if (typeof value !== 'string' || INVALID_HEADER_VALUE.test(value)) {
+      throw new TypeError(`header ${name} has an invalid value`);
+    }
+  }
+}
+
+/** Rejects malformed deadline response options, even when the deadline is disabled. */
+export function checkTimeoutOptions(timeout?: TTimeoutOption): void {
+  if (timeout === undefined || timeout === null || typeof timeout === 'number') {
+    return;
+  }
+
+  const { status, headers } = timeout;
+
+  if (status !== undefined && (!Number.isInteger(status) || status < 200 || status > 599)) {
+    throw new RangeError(`timeout status (${status}) must be an integer from 200 to 599`);
+  }
+
+  checkCancelHeaders(headers);
+}
+
 /**
  * Resolves the shorthand and the object form of the deadline option into one shape.
  *
@@ -51,6 +85,8 @@ export interface IShutdownErrorOptions {
  * it, and zero stays an immediate deadline.
  */
 export function normalizeTimeout(option?: TTimeoutOption): ITimeoutSpec | undefined {
+  checkTimeoutOptions(option);
+
   if (option === undefined || option === null) {
     return undefined;
   }

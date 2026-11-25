@@ -18,6 +18,7 @@ import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
+import { checkTimeoutOptions } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -62,6 +63,7 @@ export function cancelableHandler<
   handler: THandlerFn<RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals>>,
   options?: ICancelableHandlerOptions,
 ): RequestHandler<P, ResBody, ReqBody, ReqQuery, Locals> {
+  checkTimeoutOptions(options?.timeout);
   const signals = routeSignalsOf(options?.signal);
 
   return function cancelableRoute(req, res, next) {
@@ -146,6 +148,8 @@ export function getRequestSignal(req: IncomingMessage, res: ServerResponse): Can
  * layers it passes.
  */
 export function cancelMiddleware(options?: ICancelableHandlerOptions): RequestHandler {
+  checkTimeoutOptions(options?.timeout);
+
   return function cancelMiddlewareRoute(req, res, next) {
     getNodeRequestSignal(toRequestLike(req), toResponseLike(res), options);
     next();
@@ -188,14 +192,14 @@ export function cancelErrorHandler(options: ICancelErrorHandlerOptions = {}): Er
       return;
     }
 
-    for (const name of STALE_CONTENT_HEADERS) {
-      res.removeHeader(name);
-    }
-
     const headers = cancelHeadersFor(error, options.status);
 
     if (headers) {
       res.set(headers);
+    }
+
+    for (const name of STALE_CONTENT_HEADERS) {
+      res.removeHeader(name);
     }
 
     res.status(status).end();

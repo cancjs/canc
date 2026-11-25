@@ -4,6 +4,7 @@ import type { Env, Handler, Input, MiddlewareHandler, TypedResponse } from 'hono
 import { ownedStatusOf, routeSignalsOf } from '../../../_server/exchange';
 import { stopRequestDeadline } from '../../../_server/node-signal';
 import { IHandlerCall, runCancelableHandler } from '../../../_server/run';
+import { checkTimeoutOptions } from '../../../_server/timeout';
 import { ICancelableHandlerOptions, IRequestLike, IResponseLike, THandlerFn } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
 import {
@@ -75,6 +76,7 @@ export function cancelableHandler<E extends Env = any, P extends string = any, I
   handler: THandlerFn<THonoHandler<E, P, I>, Response>,
   options?: ICancelableHandlerOptions,
 ): Handler<E, P, I, Promise<Response>> {
+  checkTimeoutOptions(options?.timeout);
   const signals = routeSignalsOf(options?.signal);
 
   return function cancelableRoute(c, next) {
@@ -147,6 +149,8 @@ export function getRequestSignal(c: ICancelContext): CancelSignal {
  * request.
  */
 export function cancelMiddleware<E extends Env = any>(options?: ICancelableHandlerOptions): MiddlewareHandler<E> {
+  checkTimeoutOptions(options?.timeout);
+
   return async function cancelMiddlewareRoute(c, next) {
     const state = ensureCancelState(c, options);
 

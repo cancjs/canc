@@ -22,6 +22,7 @@ import {
 import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
+import { checkTimeoutOptions } from '../../../_server/timeout';
 import { ICancelableHandlerOptions, THandlerFn } from '../../../_server/types';
 import { TAnyFn } from '../../../_util';
 
@@ -71,6 +72,7 @@ export function cancelableHandler<RouteGeneric extends RouteGenericInterface = R
   handler: THandlerFn<TFastifyRouteHandler<RouteGeneric>, RouteGeneric['Reply']>,
   options?: ICancelableHandlerOptions,
 ): TFastifyRouteHandler<RouteGeneric> {
+  checkTimeoutOptions(options?.timeout);
   const signals = routeSignalsOf(options?.signal);
   const wrapped = function (
     this: FastifyInstance,
@@ -206,6 +208,7 @@ function wrapHook<RouteGeneric extends RouteGenericInterface>(
     throw new TypeError(`${wrapper}() needs the hook function as its first argument, got ${typeof hook}.`);
   }
 
+  checkTimeoutOptions(options?.timeout);
   const signals = routeSignalsOf(options?.signal);
 
   return function (

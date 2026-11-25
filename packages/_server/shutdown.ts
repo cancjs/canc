@@ -17,7 +17,13 @@ import {
 } from './holder';
 import { ensureRequestCancelState, isResponseClosed } from './node-signal';
 import { SERVER_SHUTDOWN } from './reasons';
-import { createShutdownError, IShutdownErrorOptions, IStatusCancelError, MAX_TIMER_MS } from './timeout';
+import {
+  checkCancelHeaders,
+  createShutdownError,
+  IShutdownErrorOptions,
+  IStatusCancelError,
+  MAX_TIMER_MS,
+} from './timeout';
 import { IRequestLike, IResponseLike, IServerLike, IShutdownOptions, IShutdownResult } from './types';
 
 /** Grace window a shutdown waits for in-flight requests before it gives up. */
@@ -606,27 +612,13 @@ export function checkShutdownOptions(options: IShutdownOptions): void {
 }
 
 // a status or header the platform would refuse throws here, not inside a request mid-drain
-const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
-const INVALID_HEADER_VALUE = /[^\t\x20-\x7e\x80-\xff]/;
-
 function checkCancelAnswer(options: IShutdownOptions): void {
   const { status, headers } = options;
   if (status !== undefined && (!Number.isInteger(status) || status < 200 || status > 599)) {
     throw new RangeError(`status (${status}) must be an integer from 200 to 599`);
   }
 
-  if (headers !== undefined && (typeof headers !== 'object' || headers === null || Array.isArray(headers))) {
-    throw new TypeError('headers must be an object of header names to values');
-  }
-
-  for (const [name, value] of Object.entries(headers ?? {})) {
-    if (!HEADER_NAME.test(name)) {
-      throw new TypeError(`header name (${name}) is not a valid token`);
-    }
-    if (typeof value !== 'string' || INVALID_HEADER_VALUE.test(value)) {
-      throw new TypeError(`header ${name} has an invalid value`);
-    }
-  }
+  checkCancelHeaders(headers);
 }
 
 function resolveWindows(options: IShutdownOptions): { cancelAfter: number; closeAfter: number } {

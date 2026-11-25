@@ -119,6 +119,18 @@ afterEach(async () => {
   );
 });
 
+describe('timeout options at setup', () => {
+  it('rejects a fractional status before middleware or a route can run', () => {
+    const handler = jest.fn(() => new Response());
+    const options = { timeout: { ms: 1, status: 200.5 } };
+    const expected = new RangeError('timeout status (200.5) must be an integer from 200 to 599');
+
+    expect(() => cancelableHandler(handler, options)).toThrow(expected);
+    expect(() => cancelMiddleware(options)).toThrow(expected);
+    expect(handler).not.toHaveBeenCalled();
+  });
+});
+
 describe('client disconnect on node', () => {
   it('unwinds the handler and leaves the dead socket alone', async () => {
     const started = deferred();
@@ -2103,7 +2115,7 @@ describe('answer headers', () => {
     expect(response.headers.get('retry-after')).toBe('5');
   });
 
-  it('answers a wrapped deadline through cancelErrorHandler with the timeout Retry-After', async () => {
+  it.each(['route', 'option'])('answers a wrapped deadline without stale content length from %s', async (origin) => {
     const app = new Hono();
 
     app.onError(cancelErrorHandler());
@@ -2111,11 +2123,20 @@ describe('answer headers', () => {
       '/slow',
       cancelableHandler(
         function* (c) {
+          if (origin === 'route') {
+            c.header('Content-Length', '7');
+          }
           yield new Promise(() => undefined);
 
           return c.text('never');
         },
-        { timeout: { headers: { 'retry-after': '5' }, message: 'route took too long', ms: 20 } },
+        {
+          timeout: {
+            headers: { 'retry-after': '5', ...(origin === 'option' ? { 'Content-Length': '7' } : {}) },
+            message: 'route took too long',
+            ms: 20,
+          },
+        },
       ),
     );
 
@@ -2124,6 +2145,8 @@ describe('answer headers', () => {
 
     expect(response.status).toBe(503);
     expect(response.headers.get('retry-after')).toBe('5');
+    expect(await response.text()).toBe('');
+    expect(Number(response.headers.get('content-length') ?? 0)).toBe(0);
   });
 
   it('keeps a user onError docs style 500 on a deadline', async () => {

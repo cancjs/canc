@@ -23,7 +23,10 @@ const SERVER_DIR = path.join(ROOT, 'packages', 'canc-server');
 // the lowest version of each framework the peer ranges allow
 const FLOOR = {
   express: [['express', '4.18.0']],
-  fastify: [['fastify', '5.0.0']],
+  fastify: [
+    ['fastify', '5.0.0'],
+    ['light-my-request', '6.6.0'],
+  ],
   hono: [
     ['hono', '4.8.0'],
     ['@hono/node-server', '1.9.0'],

@@ -16,6 +16,7 @@ import { getRequestState } from '../../../_server/holder';
 import { getNodeRequestSignal } from '../../../_server/node-signal';
 import { runCancelableHandler } from '../../../_server/run';
 import { createServerShutdown } from '../../../_server/shutdown';
+import { checkTimeoutOptions } from '../../../_server/timeout';
 import {
   ICancelableHandlerOptions,
   ICancelErrorHandlerOptions,
@@ -102,6 +103,7 @@ export function cancelableHandler<
   handler: THandlerFn<TNodeHandler<TReq, TRes>>,
   options?: INodeCancelableHandlerOptions<TReq, TRes>,
 ): (req: TReq, res: TRes) => void {
+  checkTimeoutOptions(options?.timeout);
   const onError = options?.onError;
   const signals = routeSignalsOf(options?.signal);
 
@@ -205,11 +207,11 @@ function answerCancellation(
     return;
   }
 
-  answerWith(res, status, cancelHeadersFor(error, options.status), true);
+  answerWith(res, status, cancelHeadersFor(error, options.status));
 }
 
 /** Sends a bare status to a response that can still carry one. */
-function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}, cancel = false): void {
+function answerWith(res: ServerResponse, status: number, headers: Record<string, string> = {}): void {
   if (!isResponseLive(res)) {
     return;
   }
@@ -221,16 +223,14 @@ function answerWith(res: ServerResponse, status: number, headers: Record<string,
     return;
   }
 
-  // a cancellation answer is not the route's body, so the content headers it set go too
-  if (cancel) {
-    for (const name of STALE_CONTENT_HEADERS) {
-      res.removeHeader(name);
-    }
-  }
-
   for (const [name, value] of Object.entries(headers)) {
     res.setHeader(name, value);
   }
+
+  for (const name of STALE_CONTENT_HEADERS) {
+    res.removeHeader(name);
+  }
+
   res.statusCode = status;
   res.end();
 }

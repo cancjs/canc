@@ -174,9 +174,9 @@ Fastify's own `handlerTimeout` answers `503` without canceling this work, which 
 
 ### Generator routes
 
-With `cancelPlugin` registered, a generator function given as a route handler, or as a route-level `onRequest`, `preParsing`, `preValidation` or `preHandler` hook, is wrapped as the route is registered, so `app.get('/x', function* () { ... })` works without `cancelableHandler`. Fastify cannot run a generator function itself: a bare one answers with an empty body, and a bare generator hook never lets the request go on. Plain and async functions are left as they are.
+Routes and route-local request hooks registered after `cancelPlugin` support native and ES5-transpiled synchronous generator results. A bare handler runs once before its return value is inspected, even if the request is already canceled, but a returned generator does not advance on an already canceled request. Explicit cancelable wrappers skip invocation for pre-canceled requests. Plain handlers and callback hooks retain their Fastify behavior; `autoWrap: false` disables automatic dispatch.
 
-Only routes registered after the plugin are seen, and hooks added with `app.addHook` still need `cancelableHook` or `cancelablePreParsing`. The check looks for a native generator function, so a build that compiles generators down to ES5 hides them from it. TypeScript rejects a bare generator on a route that declares a `Reply` type; wrap that one with `cancelableHandler`. Pass `autoWrap: false` to `cancelPlugin` to turn this off.
+The supported route-level hooks are `onRequest`, `preParsing`, `preValidation` and `preHandler`. Hooks added with `app.addHook` still need `cancelableHook` or `cancelablePreParsing`. TypeScript rejects a bare generator on a route that declares a `Reply` type; wrap that one with `cancelableHandler`.
 
 ### Plugin startup
 
