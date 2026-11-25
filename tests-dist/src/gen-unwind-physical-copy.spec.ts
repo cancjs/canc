@@ -57,6 +57,12 @@ beforeAll(() => {
   fs.rmSync(owned, { recursive: true, force: true });
   fs.mkdirSync(tar, { recursive: true });
   fs.writeFileSync(path.join(owned, 'empty-npmrc'), '');
+  const expectedVersions = new Map(
+    ['canc-promise', 'canc-coroutine'].map((workspace) => {
+      const manifest = JSON.parse(fs.readFileSync(path.join(repo, 'packages', workspace, 'package.json'), 'utf8'));
+      return [manifest.name, manifest.version] as const;
+    }),
+  );
   const packs = ['canc-promise', 'canc-coroutine'].map((name) => {
     const filename = npmCommand(
       ['pack', '--ignore-scripts', '--pack-destination', tar],
@@ -92,7 +98,8 @@ beforeAll(() => {
         'must resolve into owned fixture',
       );
       const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
-      assert.equal(manifest.version, '1.1.0-beta.2');
+      assert.equal(manifest.name, '@cancjs/' + name);
+      assert.equal(manifest.version, expectedVersions.get(manifest.name));
       console.log('physical ' + copy + ' ' + name + ' ' + dir);
     }
   }
