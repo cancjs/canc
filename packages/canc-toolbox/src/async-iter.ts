@@ -1,6 +1,4 @@
-export type { AnyIterable, IPipeableAsyncIterable, IPipeOp, ITermOp } from '../../_toolbox/async-iter';
-export { isPipeable } from '../../_toolbox/async-iter';
-export type { TFlatMapped } from '../../_toolbox/async-iter/operators';
+export type { AnyIterable, IPipeOp } from '../../_toolbox/async-iter';
 export { drop, filter, flatMap, map, take } from '../../_toolbox/async-iter/operators';
 export type { TIterPredicate, TIterReducer, TIterVisitor } from '../../_toolbox/async-iter/terminals';
 export type { ICancelablePipeable } from './async-iter/pipe';
