@@ -99,19 +99,19 @@ export function createCatchError<M extends readonly TErrorMatcher[]>(...matchers
 // kept exported for published sibling packages, removal only in a major
 export { createCatchError as _createCatchError, createSuppressError as _createSuppressError };
 
+type TCompleteMatcher = string | TErrorConstructor | ((error: any) => error is any);
+type TCompiledMatcher<M extends readonly TErrorMatcher[]> =
+  [M[number]] extends [TCompleteMatcher] ? (error: unknown) => error is MatchedOf<M> : (error: unknown) => boolean;
 /**
- * A type guard for error objects, given a list of matchers (error names, constructors, or
- * predicates). Narrows an unknown error to the union of types matched by the list.
+ * Compiles error matchers into a predicate. Lists of names, constructors, and type guards produce
+ * a type guard; lists that may contain a boolean predicate produce a boolean predicate instead.
  */
-export function createIsError<M extends readonly TErrorMatcher[]>(
-  ...matchers: M
-): (error: unknown) => error is MatchedOf<M> {
+export function createIsError<M extends readonly TErrorMatcher[]>(...matchers: M): TCompiledMatcher<M>;
+export function createIsError(...matchers: TErrorMatcher[]): (error: unknown) => boolean {
   if (matchers.length === 0) {
     throw new TypeError('createIsError requires at least one error matcher');
   }
-  return compileErrorMatchers(matchers as unknown as TErrorMatcher[], 'createIsError') as (
-    error: unknown,
-  ) => error is MatchedOf<M>;
+  return compileErrorMatchers(matchers, 'createIsError');
 }
 
 export function catchErrors<TResult, TFailure, M extends readonly TErrorMatcher[]>(

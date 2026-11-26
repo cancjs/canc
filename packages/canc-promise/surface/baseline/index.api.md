@@ -431,7 +431,7 @@ then: { <TResult1 extends PromiseLike<never>, TResult2 extends PromiseLike<never
 ## `createIsError<M extends readonly TErrorMatcher[]>` (function)
 
 ```text
-<M extends readonly TErrorMatcher[]>(...matchers: M): (error: unknown) => error is MatchedOf<M>
+<M extends readonly TErrorMatcher[]>(...matchers: M): TCompiledMatcher<M>
 ```
 
 ## `createSuppressError<M extends readonly TErrorMatcher[]>` (function)

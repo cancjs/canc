@@ -324,7 +324,7 @@ try {
 }
 ```
 
-Use a type guard here. Only a guard proves and subtracts a type, while a plain boolean predicate only proves `Error`. A guard is accepted wherever an error matcher is, so the same value also fits any predicate slot, for example `shouldRetry`.
+Use a type guard here. A matcher list made of error names, constructors and type guards produces a type guard. If any matcher can be a plain boolean predicate, `createIsError` returns a boolean predicate instead: it may match only part of an error type, so it cannot prove that the whole type can be removed from a failure set. A plain boolean predicate declares `Error` when passed to `withFailure` and subtracts nothing in recovery helpers. Pass the original matcher list directly to a recovery helper if you want it to subtract the types proven by individual constructors or guards. A guard also fits any predicate slot, for example `shouldRetry`.
 
 `withFailure` also takes the types directly, `withFailure<HttpError, NotFoundError>()(promise)`, or the classes, `withFailure(HttpError, NotFoundError)(promise)`. Keep the first call to reuse it, `const withHttpFailure = withFailure<HttpError>()`, and apply it to each promise: `withHttpFailure(loadUser(id))`. The type form takes up to four failure types, and a union covers more. An open set, one that also admits `Unlisted`, is written with the type form, `withFailure<HttpError | Unlisted>()`. The matchers passed to `withFailure` are only read for their types, nothing is checked at runtime.
 
@@ -449,11 +449,11 @@ How an open set behaves:
 
 Error matching and suppression helpers are available in three families:
 
-| Family     | Helpers                                                                                           | Usage                                                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Inline     | `catchErrors`, `suppressErrors`, `isErrorOf`                                                      | Takes matcher arguments directly at call sites. `catchErrors` and `suppressErrors` narrow `TFailure` on promises or assert raw caught errors. |
-| Factory    | `createCatchError`, `createSuppressError`, `createIsError`                                        | Compiles matcher arguments into reusable functions. `createIsError` produces a type guard.                                                    |
-| Fixed-kind | `catchCancel`, `suppressCancel`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout` | Pre-configured helpers targeting specific built-in error types (`CancelError`, `AbortError`, `TimeoutError`).                                 |
+| Family     | Helpers                                                                                           | Usage                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Inline     | `catchErrors`, `suppressErrors`, `isErrorOf`                                                      | Takes matcher arguments directly at call sites. `catchErrors` and `suppressErrors` narrow `TFailure` on promises or assert raw caught errors.                                              |
+| Factory    | `createCatchError`, `createSuppressError`, `createIsError`                                        | Compiles matcher arguments into reusable functions. `createIsError` produces a type guard for complete matcher lists and a boolean predicate for lists that may contain a plain predicate. |
+| Fixed-kind | `catchCancel`, `suppressCancel`, `catchAbort`, `suppressAbort`, `catchTimeout`, `suppressTimeout` | Pre-configured helpers targeting specific built-in error types (`CancelError`, `AbortError`, `TimeoutError`).                                                                              |
 
 #### Error callback parameter typing
 
