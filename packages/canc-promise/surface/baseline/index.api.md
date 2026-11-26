@@ -73,8 +73,8 @@ static defaultOptions: Required<ICancelablePromiseFlagOptions>
 static fail: <TError>(error: TError) => CancelablePromise<never, Exclude<TError, CancelError>>
 static race: { <T extends [] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>; <T>(values: readonly T[], options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<PromiseLike<T> | T>, options?: ICancelablePromiseOptions): CancelablePromise<T, FailureOf<T>>; }
 static reject: <TResult = never, TFailure = never>(reason?: [TFailure] extends [never] ? any : TNoInfer<TFailure>, options?: ICancelablePromiseOptions) => CancelablePromise<TResult, TFailure>
-static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>; (): CancelablePromise<void, never>; }
-static try: <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs) => CancelablePromise<Awaited<T>, FailureOf<T>>
+static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>; <V>(value: PromiseLike<V> | V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, Unlisted>; (): CancelablePromise<void, never>; }
+static try: { <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs): CancelablePromise<Awaited<T>, FailureOf<T>>; <T, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<T> | T, ...args: TArgs): CancelablePromise<Awaited<T>, Unlisted>; }
 static withResolvers: <TResult, TFailure = unknown>(options?: ICancelablePromiseOptions) => ICancelablePromiseWithResolvers<TResult, TFailure>
 readonly [toStringTag]: string
 readonly _cancFailure?: Exclude<TFailure, CancelError> | undefined
@@ -464,8 +464,8 @@ static defaultOptions: Required<ICancelablePromiseFlagOptions>
 static fail: <TError>(error: TError) => CancelablePromise<never, Exclude<TError, CancelError>>
 static race: { <T extends [] | readonly unknown[]>(values: T, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T[number]>, FailureOf<T[number]>>; <T>(values: readonly T[], options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<T>, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<T>, FailureOf<T>>; <T>(values: Iterable<PromiseLike<T> | T>, options?: ICancelablePromiseOptions): CancelablePromise<T, FailureOf<T>>; }
 static reject: <TResult = never, TFailure = never>(reason?: [TFailure] extends [never] ? any : TNoInfer<TFailure>, options?: ICancelablePromiseOptions) => CancelablePromise<TResult, TFailure>
-static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>; (): CancelablePromise<void, never>; }
-static try: <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs) => CancelablePromise<Awaited<T>, FailureOf<T>>
+static resolve: { <V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>; <V>(value: PromiseLike<V> | V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, Unlisted>; (): CancelablePromise<void, never>; }
+static try: { <T, TArgs extends any[]>(fn: (...args: TArgs) => T, ...args: TArgs): CancelablePromise<Awaited<T>, FailureOf<T>>; <T, TArgs extends any[]>(fn: (...args: TArgs) => PromiseLike<T> | T, ...args: TArgs): CancelablePromise<Awaited<T>, Unlisted>; }
 static withResolvers: <TResult, TFailure = unknown>(options?: ICancelablePromiseOptions) => ICancelablePromiseWithResolvers<TResult, TFailure>
 readonly [toStringTag]: string
 readonly _cancFailure?: Exclude<TFailure, CancelError> | undefined

@@ -1023,6 +1023,10 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @returns A promise whose internal state matches the provided promise.
    */
   static resolve<V>(value: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>>;
+  static resolve<V>(
+    value: V | PromiseLike<V>,
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<Awaited<V>, Unlisted>;
   static resolve(): CancelablePromise<void, never>;
 
   static resolve<V>(value?: V, options?: ICancelablePromiseOptions): CancelablePromise<Awaited<V>, FailureOf<V>> {
@@ -1080,6 +1084,14 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
    * @param fn Function to invoke, may throw synchronously or return a value/thenable.
    * @param args Arguments passed through to `fn`.
    */
+  static try<T, TArgs extends any[]>(
+    fn: (...args: TArgs) => T,
+    ...args: TArgs
+  ): CancelablePromise<Awaited<T>, FailureOf<T>>;
+  static try<T, TArgs extends any[]>(
+    fn: (...args: TArgs) => T | PromiseLike<T>,
+    ...args: TArgs
+  ): CancelablePromise<Awaited<T>, Unlisted>;
   static try<T, TArgs extends any[]>(
     fn: (...args: TArgs) => T,
     ...args: TArgs
