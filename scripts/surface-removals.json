@@ -1265,6 +1265,13 @@
       "entry": ".",
       "name": "SubtractedOf",
       "reason": "Prerelease tuple matcher alias removed before stable; use the corresponding single-matcher type on the tuple element union."
+    },
+    {
+      "package": "@cancjs/toolbox-native",
+      "entry": ".",
+      "name": "LazyPromise",
+      "member": "fail",
+      "reason": "Owner-approved prerelease removal: native lazy promises use reject."
     }
   ]
 }
