@@ -334,7 +334,24 @@ Declared failures can be specified or extracted using three type forms:
 
 - `CancelablePromise<TResult, TFailure>`: main class signature. `TFailure` defaults to `unknown`, which means the failure set is undeclared (see "Undeclared and empty failure sets" below).
 - `FailureOf<T>`: extracts the declared failure set from a promise type. For example, `FailureOf<CancelablePromise<string, HttpError>>` evaluates to `HttpError`.
-- `Failing<TFailure>`: structural interface carrying the phantom symbol key (`FAILURE`) for types that declare failures.
+- `Failing<TFailure>`: structural interface carrying the phantom string key `FAILURE` (value `_cancFailure`) for types that declare failures. It does not require a runtime property.
+
+An external thenable can declare its failure type without adding a runtime property:
+
+```ts
+import type { CancelError, FailureOf } from '@cancjs/promise';
+import { FAILURE } from '@cancjs/promise';
+
+class ExternalError extends Error {
+  readonly external = true;
+}
+
+interface ExternalThenable extends PromiseLike<number> {
+  readonly [FAILURE]?: Exclude<ExternalError | CancelError, CancelError>;
+}
+
+type ExternalFailure = FailureOf<ExternalThenable>; // ExternalError
+```
 
 `WithFailure<TPromise, TFailure>` declares an additional failure on a promise type without restating the existing promise type (`const declared: WithFailure<typeof promise, HttpError> = promise`). Because `WithFailure` only adds, an annotation that narrows an already-declared failure set does not compile. `withFailure<TFailure>()(promise)` is the unchecked counterpart for the direction the annotation refuses: narrowing or replacing an already-declared set. It asserts and verifies nothing, is a no-op at runtime, and exists so that direction stays a visible, greppable call instead of a cast. Do not reach for `withFailure` when only adding a failure; use the `WithFailure` annotation instead.
 
@@ -440,7 +457,7 @@ Error matching and suppression helpers are available in three families:
 
 #### Error callback parameter typing
 
-The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`), declares nothing (`never`) or is open (includes `Unlisted`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`. A `catch` handler that rethrows or translates the error keeps the declared failures and adds `Unlisted`, since the handler may throw anything.
+The `onRejected` callback parameter in `.then(onFulfilled, onRejected)` and `.catch(onRejected)` receives `TReason<TFailure>`. When the failure set is undeclared (`unknown`), declares nothing (`never`) or is open (includes `Unlisted`), the parameter is typed as `any`, the same as on a native promise. When a failure type is declared, the parameter is typed as `TFailure`. A callback returning a typed cancelable promise contributes that promise's declared failures. Returning a native or foreign thenable contributes `Unlisted`. A missing or optional rejection handler keeps the source failure set. Explicit resolved-value type arguments accept thenables, but when that input type is erased the fallback reports `Unlisted` rather than inferring the thenable's exact failure set.
 
 #### Handling caught errors in try/catch
 
