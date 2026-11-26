@@ -1,13 +1,6 @@
 import { Assert, Eq } from '../../../tests-types/fixtures/common/assert-type';
 import type { CancelError } from './cancel-error';
-import type {
-  ICatchErrorFn,
-  ISuppressErrorFn,
-  MatchedError,
-  MatchedOf,
-  SubtractedError,
-  SubtractedOf,
-} from './error-matchers';
+import type { ICatchErrorFn, ISuppressErrorFn, MatchedError, SubtractedError } from './error-matchers';
 import type { AbortError, TimeoutError } from './helpers';
 import type { CancelablePromise } from './index';
 import {
@@ -75,12 +68,12 @@ describe('matcher type mappings', () => {
     const checkPredicateSubtracted: Assert<Eq<SubtractedError<PredicateMatcher>, never>> = true;
 
     // 3. MatchedOf and SubtractedOf tuple assertions
-    const checkMatchedOfTuple: Assert<Eq<MatchedOf<[CtorMatcher, GuardMatcher]>, FooError | BarError>> = true;
-    const checkSubtractedOfTuple: Assert<Eq<SubtractedOf<[CtorMatcher, GuardMatcher]>, FooError | BarError>> = true;
+    const checkMatchedOfTuple: Assert<Eq<MatchedError<CtorMatcher | GuardMatcher>, FooError | BarError>> = true;
+    const checkSubtractedOfTuple: Assert<Eq<SubtractedError<CtorMatcher | GuardMatcher>, FooError | BarError>> = true;
 
     // 4. Load-bearing negative assertion: plain predicate subtracts NOTHING from failure set
     const checkPredicateSubtractsNothing: Assert<
-      Eq<Exclude<FooError | BarError, SubtractedOf<[PredicateMatcher]>>, FooError | BarError>
+      Eq<Exclude<FooError | BarError, SubtractedError<PredicateMatcher>>, FooError | BarError>
     > = true;
 
     expect(checkCtorMatched).toBe(true);

@@ -14,15 +14,7 @@ import type { CancelablePromise, ICancelablePromiseOptions } from './cancelable-
 import { makeCatch, makeSuppress } from './catch-suppress';
 import { _isAbortLike, _isTimeoutLike, isCancelError } from './helpers';
 
-export type {
-  MatchedError,
-  MatchedOf,
-  SubtractedError,
-  SubtractedOf,
-  TErrorConstructor,
-  TErrorMatcher,
-  TErrorPredicate,
-};
+export type { MatchedError, SubtractedError, TErrorConstructor, TErrorMatcher, TErrorPredicate };
 
 /**
  * What `createSuppressError` produces: the call shape of `suppressCancel`, with the matcher list
