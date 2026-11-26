@@ -1014,6 +1014,7 @@ interface ICancForAwait {
 
 interface ICancAwait {
   <T>(value: T): Generator<Failing<CoFailureOf<T>>, Awaited<T>, any>;
+  <T>(value: T | PromiseLike<T>): Generator<Failing<CoFailureOf<T | PromiseLike<T>>>, Awaited<T>, any>;
   all: ICancAwaitAll;
   race: ICancAwaitRace;
   any: ICancAwaitAny;

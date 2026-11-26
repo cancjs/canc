@@ -172,6 +172,9 @@ type ICancGenAwaitTry = <T, TArgs extends any[]>(
  */
 export interface ICancGenAwait {
   <T>(value: T): Generator<TAwaited<Awaited<T>> & Failing<CoFailureOf<T>>, Awaited<T>, any>;
+  <T>(
+    value: T | PromiseLike<T>,
+  ): Generator<TAwaited<Awaited<T>> & Failing<CoFailureOf<T | PromiseLike<T>>>, Awaited<T>, any>;
   all: ICancGenAwaitAll;
   race: ICancGenAwaitRace;
   any: ICancGenAwaitAny;

@@ -32,6 +32,7 @@ readonly _cancFailure?: Exclude<TFailure, CancelError> | undefined
 
 ```text
 <T>(value: T): Generator<Failing<CoFailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
+<T>(value: PromiseLike<T> | T): Generator<Failing<CoFailureOf<PromiseLike<T> | T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
 all: ICancGenAwaitAll
 allSettled: ICancGenAwaitAllSettled
 any: ICancGenAwaitAny
@@ -50,6 +51,7 @@ try: ICancGenAwaitTry
 
 ```text
 <T>(value: T): Generator<Failing<CoFailureOf<T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
+<T>(value: PromiseLike<T> | T): Generator<Failing<CoFailureOf<PromiseLike<T> | T>> & TAwaited<Awaited<T>>, Awaited<T>, any>
 all: ICancGenAwaitAll
 allSettled: ICancGenAwaitAllSettled
 any: ICancGenAwaitAny

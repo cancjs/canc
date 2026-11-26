@@ -96,6 +96,7 @@ throw: (e: any) => IteratorResult<PYield, PReturn>
 
 ```text
 <T>(value: T): Generator<Failing<CoFailureOf<T>>, Awaited<T>, any>
+<T>(value: PromiseLike<T> | T): Generator<Failing<CoFailureOf<PromiseLike<T> | T>>, Awaited<T>, any>
 all: ICancAwaitAll
 allSettled: ICancAwaitAllSettled
 any: ICancAwaitAny
@@ -119,6 +120,7 @@ try: ICancAwaitTry
 
 ```text
 <T>(value: T): Generator<Failing<CoFailureOf<T>>, Awaited<T>, any>
+<T>(value: PromiseLike<T> | T): Generator<Failing<CoFailureOf<PromiseLike<T> | T>>, Awaited<T>, any>
 all: ICancAwaitAll
 allSettled: ICancAwaitAllSettled
 any: ICancAwaitAny
