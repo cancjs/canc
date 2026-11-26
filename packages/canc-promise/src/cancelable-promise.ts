@@ -1896,9 +1896,17 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
   ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TFailure>;
   then<TResult1 = TResult, TResult2 = never>(
+    onFulfilled: ((value: TResult) => TResult1 | PromiseLike<TResult1>) | null | undefined,
+    onRejected: (reason: TReason<TFailure>) => TResult2 | PromiseLike<TResult2>,
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, Unlisted | ([TResult2] extends [never] ? TFailure : never)>;
+  then<TResult1 = TResult, TResult2 = never>(
+    onFulfilled?: ((value: TResult) => TResult1 | PromiseLike<TResult1>) | null,
+    onRejected?: ((reason: TReason<TFailure>) => TResult2 | PromiseLike<TResult2>) | null,
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, Unlisted | TFailure>;
+  then<TResult1 = TResult, TResult2 = never>(
     onFulfilled?: ((value: TResult) => TResult1) | null,
     onRejected?: ((reason: TReason<TFailure>) => TResult2) | null,
-  ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TFailure> {
+  ): CancelablePromise<Awaited<TResult1 | TResult2>, FailureOf<TResult1> | FailureOf<TResult2> | TFailure | Unlisted> {
     // `_then` runs native then() through the species machinery, so its result is already a
     // CancelablePromise of the right (possibly subclass) constructor.
     // The derived child inherits
@@ -1930,8 +1938,14 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
   ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure>;
   catch<R = never>(
+    onRejected: (reason: TReason<TFailure>) => R | PromiseLike<R>,
+  ): CancelablePromise<Awaited<TResult | R>, Unlisted>;
+  catch<R = never>(
+    onRejected?: ((reason: TReason<TFailure>) => R | PromiseLike<R>) | null,
+  ): CancelablePromise<Awaited<TResult | R>, Unlisted | TFailure>;
+  catch<R = never>(
     onRejected?: ((reason: TReason<TFailure>) => R) | null,
-  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure> {
+  ): CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure | Unlisted> {
     // conditional types over still-generic R/TResult do not collapse to catch's own signature
     return this.then(null, onRejected) as unknown as CancelablePromise<Awaited<TResult | R>, FailureOf<R> | TFailure>;
   }
