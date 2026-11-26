@@ -695,6 +695,8 @@ to match an abort and `{ timeout: true }` to match a timeout.
 
 `FAILURE`, `FailureOf<T>`, and `Failing<TFailure>` provide declared failure typing.
 
+For a reusable tuple of matcher types `M`, use `MatchedError<M[number]>` to name its matched types and `SubtractedError<M[number]>` to name only the types it proves can be removed from a failure set.
+
 The exported `TCancelablePromiseStates` type is deprecated. It describes internal promise states, not application state tracking.
 
 ### Implementation registry

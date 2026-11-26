@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-promise/dist/types/index.d.ts`
-- Exports: 80
+- Exports: 78
 
 ## `AbortError` (type)
 
@@ -256,12 +256,6 @@ ISettledFulfilled<T> | ISettledRejected
 M extends TErrorConstructor ? InstanceType<M> : M extends (error: any) => error is infer G ? G : M extends string ? Error & { name: M; } : Error
 ```
 
-## `MatchedOf<M extends readonly TErrorMatcher[]>` (type)
-
-```text
-M[number] extends TErrorConstructor ? InstanceType<M[number]> : M[number] extends (error: any) => error is infer G ? G : M[number] extends string ? Error & { name: M[number]; } : Error
-```
-
 ## `PromiseImpl` (type)
 
 ```text
@@ -279,12 +273,6 @@ T extends null | undefined ? T : T extends object & { then(onfulfilled: infer F,
 
 ```text
 M extends TErrorConstructor ? InstanceType<M> : M extends (error: any) => error is infer G ? G : M extends string ? Error & { name: M; } : never
-```
-
-## `SubtractedOf<M extends readonly TErrorMatcher[]>` (type)
-
-```text
-M[number] extends TErrorConstructor ? InstanceType<M[number]> : M[number] extends (error: any) => error is infer G ? G : M[number] extends string ? Error & { name: M[number]; } : never
 ```
 
 ## `TAbortSignal` (type)
