@@ -1272,6 +1272,30 @@
       "name": "LazyPromise",
       "member": "fail",
       "reason": "Owner-approved prerelease removal: native lazy promises use reject."
+    },
+    {
+      "package": "@cancjs/toolbox",
+      "entry": "./async-iter",
+      "name": "ITermOp",
+      "reason": "Owner-approved prerelease async iterator vocabulary refinement."
+    },
+    {
+      "package": "@cancjs/toolbox",
+      "entry": "./async-iter",
+      "name": "IPipeableAsyncIterable",
+      "reason": "Owner-approved prerelease async iterator vocabulary refinement."
+    },
+    {
+      "package": "@cancjs/toolbox",
+      "entry": "./async-iter",
+      "name": "TFlatMapped",
+      "reason": "Owner-approved prerelease async iterator vocabulary refinement."
+    },
+    {
+      "package": "@cancjs/toolbox",
+      "entry": "./async-iter",
+      "name": "isPipeable",
+      "reason": "Owner-approved prerelease async iterator vocabulary refinement."
     }
   ]
 }
