@@ -320,6 +320,7 @@ CancelError | object | string
 ## `TCancelablePromiseStates` (type)
 
 ```text
+// @deprecated
 "CANCELED" | "FORCE_PENDING" | "FULFILLED" | "PENDING" | "REJECTED"
 ```
 

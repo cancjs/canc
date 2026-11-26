@@ -695,6 +695,8 @@ to match an abort and `{ timeout: true }` to match a timeout.
 
 `FAILURE`, `FailureOf<T>`, and `Failing<TFailure>` provide declared failure typing.
 
+The exported `TCancelablePromiseStates` type is deprecated. It describes internal promise states, not application state tracking.
+
 ### Implementation registry
 
 `setPromiseImpl(impl?)`, `getPromiseImpl()`, `resolvePromiseImpl(options?, staticImpl?)` are deprecated; see

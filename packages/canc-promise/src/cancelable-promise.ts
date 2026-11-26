@@ -164,6 +164,7 @@ export interface IHandleCancelOptions {
    */
   immediate?: boolean;
 }
+/** @deprecated Internal promise state vocabulary; not intended for application state tracking. */
 export type TCancelablePromiseStates = 'PENDING' | 'FORCE_PENDING' | 'FULFILLED' | 'REJECTED' | 'CANCELED';
 
 export interface ICancelablePromiseFlagOptions {
