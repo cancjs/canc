@@ -725,6 +725,126 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
     values: readonly [T1, T2],
     options?: ICancelablePromiseOptions,
   ): CancelablePromise<[Awaited<T1>, Awaited<T2>], FailureOf<T1> | FailureOf<T2>>;
+  static all<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(
+    values: readonly [
+      T1 | PromiseLike<T1>,
+      T2 | PromiseLike<T2>,
+      T3 | PromiseLike<T3>,
+      T4 | PromiseLike<T4>,
+      T5 | PromiseLike<T5>,
+      T6 | PromiseLike<T6>,
+      T7 | PromiseLike<T7>,
+      T8 | PromiseLike<T8>,
+      T9 | PromiseLike<T9>,
+      T10 | PromiseLike<T10>,
+    ],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<
+    [
+      Awaited<T1>,
+      Awaited<T2>,
+      Awaited<T3>,
+      Awaited<T4>,
+      Awaited<T5>,
+      Awaited<T6>,
+      Awaited<T7>,
+      Awaited<T8>,
+      Awaited<T9>,
+      Awaited<T10>,
+    ],
+    Unlisted
+  >;
+  static all<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+    values: readonly [
+      T1 | PromiseLike<T1>,
+      T2 | PromiseLike<T2>,
+      T3 | PromiseLike<T3>,
+      T4 | PromiseLike<T4>,
+      T5 | PromiseLike<T5>,
+      T6 | PromiseLike<T6>,
+      T7 | PromiseLike<T7>,
+      T8 | PromiseLike<T8>,
+      T9 | PromiseLike<T9>,
+    ],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<
+    [
+      Awaited<T1>,
+      Awaited<T2>,
+      Awaited<T3>,
+      Awaited<T4>,
+      Awaited<T5>,
+      Awaited<T6>,
+      Awaited<T7>,
+      Awaited<T8>,
+      Awaited<T9>,
+    ],
+    Unlisted
+  >;
+  static all<T1, T2, T3, T4, T5, T6, T7, T8>(
+    values: readonly [
+      T1 | PromiseLike<T1>,
+      T2 | PromiseLike<T2>,
+      T3 | PromiseLike<T3>,
+      T4 | PromiseLike<T4>,
+      T5 | PromiseLike<T5>,
+      T6 | PromiseLike<T6>,
+      T7 | PromiseLike<T7>,
+      T8 | PromiseLike<T8>,
+    ],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<
+    [Awaited<T1>, Awaited<T2>, Awaited<T3>, Awaited<T4>, Awaited<T5>, Awaited<T6>, Awaited<T7>, Awaited<T8>],
+    Unlisted
+  >;
+  static all<T1, T2, T3, T4, T5, T6, T7>(
+    values: readonly [
+      T1 | PromiseLike<T1>,
+      T2 | PromiseLike<T2>,
+      T3 | PromiseLike<T3>,
+      T4 | PromiseLike<T4>,
+      T5 | PromiseLike<T5>,
+      T6 | PromiseLike<T6>,
+      T7 | PromiseLike<T7>,
+    ],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<
+    [Awaited<T1>, Awaited<T2>, Awaited<T3>, Awaited<T4>, Awaited<T5>, Awaited<T6>, Awaited<T7>],
+    Unlisted
+  >;
+  static all<T1, T2, T3, T4, T5, T6>(
+    values: readonly [
+      T1 | PromiseLike<T1>,
+      T2 | PromiseLike<T2>,
+      T3 | PromiseLike<T3>,
+      T4 | PromiseLike<T4>,
+      T5 | PromiseLike<T5>,
+      T6 | PromiseLike<T6>,
+    ],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<[Awaited<T1>, Awaited<T2>, Awaited<T3>, Awaited<T4>, Awaited<T5>, Awaited<T6>], Unlisted>;
+  static all<T1, T2, T3, T4, T5>(
+    values: readonly [
+      T1 | PromiseLike<T1>,
+      T2 | PromiseLike<T2>,
+      T3 | PromiseLike<T3>,
+      T4 | PromiseLike<T4>,
+      T5 | PromiseLike<T5>,
+    ],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<[Awaited<T1>, Awaited<T2>, Awaited<T3>, Awaited<T4>, Awaited<T5>], Unlisted>;
+  static all<T1, T2, T3, T4>(
+    values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>, T4 | PromiseLike<T4>],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<[Awaited<T1>, Awaited<T2>, Awaited<T3>, Awaited<T4>], Unlisted>;
+  static all<T1, T2, T3>(
+    values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>, T3 | PromiseLike<T3>],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<[Awaited<T1>, Awaited<T2>, Awaited<T3>], Unlisted>;
+  static all<T1, T2>(
+    values: readonly [T1 | PromiseLike<T1>, T2 | PromiseLike<T2>],
+    options?: ICancelablePromiseOptions,
+  ): CancelablePromise<[Awaited<T1>, Awaited<T2>], Unlisted>;
   static all<TResult>(
     values: readonly TResult[],
     options?: ICancelablePromiseOptions,
@@ -741,7 +861,7 @@ class CancelablePromise<TResult, TFailure = unknown> implements ICancelable<TRes
   static all<TAll>(
     values: Iterable<TAll | PromiseLike<TAll>>,
     options?: ICancelablePromiseOptions,
-  ): CancelablePromise<TAll[], FailureOf<TAll>> {
+  ): CancelablePromise<TAll[], FailureOf<TAll> | Unlisted> {
     // Deferred-construction pattern to work around referring to the promise from inside its own
     // executor: withResolvers() is the same `new this(noop, options)` internally, just named/shaped
     // for this exact use.
