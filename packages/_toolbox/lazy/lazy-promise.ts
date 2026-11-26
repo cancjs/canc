@@ -47,7 +47,6 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
   ) => LazyPromise<Awaited<V>, FailureOf<V>>;
   declare static resolve: <V>(value?: V | PromiseLike<V>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static reject: <V = never>(reason?: any, options?: ILazyPromiseOptions) => LazyPromise<V>;
-  declare static fail: <TError>(error: TError) => LazyPromise<never, Exclude<TError, CancelError>>;
   declare static withResolvers: <V>(options?: ILazyPromiseOptions) => ICancelableLazyWithResolvers<V>;
   declare static all: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V[]>;
   declare static allSettled: <V>(
@@ -56,6 +55,13 @@ export class LazyPromise<T = any, F = unknown> extends LazyBase<T> {
   ) => LazyPromise<ISettledResult<Awaited<V>>[]>;
   declare static any: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
   declare static race: <V>(values: Iterable<V | PromiseLike<V>>, options?: ILazyPromiseOptions) => LazyPromise<V>;
+
+  static fail: <TError>(error: TError) => LazyPromise<never, Exclude<TError, CancelError>> = function <TError>(
+    this: typeof LazyPromise,
+    error: TError,
+  ): LazyPromise<never, Exclude<TError, CancelError>> {
+    return this._new<never>((_resolve, reject) => reject(error)) as LazyPromise<never, Exclude<TError, CancelError>>;
+  };
 
   declare readonly [FAILURE]?: Exclude<F, CancelError>;
   declare protected _options?: ILazyPromiseOptions;

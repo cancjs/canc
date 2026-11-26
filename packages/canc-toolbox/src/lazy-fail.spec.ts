@@ -20,6 +20,24 @@ describe('LazyPromise.fail', () => {
     await expect(LazyPromise.fail(error)).rejects.toBe(error);
   });
 
+  it('retains subclass construction without invoking reject override', async () => {
+    class Sub extends LazyPromise {
+      static override reject(): never {
+        throw new Error('unexpected reject override');
+      }
+    }
+    const reason = new ValidationError('sub');
+    const value = Sub.fail(reason);
+    expect(value).toBeInstanceOf(Sub);
+    await expect(value).rejects.toBe(reason);
+  });
+
+  it('cancels before observing fail', async () => {
+    const value = LazyPromise.fail(new ValidationError('unobserved'));
+    value.cancel();
+    await expect(value).rejects.toBeInstanceOf(CancelError);
+  });
+
   it('keeps a CancelError as the rejection reason', async () => {
     const error = new CancelError('stop');
 
