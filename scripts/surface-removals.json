@@ -1253,6 +1253,18 @@
       "name": "LazyPromise",
       "member": "[FAILURE]",
       "reason": "The failure carrier key is now the string property _cancFailure, so a declared failure survives across copies of the package."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "MatchedOf",
+      "reason": "Prerelease tuple matcher alias removed before stable; use the corresponding single-matcher type on the tuple element union."
+    },
+    {
+      "package": "@cancjs/promise",
+      "entry": ".",
+      "name": "SubtractedOf",
+      "reason": "Prerelease tuple matcher alias removed before stable; use the corresponding single-matcher type on the tuple element union."
     }
   ]
 }
