@@ -2108,6 +2108,30 @@
       "entry": "./dgram",
       "name": "nodeCreateSocket",
       "reason": "E8 approved prerelease dgram vocabulary."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": ".",
+      "name": "JSON_PARSE_ERROR_BRAND",
+      "reason": "E8 approved prerelease error brand constant internalization; protocol retained."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": ".",
+      "name": "NOT_IMPLEMENTED_ERROR_BRAND",
+      "reason": "E8 approved prerelease error brand constant internalization; protocol retained."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": ".",
+      "name": "PROCESS_EXIT_ERROR_BRAND",
+      "reason": "E8 approved prerelease error brand constant internalization; protocol retained."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": ".",
+      "name": "PROCESS_SPAWN_ERROR_BRAND",
+      "reason": "E8 approved prerelease error brand constant internalization; protocol retained."
     }
   ]
 }
