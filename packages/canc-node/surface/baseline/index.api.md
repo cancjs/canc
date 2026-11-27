@@ -427,7 +427,6 @@ hasConsumersBytes: boolean
 hasDuplexPair: boolean
 hasGlob: boolean
 hasMkdtempDisposable: boolean
-hasSqlite: boolean
 hasStatfs: boolean
 hasWorkerLocks: boolean
 nodeMajor: number

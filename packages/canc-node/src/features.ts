@@ -1,6 +1,5 @@
 import * as events from 'node:events';
 import * as fsp from 'node:fs/promises';
-import { builtinModules } from 'node:module';
 import * as net from 'node:net';
 import * as nodeStream from 'node:stream';
 import * as consumers from 'node:stream/consumers';
@@ -95,7 +94,6 @@ export const features = Object.freeze({
   hasAddAbortListener: typeof (events as { addAbortListener?: unknown }).addAbortListener === 'function',
   hasAsyncDispose: typeof (Symbol as unknown as { asyncDispose?: unknown }).asyncDispose === 'symbol',
   hasConsumersBytes: typeof (consumers as { bytes?: unknown }).bytes === 'function',
-  hasSqlite: builtinModules.includes('node:sqlite'),
   hasDuplexPair:
     typeof (nodeStream as { duplexPair?: unknown }).duplexPair === 'function' &&
     meetsLineFloors(nodeVersion, gateFloors.duplexPair),

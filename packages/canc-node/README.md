@@ -882,7 +882,7 @@ The four error brand constants are internal; use the exported error classes and 
 
 ### Feature detection
 
-- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasDuplexPair`, `hasWorkerLocks`)
+- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasDuplexPair`, `hasWorkerLocks`)
 
 ## Compatibility
 
