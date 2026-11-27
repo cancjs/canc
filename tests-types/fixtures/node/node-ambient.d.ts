@@ -297,6 +297,26 @@ declare module 'node:zlib' {
   export type InputType = any;
   const _default: any;
   export default _default;
+  export type Zlib = any;
+  export const BrotliCompress: any;
+  export const BrotliDecompress: any;
+  export const Deflate: any;
+  export const DeflateRaw: any;
+  export const Gunzip: any;
+  export const Gzip: any;
+  export const Inflate: any;
+  export const InflateRaw: any;
+  export const Unzip: any;
+  export const constants: any;
+  export const createBrotliCompress: any;
+  export const createBrotliDecompress: any;
+  export const createDeflate: any;
+  export const createDeflateRaw: any;
+  export const createGunzip: any;
+  export const createGzip: any;
+  export const createInflate: any;
+  export const createInflateRaw: any;
+  export const createUnzip: any;
 }
 
 declare type Buffer = any;
