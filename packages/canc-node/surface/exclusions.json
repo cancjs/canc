@@ -85,33 +85,101 @@
     "status": "excluded",
     "reason": "context propagation, not a cancelable operation"
   },
-  { "module": "v8", "status": "excluded", "reason": "diagnostics" },
+  {
+    "module": "v8",
+    "status": "excluded",
+    "reason": "diagnostics"
+  },
   {
     "module": "vm",
     "status": "excluded",
     "reason": "sandboxing; no cancelable async"
   },
-  { "module": "wasi", "status": "excluded", "reason": "no cancelable async" },
-  { "module": "assert", "status": "excluded", "reason": "sync" },
-  { "module": "buffer", "status": "excluded", "reason": "sync" },
-  { "module": "console", "status": "excluded", "reason": "sync" },
-  { "module": "constants", "status": "excluded", "reason": "sync, deprecated" },
-  { "module": "domain", "status": "excluded", "reason": "deprecated" },
-  { "module": "os", "status": "excluded", "reason": "sync" },
-  { "module": "path", "status": "excluded", "reason": "sync" },
-  { "module": "punycode", "status": "excluded", "reason": "deprecated" },
-  { "module": "querystring", "status": "excluded", "reason": "sync" },
-  { "module": "repl", "status": "excluded", "reason": "interactive shell" },
-  { "module": "sea", "status": "excluded", "reason": "build-time packaging" },
-  { "module": "string_decoder", "status": "excluded", "reason": "sync" },
+  {
+    "module": "wasi",
+    "status": "excluded",
+    "reason": "no cancelable async"
+  },
+  {
+    "module": "assert",
+    "status": "excluded",
+    "reason": "sync"
+  },
+  {
+    "module": "buffer",
+    "status": "excluded",
+    "reason": "sync"
+  },
+  {
+    "module": "console",
+    "status": "excluded",
+    "reason": "sync"
+  },
+  {
+    "module": "constants",
+    "status": "excluded",
+    "reason": "sync, deprecated"
+  },
+  {
+    "module": "domain",
+    "status": "excluded",
+    "reason": "deprecated"
+  },
+  {
+    "module": "os",
+    "status": "excluded",
+    "reason": "sync"
+  },
+  {
+    "module": "path",
+    "status": "excluded",
+    "reason": "sync"
+  },
+  {
+    "module": "punycode",
+    "status": "excluded",
+    "reason": "deprecated"
+  },
+  {
+    "module": "querystring",
+    "status": "excluded",
+    "reason": "sync"
+  },
+  {
+    "module": "repl",
+    "status": "excluded",
+    "reason": "interactive shell"
+  },
+  {
+    "module": "sea",
+    "status": "excluded",
+    "reason": "build-time packaging"
+  },
+  {
+    "module": "string_decoder",
+    "status": "excluded",
+    "reason": "sync"
+  },
   {
     "module": "sys",
     "status": "excluded",
     "reason": "deprecated alias of util"
   },
-  { "module": "trace_events", "status": "excluded", "reason": "diagnostics" },
-  { "module": "tty", "status": "excluded", "reason": "sync" },
-  { "module": "url", "status": "excluded", "reason": "sync" },
+  {
+    "module": "trace_events",
+    "status": "excluded",
+    "reason": "diagnostics"
+  },
+  {
+    "module": "tty",
+    "status": "excluded",
+    "reason": "sync"
+  },
+  {
+    "module": "url",
+    "status": "excluded",
+    "reason": "sync"
+  },
   {
     "module": "sqlite",
     "status": "deferred",
@@ -181,5 +249,707 @@
     "module": "zlib",
     "status": "deferred",
     "reason": "planned subpath, not implemented yet"
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Certificate",
+    "status": "excluded",
+    "reason": "E8/E6: Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Certificate.exportChallenge",
+    "status": "excluded",
+    "reason": "E8/E6: Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Certificate.exportPublicKey",
+    "status": "excluded",
+    "reason": "E8/E6: Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Certificate.verifySpkac",
+    "status": "excluded",
+    "reason": "E8/E6: Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipher",
+    "status": "excluded",
+    "reason": "E8/E6: Cipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipher.final",
+    "status": "excluded",
+    "reason": "E8/E6: Cipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipher.getAuthTag",
+    "status": "excluded",
+    "reason": "E8/E6: Cipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipher.setAAD",
+    "status": "excluded",
+    "reason": "E8/E6: Cipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipher.setAutoPadding",
+    "status": "excluded",
+    "reason": "E8/E6: Cipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipher.update",
+    "status": "excluded",
+    "reason": "E8/E6: Cipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipheriv",
+    "status": "excluded",
+    "reason": "E8/E6: Cipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipheriv.final",
+    "status": "excluded",
+    "reason": "E8/E6: Cipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipheriv.getAuthTag",
+    "status": "excluded",
+    "reason": "E8/E6: Cipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipheriv.setAAD",
+    "status": "excluded",
+    "reason": "E8/E6: Cipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipheriv.setAutoPadding",
+    "status": "excluded",
+    "reason": "E8/E6: Cipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Cipheriv.update",
+    "status": "excluded",
+    "reason": "E8/E6: Cipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.DEFAULT_ENCODING",
+    "status": "excluded",
+    "reason": "E8/E6: DEFAULT_ENCODING is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipher",
+    "status": "excluded",
+    "reason": "E8/E6: Decipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipher.final",
+    "status": "excluded",
+    "reason": "E8/E6: Decipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipher.setAAD",
+    "status": "excluded",
+    "reason": "E8/E6: Decipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipher.setAuthTag",
+    "status": "excluded",
+    "reason": "E8/E6: Decipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipher.setAutoPadding",
+    "status": "excluded",
+    "reason": "E8/E6: Decipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipher.update",
+    "status": "excluded",
+    "reason": "E8/E6: Decipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipheriv",
+    "status": "excluded",
+    "reason": "E8/E6: Decipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipheriv.final",
+    "status": "excluded",
+    "reason": "E8/E6: Decipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipheriv.setAAD",
+    "status": "excluded",
+    "reason": "E8/E6: Decipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipheriv.setAuthTag",
+    "status": "excluded",
+    "reason": "E8/E6: Decipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipheriv.setAutoPadding",
+    "status": "excluded",
+    "reason": "E8/E6: Decipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.Decipheriv.update",
+    "status": "excluded",
+    "reason": "E8/E6: Decipheriv is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.computeSecret",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.generateKeys",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.getGenerator",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.getPrime",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.getPrivateKey",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.getPublicKey",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.setPrivateKey",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.setPublicKey",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellman.verifyError",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.DiffieHellmanGroup",
+    "status": "excluded",
+    "reason": "E8/E6: DiffieHellmanGroup is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH.computeSecret",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH.convertKey",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH.generateKeys",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH.getPrivateKey",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH.getPublicKey",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH.setPrivateKey",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.ECDH.setPublicKey",
+    "status": "excluded",
+    "reason": "E8/E6: ECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.Type",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.ca",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.checkEmail",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.checkHost",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.checkIP",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.checkIssued",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.checkPrivateKey",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.fingerprint",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.fingerprint256",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.fingerprint512",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.infoAccess",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.issuer",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.issuerCertificate",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.keyUsage",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.publicKey",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.raw",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.serialNumber",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.signatureAlgorithm",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.signatureAlgorithmOid",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.subject",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.subjectAltName",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.toJSON",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.toLegacyObject",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.toString",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.validFrom",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.validFromDate",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.validTo",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.validToDate",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.X509Certificate.verify",
+    "status": "excluded",
+    "reason": "E8/E6: X509Certificate is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.argon2Sync",
+    "status": "excluded",
+    "reason": "E8/E6: argon2Sync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.checkPrimeSync",
+    "status": "excluded",
+    "reason": "E8/E6: checkPrimeSync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.createCipher",
+    "status": "excluded",
+    "reason": "E8/E6: createCipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.createDecipher",
+    "status": "excluded",
+    "reason": "E8/E6: createDecipher is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.createDiffieHellman",
+    "status": "excluded",
+    "reason": "E8/E6: createDiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.createDiffieHellmanGroup",
+    "status": "excluded",
+    "reason": "E8/E6: createDiffieHellmanGroup is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.createECDH",
+    "status": "excluded",
+    "reason": "E8/E6: createECDH is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.diffieHellman",
+    "status": "excluded",
+    "reason": "E8/E6: diffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.fips",
+    "status": "excluded",
+    "reason": "E8/E6: fips is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.generateKeyPairSync",
+    "status": "excluded",
+    "reason": "E8/E6: generateKeyPairSync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.generateKeySync",
+    "status": "excluded",
+    "reason": "E8/E6: generateKeySync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.generatePrimeSync",
+    "status": "excluded",
+    "reason": "E8/E6: generatePrimeSync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.getCipherInfo",
+    "status": "excluded",
+    "reason": "E8/E6: getCipherInfo is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.getCiphers",
+    "status": "excluded",
+    "reason": "E8/E6: getCiphers is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.getCurves",
+    "status": "excluded",
+    "reason": "E8/E6: getCurves is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.getDiffieHellman",
+    "status": "excluded",
+    "reason": "E8/E6: getDiffieHellman is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.getFips",
+    "status": "excluded",
+    "reason": "E8/E6: getFips is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.getHashes",
+    "status": "excluded",
+    "reason": "E8/E6: getHashes is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.getRandomValues",
+    "status": "excluded",
+    "reason": "E8/E6: getRandomValues is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.hash",
+    "status": "excluded",
+    "reason": "E8/E6: hash is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.hkdfSync",
+    "status": "excluded",
+    "reason": "E8/E6: hkdfSync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.pbkdf2Sync",
+    "status": "excluded",
+    "reason": "E8/E6: pbkdf2Sync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.privateDecrypt",
+    "status": "excluded",
+    "reason": "E8/E6: privateDecrypt is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.privateEncrypt",
+    "status": "excluded",
+    "reason": "E8/E6: privateEncrypt is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.publicDecrypt",
+    "status": "excluded",
+    "reason": "E8/E6: publicDecrypt is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.publicEncrypt",
+    "status": "excluded",
+    "reason": "E8/E6: publicEncrypt is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.randomFillSync",
+    "status": "excluded",
+    "reason": "E8/E6: randomFillSync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.randomInt",
+    "status": "excluded",
+    "reason": "E8/E6: randomInt is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.randomUUIDv7",
+    "status": "excluded",
+    "reason": "E8/E6: randomUUIDv7 is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.scryptSync",
+    "status": "excluded",
+    "reason": "E8/E6: scryptSync is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.secureHeapUsed",
+    "status": "excluded",
+    "reason": "E8/E6: secureHeapUsed is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.setEngine",
+    "status": "excluded",
+    "reason": "E8/E6: setEngine is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.setFips",
+    "status": "excluded",
+    "reason": "E8/E6: setFips is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.sign",
+    "status": "excluded",
+    "reason": "E8/E6: sign is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.timingSafeEqual",
+    "status": "excluded",
+    "reason": "E8/E6: timingSafeEqual is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.verify",
+    "status": "excluded",
+    "reason": "E8/E6: verify is not a named export of @cancjs/node/crypto; native API remains available from node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.legacy_api.exportChallenge",
+    "status": "excluded",
+    "reason": "E8/E6: legacy crypto API is not part of explicit public entry; use node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.legacy_api.exportPublicKey",
+    "status": "excluded",
+    "reason": "E8/E6: legacy crypto API is not part of explicit public entry; use node:crypto."
+  },
+  {
+    "module": "crypto",
+    "key": "crypto.legacy_api.verifySpkac",
+    "status": "excluded",
+    "reason": "E8/E6: legacy crypto API is not part of explicit public entry; use node:crypto."
   }
 ]

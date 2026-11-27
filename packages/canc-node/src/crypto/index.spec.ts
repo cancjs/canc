@@ -1,4 +1,4 @@
-import type { KeyObject } from 'node:crypto';
+import { generateKeyPairSync, type KeyObject } from 'node:crypto';
 
 import { CancelablePromise, isCancelError, Unlisted } from '@cancjs/promise';
 
@@ -196,7 +196,7 @@ describe('@cancjs/node/crypto', () => {
     void publicKey;
     void privateKey;
 
-    const kemPair = cryptoExports.generateKeyPairSync('ml-kem-768' as never, {} as never) as unknown as {
+    const kemPair = generateKeyPairSync('ml-kem-768' as never, {} as never) as unknown as {
       publicKey: KeyObject;
       privateKey: KeyObject;
     };

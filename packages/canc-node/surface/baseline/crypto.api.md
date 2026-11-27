@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/crypto/index.d.ts`
-- Exports: 153
+- Exports: 80
 
 ## `AsymmetricKeyDetails` (interface)
 
@@ -15,14 +15,6 @@ modulusLength?: number | undefined
 namedCurve?: string | undefined
 publicExponent?: bigint | undefined
 saltLength?: number | undefined
-```
-
-## `BasePrivateKeyEncodingOptions<T extends KeyFormat>` (interface)
-
-```text
-cipher?: string | undefined
-format: T
-passphrase?: string | undefined
 ```
 
 ## `BinaryLike` (type)
@@ -37,12 +29,6 @@ NodeJS.ArrayBufferView<ArrayBufferLike> | string
 "base64" | "base64url" | "binary" | "hex"
 ```
 
-## `Certificate` (class)
-
-```text
-new (): Certificate
-```
-
 ## `CharacterEncoding` (type)
 
 ```text
@@ -53,13 +39,6 @@ new (): Certificate
 
 ```text
 checks?: number | undefined
-```
-
-## `Cipher` (class)
-
-```text
-extends stream.Transform
-new (): Cipher
 ```
 
 ## `CipherCCM` (interface)
@@ -116,34 +95,10 @@ extends stream.TransformOptions
 "aes-128-gcm" | "aes-192-gcm" | "aes-256-gcm"
 ```
 
-## `CipherInfo` (interface)
-
-```text
-blockSize?: number | undefined
-ivLength?: number | undefined
-keyLength: number
-mode: CipherMode
-name: string
-nid: number
-```
-
-## `CipherInfoOptions` (interface)
-
-```text
-ivLength?: number | undefined
-keyLength?: number | undefined
-```
-
 ## `CipherKey` (type)
 
 ```text
 BinaryLike | KeyObject
-```
-
-## `CipherMode` (type)
-
-```text
-"cbc" | "ccm" | "cfb" | "ctr" | "ecb" | "gcm" | "ocb" | "ofb" | "stream" | "wrap" | "xts"
 ```
 
 ## `CipherOCB` (interface)
@@ -162,35 +117,6 @@ extends stream.TransformOptions
 
 ```text
 "aes-128-ocb" | "aes-192-ocb" | "aes-256-ocb"
-```
-
-## `DSAEncoding` (type)
-
-```text
-"der" | "ieee-p1363"
-```
-
-## `DSAKeyPairKeyObjectOptions` (interface)
-
-```text
-divisorLength: number
-modulusLength: number
-```
-
-## `DSAKeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-divisorLength: number
-modulusLength: number
-privateKeyEncoding: BasePrivateKeyEncodingOptions<PrivF> & { type: "pkcs8"; }
-publicKeyEncoding: { type: "spki"; format: PubF; }
-```
-
-## `Decipher` (class)
-
-```text
-extends stream.Transform
-new (): Decipher
 ```
 
 ## `DecipherCCM` (interface)
@@ -215,82 +141,6 @@ extends Decipher
 
 ```text
 extends Decipher
-```
-
-## `DiffieHellman` (class)
-
-```text
-new (): DiffieHellman
-```
-
-## `DiffieHellmanGroup` (type)
-
-```text
-computeSecret: { (otherPublicKey: NodeJS.ArrayBufferView, inputEncoding?: null, outputEncoding?: null): NonSharedBuffer; (otherPublicKey: string, inputEncoding: BinaryToTextEncoding, outputEncoding?: null): NonSharedBuffer; (otherPublicKey: NodeJS.ArrayBufferView, inputEncoding: null, outputEncoding: BinaryToTextEncoding): string; (otherPublicKey: string, inputEncoding: BinaryToTextEncoding, outputEncoding: BinaryToTextEncoding): string; }
-generateKeys: { (): NonSharedBuffer; (encoding: BinaryToTextEncoding): string; }
-getGenerator: { (): NonSharedBuffer; (encoding: BinaryToTextEncoding): string; }
-getPrime: { (): NonSharedBuffer; (encoding: BinaryToTextEncoding): string; }
-getPrivateKey: { (): NonSharedBuffer; (encoding: BinaryToTextEncoding): string; }
-getPublicKey: { (): NonSharedBuffer; (encoding: BinaryToTextEncoding): string; }
-verifyError: number
-```
-
-## `DiffieHellmanGroupConstructor` (interface)
-
-```text
-new (name: string): DiffieHellmanGroup
-(name: string): DiffieHellmanGroup
-```
-
-## `ECDH` (class)
-
-```text
-new (): ECDH
-```
-
-## `ECDHKeyFormat` (type)
-
-```text
-"compressed" | "hybrid" | "uncompressed"
-```
-
-## `ECKeyPairKeyObjectOptions` (interface)
-
-```text
-namedCurve: string
-paramEncoding?: "explicit" | "named" | undefined
-```
-
-## `ECKeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-extends ECKeyPairKeyObjectOptions
-```
-
-## `ED25519KeyPairKeyObjectOptions` (interface)
-
-```text
-ED25519KeyPairKeyObjectOptions
-```
-
-## `ED25519KeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-privateKeyEncoding: BasePrivateKeyEncodingOptions<PrivF> & { type: "pkcs8"; }
-publicKeyEncoding: { type: "spki"; format: PubF; }
-```
-
-## `ED448KeyPairKeyObjectOptions` (interface)
-
-```text
-ED448KeyPairKeyObjectOptions
-```
-
-## `ED448KeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-privateKeyEncoding: BasePrivateKeyEncodingOptions<PrivF> & { type: "pkcs8"; }
-publicKeyEncoding: { type: "spki"; format: PubF; }
 ```
 
 ## `Encoding` (type)
@@ -362,24 +212,6 @@ readonly ciphertext: Buffer<ArrayBufferLike>
 readonly sharedKey: Buffer<ArrayBufferLike>
 ```
 
-## `JsonWebKey` (interface)
-
-```text
-crv?: string | undefined
-d?: string | undefined
-dp?: string | undefined
-dq?: string | undefined
-e?: string | undefined
-k?: string | undefined
-kty?: string | undefined
-n?: string | undefined
-p?: string | undefined
-q?: string | undefined
-qi?: string | undefined
-x?: string | undefined
-y?: string | undefined
-```
-
 ## `JsonWebKeyInput` (interface)
 
 ```text
@@ -426,26 +258,6 @@ new (): KeyObject
 "private" | "public" | "secret"
 ```
 
-## `KeyPairKeyObjectResult` (interface)
-
-```text
-privateKey: KeyObject
-publicKey: KeyObject
-```
-
-## `KeyPairSyncResult<T1 extends string | Buffer, T2 extends string | Buffer>` (interface)
-
-```text
-privateKey: T2
-publicKey: T1
-```
-
-## `KeyType` (type)
-
-```text
-"dsa" | "ec" | "ed25519" | "ed448" | "rsa" | "rsa-pss" | "x25519" | "x448"
-```
-
 ## `LargeNumberLike` (type)
 
 ```text
@@ -477,65 +289,10 @@ key: Buffer<ArrayBufferLike> | string
 type?: "pkcs1" | "spki" | undefined
 ```
 
-## `RSAKeyPairKeyObjectOptions` (interface)
-
-```text
-modulusLength: number
-publicExponent?: number | undefined
-```
-
-## `RSAKeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-modulusLength: number
-privateKeyEncoding: BasePrivateKeyEncodingOptions<PrivF> & { type: "pkcs1" | "pkcs8"; }
-publicExponent?: number | undefined
-publicKeyEncoding: { type: "pkcs1" | "spki"; format: PubF; }
-```
-
-## `RSAPSSKeyPairKeyObjectOptions` (interface)
-
-```text
-hashAlgorithm?: string | undefined
-mgf1HashAlgorithm?: string | undefined
-modulusLength: number
-publicExponent?: number | undefined
-saltLength?: string | undefined
-```
-
-## `RSAPSSKeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-hashAlgorithm?: string | undefined
-mgf1HashAlgorithm?: string | undefined
-modulusLength: number
-privateKeyEncoding: BasePrivateKeyEncodingOptions<PrivF> & { type: "pkcs8"; }
-publicExponent?: number | undefined
-publicKeyEncoding: { type: "spki"; format: PubF; }
-saltLength?: string | undefined
-```
-
 ## `RandomUUIDOptions` (interface)
 
 ```text
 disableEntropyCache?: boolean | undefined
-```
-
-## `RsaPrivateKey` (interface)
-
-```text
-key: KeyLike
-oaepHash?: string | undefined
-oaepLabel?: NodeJS.TypedArray<ArrayBufferLike> | undefined
-padding?: number | undefined
-passphrase?: string | undefined
-```
-
-## `RsaPublicKey` (interface)
-
-```text
-key: KeyLike
-padding?: number | undefined
 ```
 
 ## `ScryptOptions` (interface)
@@ -548,15 +305,6 @@ maxmem?: number | undefined
 p?: number | undefined
 parallelization?: number | undefined
 r?: number | undefined
-```
-
-## `SecureHeapUsage` (interface)
-
-```text
-min: number
-total: number
-used: number
-utilization: number
 ```
 
 ## `Sign` (class)
@@ -629,48 +377,6 @@ extends SigningOptions
 extends PublicKeyInput, SigningOptions
 ```
 
-## `X25519KeyPairKeyObjectOptions` (interface)
-
-```text
-X25519KeyPairKeyObjectOptions
-```
-
-## `X25519KeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-privateKeyEncoding: BasePrivateKeyEncodingOptions<PrivF> & { type: "pkcs8"; }
-publicKeyEncoding: { type: "spki"; format: PubF; }
-```
-
-## `X448KeyPairKeyObjectOptions` (interface)
-
-```text
-X448KeyPairKeyObjectOptions
-```
-
-## `X448KeyPairOptions<PubF extends KeyFormat, PrivF extends KeyFormat>` (interface)
-
-```text
-privateKeyEncoding: BasePrivateKeyEncodingOptions<PrivF> & { type: "pkcs8"; }
-publicKeyEncoding: { type: "spki"; format: PubF; }
-```
-
-## `X509Certificate` (class)
-
-```text
-new (buffer: BinaryLike): X509Certificate
-```
-
-## `X509CheckOptions` (interface)
-
-```text
-multiLabelWildcards?: boolean | undefined
-partialWildcards?: boolean | undefined
-singleLabelSubdomains?: boolean | undefined
-subject?: "always" | "default" | "never" | undefined
-wildcards?: boolean | undefined
-```
-
 ## `argon2` (const)
 
 ```text
@@ -682,12 +388,6 @@ wildcards?: boolean | undefined
 ```text
 (candidate: LargeNumberLike): CancelablePromise<boolean, Unlisted>
 (candidate: LargeNumberLike, options: CheckPrimeOptions): CancelablePromise<boolean, Unlisted>
-```
-
-## `checkPrimeSync` (function)
-
-```text
-(candidate: LargeNumberLike, options?: CheckPrimeOptions | undefined): boolean
 ```
 
 ## `constants` (namespace)
@@ -748,17 +448,6 @@ defaultCipherList: string
 defaultCoreCipherList: string
 ```
 
-## `createCipher` (function)
-
-```text
-// @deprecated
-(algorithm: CipherCCMTypes, password: BinaryLike, options: CipherCCMOptions): CipherCCM // @deprecated
-(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): CipherGCM // @deprecated
-(algorithm: CipherOCBTypes, password: BinaryLike, options: CipherOCBOptions): CipherOCB // @deprecated
-(algorithm: "chacha20-poly1305", password: BinaryLike, options?: CipherChaCha20Poly1305Options | undefined): CipherChaCha20Poly1305 // @deprecated
-(algorithm: string, password: BinaryLike, options?: TransformOptions<Transform> | undefined): Cipher // @deprecated
-```
-
 ## `createCipheriv` (function)
 
 ```text
@@ -769,17 +458,6 @@ defaultCoreCipherList: string
 (algorithm: string, key: CipherKey, iv: BinaryLike | null, options?: TransformOptions<Transform> | undefined): Cipher
 ```
 
-## `createDecipher` (function)
-
-```text
-// @deprecated
-(algorithm: CipherCCMTypes, password: BinaryLike, options: CipherCCMOptions): DecipherCCM // @deprecated
-(algorithm: CipherGCMTypes, password: BinaryLike, options?: CipherGCMOptions | undefined): DecipherGCM // @deprecated
-(algorithm: CipherOCBTypes, password: BinaryLike, options: CipherOCBOptions): DecipherOCB // @deprecated
-(algorithm: "chacha20-poly1305", password: BinaryLike, options?: CipherChaCha20Poly1305Options | undefined): DecipherChaCha20Poly1305 // @deprecated
-(algorithm: string, password: BinaryLike, options?: TransformOptions<Transform> | undefined): Decipher // @deprecated
-```
-
 ## `createDecipheriv` (function)
 
 ```text
@@ -788,28 +466,6 @@ defaultCoreCipherList: string
 (algorithm: CipherGCMTypes, key: CipherKey, iv: BinaryLike, options?: CipherGCMOptions | undefined): DecipherGCM
 (algorithm: "chacha20-poly1305", key: CipherKey, iv: BinaryLike, options?: CipherChaCha20Poly1305Options | undefined): DecipherChaCha20Poly1305
 (algorithm: string, key: CipherKey, iv: BinaryLike | null, options?: TransformOptions<Transform> | undefined): Decipher
-```
-
-## `createDiffieHellman` (function)
-
-```text
-(primeLength: number, generator?: number | undefined): DiffieHellman
-(prime: ArrayBuffer | ArrayBufferView<ArrayBufferLike>, generator?: ArrayBuffer | ArrayBufferView<ArrayBufferLike> | number | undefined): DiffieHellman
-(prime: ArrayBuffer | ArrayBufferView<ArrayBufferLike>, generator: string, generatorEncoding: BinaryToTextEncoding): DiffieHellman
-(prime: string, primeEncoding: BinaryToTextEncoding, generator?: ArrayBuffer | ArrayBufferView<ArrayBufferLike> | number | undefined): DiffieHellman
-(prime: string, primeEncoding: BinaryToTextEncoding, generator: string, generatorEncoding: BinaryToTextEncoding): DiffieHellman
-```
-
-## `createDiffieHellmanGroup` (function)
-
-```text
-(name: string): DiffieHellmanGroup
-```
-
-## `createECDH` (function)
-
-```text
-(curveName: string): ECDH
 ```
 
 ## `createHash` (function)
@@ -861,23 +517,10 @@ defaultCoreCipherList: string
 (key: TKeyLike, ciphertext: BinaryLike): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `diffieHellman` (function)
-
-```text
-(options: { privateKey: KeyObject; publicKey: KeyObject; }): NonSharedBuffer
-```
-
 ## `encapsulate` (const)
 
 ```text
 (key: TKeyLike): CancelablePromise<IEncapsulateResult, Unlisted>
-```
-
-## `fips` (const)
-
-```text
-// @deprecated
-boolean
 ```
 
 ## `generateKey` (const)
@@ -931,57 +574,6 @@ boolean
 (type: "x448", options?: TEmptyKeyObjectOptions | undefined): CancelablePromise<IKeyObjectPair, Unlisted>
 ```
 
-## `generateKeyPairSync` (function)
-
-```text
-(type: "rsa", options: RSAKeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "rsa", options: RSAKeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "rsa", options: RSAKeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "rsa", options: RSAKeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "rsa", options: RSAKeyPairKeyObjectOptions): KeyPairKeyObjectResult
-(type: "rsa-pss", options: RSAPSSKeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "rsa-pss", options: RSAPSSKeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "rsa-pss", options: RSAPSSKeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "rsa-pss", options: RSAPSSKeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "rsa-pss", options: RSAPSSKeyPairKeyObjectOptions): KeyPairKeyObjectResult
-(type: "dsa", options: DSAKeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "dsa", options: DSAKeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "dsa", options: DSAKeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "dsa", options: DSAKeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "dsa", options: DSAKeyPairKeyObjectOptions): KeyPairKeyObjectResult
-(type: "ec", options: ECKeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "ec", options: ECKeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "ec", options: ECKeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "ec", options: ECKeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "ec", options: ECKeyPairKeyObjectOptions): KeyPairKeyObjectResult
-(type: "ed25519", options: ED25519KeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "ed25519", options: ED25519KeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "ed25519", options: ED25519KeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "ed25519", options: ED25519KeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "ed25519", options?: ED25519KeyPairKeyObjectOptions | undefined): KeyPairKeyObjectResult
-(type: "ed448", options: ED448KeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "ed448", options: ED448KeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "ed448", options: ED448KeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "ed448", options: ED448KeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "ed448", options?: ED448KeyPairKeyObjectOptions | undefined): KeyPairKeyObjectResult
-(type: "x25519", options: X25519KeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "x25519", options: X25519KeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "x25519", options: X25519KeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "x25519", options: X25519KeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "x25519", options?: X25519KeyPairKeyObjectOptions | undefined): KeyPairKeyObjectResult
-(type: "x448", options: X448KeyPairOptions<"pem", "pem">): KeyPairSyncResult<string, string>
-(type: "x448", options: X448KeyPairOptions<"pem", "der">): KeyPairSyncResult<string, NonSharedBuffer>
-(type: "x448", options: X448KeyPairOptions<"der", "pem">): KeyPairSyncResult<NonSharedBuffer, string>
-(type: "x448", options: X448KeyPairOptions<"der", "der">): KeyPairSyncResult<NonSharedBuffer, NonSharedBuffer>
-(type: "x448", options?: X448KeyPairKeyObjectOptions | undefined): KeyPairKeyObjectResult
-```
-
-## `generateKeySync` (function)
-
-```text
-(type: "aes" | "hmac", options: { length: number; }): KeyObject
-```
-
 ## `generatePrime` (const)
 
 ```text
@@ -991,118 +583,16 @@ boolean
 (size: number, options: GeneratePrimeOptions): CancelablePromise<ArrayBuffer | bigint, Unlisted>
 ```
 
-## `generatePrimeSync` (function)
-
-```text
-(size: number): ArrayBuffer
-(size: number, options: GeneratePrimeOptionsBigInt): bigint
-(size: number, options: GeneratePrimeOptionsArrayBuffer): ArrayBuffer
-(size: number, options: GeneratePrimeOptions): ArrayBuffer | bigint
-```
-
-## `getCipherInfo` (function)
-
-```text
-(nameOrNid: number | string, options?: CipherInfoOptions | undefined): CipherInfo | undefined
-```
-
-## `getCiphers` (function)
-
-```text
-(): Array<string>
-```
-
-## `getCurves` (function)
-
-```text
-(): Array<string>
-```
-
-## `getDiffieHellman` (function)
-
-```text
-(groupName: string): DiffieHellmanGroup
-```
-
-## `getFips` (function)
-
-```text
-(): 0 | 1
-```
-
-## `getHashes` (function)
-
-```text
-(): Array<string>
-```
-
-## `getRandomValues<T extends webcrypto.BufferSource>` (function)
-
-```text
-<T extends webcrypto.BufferSource>(typedArray: T): T
-```
-
-## `hash` (function)
-
-```text
-(algorithm: string, data: BinaryLike, outputEncoding?: BinaryToTextEncoding | undefined): string
-(algorithm: string, data: BinaryLike, outputEncoding: "buffer"): NonSharedBuffer
-(algorithm: string, data: BinaryLike, outputEncoding?: "buffer" | BinaryToTextEncoding | undefined): NonSharedBuffer | string
-```
-
 ## `hkdf` (const)
 
 ```text
 (digest: string, ikm: BinaryLike | KeyObject, salt: BinaryLike, info: BinaryLike, keylen: number): CancelablePromise<ArrayBuffer, Unlisted>
 ```
 
-## `hkdfSync` (function)
-
-```text
-(digest: string, ikm: BinaryLike | KeyObject, salt: BinaryLike, info: BinaryLike, keylen: number): ArrayBuffer
-```
-
 ## `pbkdf2` (const)
 
 ```text
 (password: BinaryLike, salt: BinaryLike, iterations: number, keylen: number, digest: string): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `pbkdf2Sync` (function)
-
-```text
-(password: BinaryLike, salt: BinaryLike, iterations: number, keylen: number, digest: string): NonSharedBuffer
-```
-
-## `privateDecrypt` (function)
-
-```text
-(privateKey: KeyLike | RsaPrivateKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
-```
-
-## `privateEncrypt` (function)
-
-```text
-(privateKey: KeyLike | RsaPrivateKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
-```
-
-## `pseudoRandomBytes` (function)
-
-```text
-(size: number): NonSharedBuffer
-(size: number, callback: (err: Error | null, buf: NonSharedBuffer) => void): void
-```
-
-## `publicDecrypt` (function)
-
-```text
-(key: KeyLike | RsaPrivateKey | RsaPublicKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
-```
-
-## `publicEncrypt` (function)
-
-```text
-(key: KeyLike | RsaPrivateKey | RsaPublicKey, buffer: ArrayBufferView<ArrayBufferLike>): NonSharedBuffer
 ```
 
 ## `randomBytes` (const)
@@ -1119,21 +609,6 @@ boolean
 <T extends NodeJS.ArrayBufferView>(buffer: T, offset: number, size: number): CancelablePromise<T, Unlisted>
 ```
 
-## `randomFillSync<T extends NodeJS.ArrayBufferView>` (function)
-
-```text
-<T extends NodeJS.ArrayBufferView>(buffer: T, offset?: number | undefined, size?: number | undefined): T
-```
-
-## `randomInt` (function)
-
-```text
-(max: number): number
-(min: number, max: number): number
-(max: number, callback: (err: Error | null, value: number) => void): void
-(min: number, max: number, callback: (err: Error | null, value: number) => void): void
-```
-
 ## `randomUUID` (function)
 
 ```text
@@ -1145,37 +620,6 @@ boolean
 ```text
 (password: BinaryLike, salt: BinaryLike, keylen: number): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 (password: BinaryLike, salt: BinaryLike, keylen: number, options: ScryptOptions): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `scryptSync` (function)
-
-```text
-(password: BinaryLike, salt: BinaryLike, keylen: number, options?: ScryptOptions | undefined): NonSharedBuffer
-```
-
-## `secureHeapUsed` (function)
-
-```text
-(): SecureHeapUsage
-```
-
-## `setEngine` (function)
-
-```text
-(engine: string, flags?: number | undefined): void
-```
-
-## `setFips` (function)
-
-```text
-(bool: boolean): void
-```
-
-## `sign` (function)
-
-```text
-(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | SignJsonWebKeyInput | SignKeyObjectInput | SignPrivateKeyInput): NonSharedBuffer
-(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | SignJsonWebKeyInput | SignKeyObjectInput | SignPrivateKeyInput, callback: (error: Error | null, data: NonSharedBuffer) => void): void
 ```
 
 ## `subtle` (const)
@@ -1193,19 +637,6 @@ sign: (algorithm: AlgorithmIdentifier | EcdsaParams | Ed448Params | RsaPssParams
 unwrapKey: (format: KeyFormat, wrappedKey: BufferSource, unwrappingKey: CryptoKey, unwrapAlgorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams, unwrappedKeyAlgorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams, extractable: boolean, keyUsages: KeyUsage[]) => Promise<CryptoKey>
 verify: (algorithm: AlgorithmIdentifier | EcdsaParams | Ed448Params | RsaPssParams, key: CryptoKey, signature: BufferSource, data: BufferSource) => Promise<boolean>
 wrapKey: (format: KeyFormat, key: CryptoKey, wrappingKey: CryptoKey, wrapAlgorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams) => Promise<ArrayBuffer>
-```
-
-## `timingSafeEqual` (function)
-
-```text
-(a: ArrayBufferView<ArrayBufferLike>, b: ArrayBufferView<ArrayBufferLike>): boolean
-```
-
-## `verify` (function)
-
-```text
-(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | VerifyJsonWebKeyInput | VerifyKeyObjectInput | VerifyPublicKeyInput, signature: ArrayBufferView<ArrayBufferLike>): boolean
-(algorithm: null | string | undefined, data: ArrayBufferView<ArrayBufferLike>, key: KeyLike | VerifyJsonWebKeyInput | VerifyKeyObjectInput | VerifyPublicKeyInput, signature: ArrayBufferView<ArrayBufferLike>, callback: (error: Error | null, result: boolean) => void): void
 ```
 
 ## `webcrypto` (namespace)

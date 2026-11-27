@@ -744,7 +744,7 @@ A `Resolver` instance is different: canceling one of its queries is real, and it
 
 Every promisified function in this subpath runs on Node's libuv threadpool, and node gives no way to preempt that work once it has started. Canceling stops waiting: the returned promise rejects with `CancelError`, but the call keeps running to completion in the background, and the threadpool slot it holds stays occupied until it finishes. With the default pool of four slots, a canceled `scrypt` or `argon2` call can delay unrelated `fs` and `dns` operations that are queued behind it. Bound the cost up front (smaller iteration counts, smaller inputs) rather than relying on cancellation to free resources.
 
-The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `webcrypto`, `constants`, and everything else that never had a callback form) passes through unchanged, so building a cipher or a hash does not need a second import.
+The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `webcrypto`, `constants`, and the explicitly exported native hash, HMAC, signature and key helpers) passes through unchanged. Other native helpers (including synchronous one-shots) belong to `node:crypto`.
 
 `argon2`, `encapsulate`, and `decapsulate` need Node 24 or later and throw `NotImplementedError` on older runtimes.
 
