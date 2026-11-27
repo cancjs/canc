@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/index.d.ts`
-- Exports: 64
+- Exports: 60
 
 ## `EACCES` (type)
 
@@ -354,12 +354,6 @@ code?: string | undefined
 command?: string | undefined
 ```
 
-## `JSON_PARSE_ERROR_BRAND` (const)
-
-```text
-typeof JSON_PARSE_ERROR_BRAND
-```
-
 ## `JsonParseError` (class)
 
 ```text
@@ -370,12 +364,6 @@ readonly cause?: unknown
 message: string
 name: string
 readonly path?: string | undefined
-```
-
-## `NOT_IMPLEMENTED_ERROR_BRAND` (const)
-
-```text
-typeof NOT_IMPLEMENTED_ERROR_BRAND
 ```
 
 ## `NodeErrnoError<TCode extends string = string>` (interface)
@@ -399,18 +387,6 @@ readonly feature?: string | undefined
 message: string
 name: string
 readonly required?: string | undefined
-```
-
-## `PROCESS_EXIT_ERROR_BRAND` (const)
-
-```text
-typeof PROCESS_EXIT_ERROR_BRAND
-```
-
-## `PROCESS_SPAWN_ERROR_BRAND` (const)
-
-```text
-typeof PROCESS_SPAWN_ERROR_BRAND
 ```
 
 ## `ProcessExitError` (class)

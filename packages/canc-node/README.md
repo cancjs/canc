@@ -878,6 +878,8 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 
 CommonJS and ESM are separate module instances; `instanceof` against root error classes holds within one format, while `is*` error guards are the cross-package, cross-realm, and cross-format identity truth because they inspect the error brand symbol.
 
+The four error brand constants are internal; use the exported error classes and guards. Their cross-copy protocol is unchanged.
+
 ### Feature detection
 
 - `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasDuplexPair`, `hasWorkerLocks`)
