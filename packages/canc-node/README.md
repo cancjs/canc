@@ -884,6 +884,8 @@ The four error brand constants are internal; use the exported error classes and 
 
 - `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasDuplexPair`, `hasWorkerLocks`)
 
+`outputJson` and `outputJsonSync` use `IWriteJsonOptions`; the duplicate prerelease `IOutputJsonOptions` name is no longer exported.
+
 ## Compatibility
 
 Node.js 18 and later, TypeScript 4.2 and later. Requires `@cancjs/promise >=1.0.0` as a peer dependency. Everything else follows [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise#compatibility).

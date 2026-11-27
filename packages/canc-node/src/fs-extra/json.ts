@@ -25,8 +25,6 @@ export interface IWriteJsonOptions {
   replacer?: ((this: unknown, key: string, value: unknown) => unknown) | (number | string)[] | null;
 }
 
-export type IOutputJsonOptions = IWriteJsonOptions;
-
 function stripBom(content: string): string {
   if (typeof content === 'string' && content.charCodeAt(0) === 0xfeff) {
     return content.slice(1);
@@ -229,7 +227,7 @@ export function writeJsonSync(
 export function outputJson(
   file: string,
   data: unknown,
-  options?: IOutputJsonOptions | BufferEncoding | null,
+  options?: IWriteJsonOptions | BufferEncoding | null,
 ): CancelablePromise<void, unknown> {
   return new CancelablePromise((resolve, reject, { handleCancel }) => {
     let str: string;
@@ -262,11 +260,7 @@ export function outputJson(
   });
 }
 
-export function outputJsonSync(
-  file: string,
-  data: unknown,
-  options?: IOutputJsonOptions | BufferEncoding | null,
-): void {
+export function outputJsonSync(file: string, data: unknown, options?: IWriteJsonOptions | BufferEncoding | null): void {
   const dir = dirname(file);
   mkdirSync(dir, { recursive: true });
   writeJsonSync(file, data, options);

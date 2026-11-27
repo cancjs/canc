@@ -16,7 +16,7 @@ export {
   mkdirs,
   mkdirsSync,
 } from './ensure';
-export type { IOutputJsonOptions, IReadJsonOptions, IWriteJsonOptions } from './json';
+export type { IReadJsonOptions, IWriteJsonOptions } from './json';
 export { outputJson, outputJsonSync, readJson, readJsonSync, writeJson, writeJsonSync } from './json';
 export type { IMoveOptions } from './move';
 export { move, moveSync } from './move';
