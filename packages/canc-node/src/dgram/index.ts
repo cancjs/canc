@@ -11,7 +11,6 @@ import { CancelablePromise } from '@cancjs/promise';
 import type { Unlisted } from '../../../_util';
 
 export type { Socket as DgramSocket, RemoteInfo, SocketOptions, SocketType } from 'node:dgram';
-export { createSocket as nodeCreateSocket } from 'node:dgram';
 
 /**
  * Creates a UDP socket.

@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/dgram/index.d.ts`
-- Exports: 9
+- Exports: 8
 
 ## `DgramSocket` (class)
 
@@ -50,13 +50,6 @@ extends Abortable
 ```text
 (type: SocketType, callback?: ((msg: Buffer<ArrayBufferLike>, rinfo: RemoteInfo) => void) | undefined): Socket
 (options: SocketOptions, callback?: ((msg: Buffer<ArrayBufferLike>, rinfo: RemoteInfo) => void) | undefined): Socket
-```
-
-## `nodeCreateSocket` (function)
-
-```text
-(type: SocketType, callback?: ((msg: NonSharedBuffer, rinfo: RemoteInfo) => void) | undefined): Socket
-(options: SocketOptions, callback?: ((msg: NonSharedBuffer, rinfo: RemoteInfo) => void) | undefined): Socket
 ```
 
 ## `send` (function)
