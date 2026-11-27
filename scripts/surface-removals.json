@@ -1316,6 +1316,444 @@
       "entry": ".",
       "name": "CLIENT_CLOSED_STATUS",
       "reason": "Owner-approved prerelease Hono vocabulary refinement."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "BasePrivateKeyEncodingOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "Certificate",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "Cipher",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "CipherInfo",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "CipherInfoOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "CipherMode",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "DSAEncoding",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "DSAKeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "DSAKeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "Decipher",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "DiffieHellman",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "DiffieHellmanGroup",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "DiffieHellmanGroupConstructor",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ECDH",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ECDHKeyFormat",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ECKeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ECKeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ED25519KeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ED25519KeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ED448KeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "ED448KeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "JsonWebKey",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "KeyPairKeyObjectResult",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "KeyPairSyncResult",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "KeyType",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "RSAKeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "RSAKeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "RSAPSSKeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "RSAPSSKeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "RsaPrivateKey",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "RsaPublicKey",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "SecureHeapUsage",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "X25519KeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "X25519KeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "X448KeyPairKeyObjectOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "X448KeyPairOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "X509Certificate",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "X509CheckOptions",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "checkPrimeSync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "createCipher",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "createDecipher",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "createDiffieHellman",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "createDiffieHellmanGroup",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "createECDH",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "diffieHellman",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "fips",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "generateKeyPairSync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "generateKeySync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "generatePrimeSync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "getCipherInfo",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "getCiphers",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "getCurves",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "getDiffieHellman",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "getFips",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "getHashes",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "getRandomValues",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "hash",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "hkdfSync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "pbkdf2Sync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "privateDecrypt",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "privateEncrypt",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "pseudoRandomBytes",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "publicDecrypt",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "publicEncrypt",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "randomFillSync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "randomInt",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "scryptSync",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "secureHeapUsed",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "setEngine",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "setFips",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "sign",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "timingSafeEqual",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "verify",
+      "reason": "E8/E6 approved prerelease native crypto export removal."
     }
   ]
 }
