@@ -42,7 +42,8 @@
     "../common/signal-types.ts",
     "../common/matcher-vocabulary.ts",
     "../common/native-lazy-fail.ts",
-    "../common/async-iter-public-names.ts"
+    "../common/async-iter-public-names.ts",
+    "../common/axios-scope-surface.ts"
   ],
   "serverTypesComment": "common/server-express-types.ts, common/server-node-types.ts, common/server-fastify-types.ts, common/server-hono-types.ts and common/server-koa-types.ts compile only in versions marked serverExpressTypes / serverFastifyTypes / serverHonoTypes / serverKoaTypes (server-node rides the express gate; see each file header). None of these gates are a defect in what this repo ships: express and koa pull in @types/node dependencies that hit syntax/recursive-type limitations on TS 4.2/4.7; fastify requires NoInfer (TS 5.4+); hono requires TS 5.9+ for generic Uint8Array types. See each fixture file's own header for the measured errors.",
   "serverFloorsComment": "5.9-server-floors compiles the server fixtures against the lowest framework versions the server peer ranges admit (same table as scripts/install-server-framework-floor.js). Keep both in step when a floor moves.",
