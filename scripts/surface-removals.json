@@ -1754,6 +1754,354 @@
       "entry": "./crypto",
       "name": "verify",
       "reason": "E8/E6 approved prerelease native crypto export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "CompressCallback",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "TCreateZipArchiveSyncFn",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_ASCII",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_BEST_COMPRESSION",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_BEST_SPEED",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_BINARY",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_BLOCK",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_BUF_ERROR",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_DATA_ERROR",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_DEFAULT_COMPRESSION",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_DEFAULT_STRATEGY",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_DEFLATED",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_ERRNO",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_FILTERED",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_FINISH",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_FIXED",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_FULL_FLUSH",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_HUFFMAN_ONLY",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_MEM_ERROR",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_NEED_DICT",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_NO_COMPRESSION",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_NO_FLUSH",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_OK",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_PARTIAL_FLUSH",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_RLE",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_STREAM_END",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_STREAM_ERROR",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_SYNC_FLUSH",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_TEXT",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_TREES",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_UNKNOWN",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "Z_VERSION_ERROR",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "ZipBuffer",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "ZlibParams",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "ZlibReset",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "brotliCompressSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "brotliDecompressSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "compressBrotliSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "compressDeflateSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "compressGzipSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "compressZstdSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "crc32",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "createZipArchiveSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "decompressBrotliSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "decompressDeflateSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "decompressGzipSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "decompressZstdSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "deflateRawSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "deflateSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "getMaxZipContentSize",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "gunzipSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "gzipSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "inflateRawSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "inflateSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "setMaxZipContentSize",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "unzipSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "zstdCompressSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./zlib",
+      "name": "zstdDecompressSync",
+      "reason": "E8/E6 approved prerelease native zlib export removal."
     }
   ]
 }
