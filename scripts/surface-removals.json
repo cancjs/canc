@@ -2132,6 +2132,13 @@
       "entry": ".",
       "name": "PROCESS_SPAWN_ERROR_BRAND",
       "reason": "E8 approved prerelease error brand constant internalization; protocol retained."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": ".",
+      "name": "features",
+      "member": "hasSqlite",
+      "reason": "E8 approved prerelease unrelated SQLite flag removal."
     }
   ]
 }
