@@ -125,6 +125,7 @@
       },
       "fixtures": [
         "node/node-types.ts",
+        "node/node-features-surface.ts",
         "node/node-brand-surface.ts",
         "node/dgram-surface.ts",
         "node/zlib-surface.ts",
@@ -144,6 +145,7 @@
       },
       "fixtures": [
         "node/node-types.ts",
+        "node/node-features-surface.ts",
         "node/node-brand-surface.ts",
         "node/dgram-surface.ts",
         "node/zlib-surface.ts",
