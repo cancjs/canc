@@ -144,15 +144,10 @@ describe('version simulation', () => {
     expect(isNotImplementedError(zErr)).toBe(true);
     expect(zErr).toMatchObject({ feature: 'zstdCompress', required: '22.15.0' });
 
-    // Sync-kind functions throw NotImplementedError having feature and required properties
-    let cErr: unknown;
-    try {
-      importedZlib.crc32(Buffer.from('a'));
-    } catch (e: unknown) {
-      cErr = e;
-    }
-    expect(isNotImplementedError(cErr)).toBe(true);
-    expect(cErr).toMatchObject({ feature: 'crc32', required: '20.15.0' });
+    // crc32 is no longer part of the zlib wrapper surface, even on simulated old Node.
+    expect(importedZlib.crc32).toBeUndefined();
+
+    // Retained sync-kind functions throw NotImplementedError having feature and required properties
 
     let fErr: unknown;
     try {

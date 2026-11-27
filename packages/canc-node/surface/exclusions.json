@@ -951,5 +951,365 @@
     "key": "crypto.legacy_api.verifySpkac",
     "status": "excluded",
     "reason": "E8/E6: legacy crypto API is not part of explicit public entry; use node:crypto."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.add",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.addEntry",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.addSync",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.clear",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.comment",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.delete",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.entries",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.forEach",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.get",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.has",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.keys",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.size",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.toBuffer",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.toBufferSync",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.values",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZipBuffer.writable",
+    "status": "excluded",
+    "reason": "E8/E6: ZipBuffer is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.Type",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.bytesRead",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.bytesWritten",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.close",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.crc32",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.flush",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.params",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.ZlibBase.reset",
+    "status": "excluded",
+    "reason": "E8/E6: ZlibBase is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.brotliCompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: brotliCompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.brotliCompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: brotliCompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.brotliDecompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: brotliDecompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.brotliDecompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: brotliDecompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.compressBrotliSync",
+    "status": "excluded",
+    "reason": "E8/E6: compressBrotliSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.compressDeflateSync",
+    "status": "excluded",
+    "reason": "E8/E6: compressDeflateSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.compressGzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: compressGzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.compressZstdSync",
+    "status": "excluded",
+    "reason": "E8/E6: compressZstdSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.crc32",
+    "status": "excluded",
+    "reason": "E8/E6: crc32 is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.createZipArchiveSync",
+    "status": "excluded",
+    "reason": "E8/E6: createZipArchiveSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.decompressBrotliSync",
+    "status": "excluded",
+    "reason": "E8/E6: decompressBrotliSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.decompressDeflateSync",
+    "status": "excluded",
+    "reason": "E8/E6: decompressDeflateSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.decompressGzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: decompressGzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "iterable_compression.decompressZstdSync",
+    "status": "excluded",
+    "reason": "E8/E6: decompressZstdSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.deflateRawSync",
+    "status": "excluded",
+    "reason": "E8/E6: deflateRawSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.deflateRawSync",
+    "status": "excluded",
+    "reason": "E8/E6: deflateRawSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.deflateSync",
+    "status": "excluded",
+    "reason": "E8/E6: deflateSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.deflateSync",
+    "status": "excluded",
+    "reason": "E8/E6: deflateSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.getMaxZipContentSize",
+    "status": "excluded",
+    "reason": "E8/E6: getMaxZipContentSize is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.gunzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: gunzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.gunzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: gunzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.gzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: gzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.gzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: gzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.inflateRawSync",
+    "status": "excluded",
+    "reason": "E8/E6: inflateRawSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.inflateRawSync",
+    "status": "excluded",
+    "reason": "E8/E6: inflateRawSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.inflateSync",
+    "status": "excluded",
+    "reason": "E8/E6: inflateSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.inflateSync",
+    "status": "excluded",
+    "reason": "E8/E6: inflateSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.setMaxZipContentSize",
+    "status": "excluded",
+    "reason": "E8/E6: setMaxZipContentSize is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.unzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: unzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.unzipSync",
+    "status": "excluded",
+    "reason": "E8/E6: unzipSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.zstdCompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: zstdCompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.zstdCompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: zstdCompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "convenience methods.zstdDecompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: zstdDecompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
+  },
+  {
+    "module": "zlib",
+    "key": "zlib.zstdDecompressSync",
+    "status": "excluded",
+    "reason": "E8/E6: zstdDecompressSync is not a named export of @cancjs/node/zlib; native API remains available from node:zlib."
   }
 ]

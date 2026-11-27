@@ -271,22 +271,6 @@ describe('@cancjs/node/zlib', () => {
     expect((error as { required?: string }).required).toBe('26.8.0');
   });
 
-  it('crc32 computes a checksum on 20.15+, throws NotImplementedError naming 20.15 below that', () => {
-    if (typeof (nodeZlib as unknown as Record<string, unknown>).crc32 !== 'function') {
-      let error: unknown;
-      try {
-        zlibExports.crc32('payload');
-      } catch (err) {
-        error = err;
-      }
-      expect(isNotImplementedError(error)).toBe(true);
-      expect((error as { required?: string }).required).toBe('20.15.0');
-      return;
-    }
-
-    expect(typeof zlibExports.crc32('payload')).toBe('number');
-  });
-
   it('re-exports the stream factory surface unchanged, not routed through a promise', () => {
     expect(typeof zlibExports.createGzip).toBe('function');
     expect(typeof zlibExports.createGunzip).toBe('function');
@@ -297,22 +281,17 @@ describe('@cancjs/node/zlib', () => {
     gzipStream.destroy();
   });
 
-  it('re-exports the synchronous buffer codecs unchanged, not routed through a promise', () => {
-    const original = Buffer.from('sync round trip payload');
-    const compressed = zlibExports.gzipSync(original);
-    expect(compressed).not.toBeInstanceOf(CancelablePromise);
-    const decompressed = zlibExports.gunzipSync(compressed);
-    expect(decompressed.equals(original)).toBe(true);
+  it('leaves synchronous codecs on node:zlib', () => {
+    expect('gzipSync' in zlibExports).toBe(false);
+    const input = Buffer.from('sync round trip payload');
+    expect(nodeZlib.gunzipSync(nodeZlib.gzipSync(input))).toEqual(input);
   });
 
   it('gated exports are reflectable and retain names when available on Node 22.15+/24', () => {
-    const { ZstdCompress, crc32 } = zlibExports;
+    const { ZstdCompress } = zlibExports;
     if (typeof (nodeZlib as unknown as Record<string, unknown>).ZstdCompress === 'function') {
       expect(() => Object.getOwnPropertyDescriptors(ZstdCompress)).not.toThrow();
       expect(ZstdCompress.name).toBe('ZstdCompress');
-    }
-    if (typeof (nodeZlib as unknown as Record<string, unknown>).crc32 === 'function') {
-      expect(crc32.name).toBe('crc32');
     }
   });
 

@@ -750,6 +750,8 @@ The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `
 
 ### zlib
 
+Synchronous codecs, raw diagnostic constants and ZIP buffer helpers belong to `node:zlib`. The cancelable entry keeps the documented stream factories, asynchronous codecs and Readable archive helpers. Use native constants where available; six former Z_* names (Z_ASCII, Z_BINARY, Z_DEFLATED, Z_TEXT, Z_TREES, Z_UNKNOWN) are not present in `constants` on the measured Node 18 and 24 hosts.
+
 This subpath ships three different cancellation shapes, and they are not interchangeable:
 
 - One-shot buffer functions (`gzip`, `deflate`, `brotliCompress`, the zstd family, and their decompressing counterparts) run on the threadpool exactly like the crypto functions above. Canceling only stops waiting; the compression or decompression keeps running, and the threadpool slot stays occupied until it finishes, which can delay unrelated `fs` and `dns` work the same way.
