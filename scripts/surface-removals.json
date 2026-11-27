@@ -2139,6 +2139,12 @@
       "name": "features",
       "member": "hasSqlite",
       "reason": "E8 approved prerelease unrelated SQLite flag removal."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./fs/extra",
+      "name": "IOutputJsonOptions",
+      "reason": "E8 approved redundant prerelease alias removal; use IWriteJsonOptions."
     }
   ]
 }
