@@ -1296,6 +1296,26 @@
       "entry": "./async-iter",
       "name": "isPipeable",
       "reason": "Owner-approved prerelease async iterator vocabulary refinement."
+    },
+    {
+      "package": "@cancjs/axios",
+      "entry": ".",
+      "name": "CancelScope",
+      "member": "holdStream",
+      "reason": "Owner-approved prerelease scope machinery internalization."
+    },
+    {
+      "package": "@cancjs/axios",
+      "entry": ".",
+      "name": "CancelScope",
+      "member": "rejectOnAbort",
+      "reason": "Owner-approved prerelease scope machinery internalization."
+    },
+    {
+      "package": "@cancjs/server-hono",
+      "entry": ".",
+      "name": "CLIENT_CLOSED_STATUS",
+      "reason": "Owner-approved prerelease Hono vocabulary refinement."
     }
   ]
 }

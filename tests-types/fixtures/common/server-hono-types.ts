@@ -14,7 +14,9 @@
  * `serverHonoTypes: true` (5.9 and newer). Hono requires TS 5.9+ for generic Uint8Array types;
  * 5.4 reports `error TS2315: Type 'Uint8Array' is not generic.` in hono's shipped types.
  */
-import { cancelableHandler, createShutdown } from '@cancjs/server-hono';
+// @ts-expect-error the internal client-closed status is no longer public
+import { CLIENT_CLOSED_STATUS } from '@cancjs/server-hono';
+import { cancelableHandler, createShutdown, getRequestSignal, type ICancelContext } from '@cancjs/server-hono';
 import type { HttpBindings } from '@hono/node-server';
 import { Hono } from 'hono';
 
@@ -85,5 +87,9 @@ const badShutdown = () =>
   // @ts-expect-error createShutdown takes what serve() returned, never the application itself
   createShutdown(app);
 void badShutdown;
+
+const retainedContext = (c: ICancelContext) => getRequestSignal(c);
+void retainedContext;
+void CLIENT_CLOSED_STATUS;
 
 export {};

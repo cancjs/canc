@@ -3,13 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-server/canc-server-hono/dist/types/index.d.ts`
-- Exports: 16
-
-## `CLIENT_CLOSED_STATUS` (const)
-
-```text
-499
-```
+- Exports: 15
 
 ## `CLIENT_DISCONNECTED` (const)
 
