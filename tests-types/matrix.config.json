@@ -123,7 +123,7 @@
       "peerDependencies": {
         "@types/node": "18"
       },
-      "fixtures": ["node/node-types.ts"]
+      "fixtures": ["node/node-types.ts", "node/crypto-surface.ts"]
     },
     {
       "id": "5.9-types-node-latest",
@@ -136,7 +136,7 @@
       "peerDependencies": {
         "@types/node": "latest"
       },
-      "fixtures": ["node/node-types.ts"]
+      "fixtures": ["node/node-types.ts", "node/crypto-surface.ts"]
     },
     {
       "id": "5.9-server-floors",
