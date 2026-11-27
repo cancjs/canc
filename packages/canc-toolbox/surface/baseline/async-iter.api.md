@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-toolbox/dist/types/async-iter.d.ts`
-- Exports: 28
+- Exports: 24
 
 ## `AnyIterable<T>` (type)
 
@@ -33,27 +33,6 @@ readonly [TERM_OP_BRAND]: true
 ```text
 (source: AsyncIterable<I>): AsyncIterable<O>
 readonly [PIPE_OP_BRAND]: true
-```
-
-## `IPipeableAsyncIterable<T>` (interface)
-
-```text
-extends AsyncIterable<T>
-readonly [PIPEABLE_BRAND]: true
-pipe: { (): IPipeableAsyncIterable<T>; <R>(term: ITermOp<T, R>): PromiseLike<R>; <B1>(op1: IPipeOp<T, B1>): IPipeableAsyncIterable<B1>; <B1, R>(op1: IPipeOp<T, B1>, term: ITermOp<B1, R>): PromiseLike<R>; <B1, B2>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>): IPipeableAsyncIterable<B2>; <B1, B2, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, term: ITermOp<B2, R>): PromiseLike<R>; <B1, B2, B3>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>): IPipeableAsyncIterable<B3>; <B1, B2, B3, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, term: ITermOp<B3, R>): PromiseLike<R>; <B1, B2, B3, B4>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>): IPipeableAsyncIterable<B4>; <B1, B2, B3, B4, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, term: ITermOp<B4, R>): PromiseLike<R>; <B1, B2, B3, B4, B5>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>): IPipeableAsyncIterable<B5>; <B1, B2, B3, B4, B5, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, term: ITermOp<B5, R>): PromiseLike<R>; <B1, B2, B3, B4, B5, B6>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>): IPipeableAsyncIterable<B6>; <B1, B2, B3, B4, B5, B6, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, term: ITermOp<B6, R>): PromiseLike<R>; <B1, B2, B3, B4, B5, B6, B7>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>): IPipeableAsyncIterable<B7>; <B1, B2, B3, B4, B5, B6, B7, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, term: ITermOp<B7, R>): PromiseLike<R>; <B1, B2, B3, B4, B5, B6, B7, B8>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>): IPipeableAsyncIterable<B8>; <B1, B2, B3, B4, B5, B6, B7, B8, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, term: ITermOp<B8, R>): PromiseLike<R>; <B1, B2, B3, B4, B5, B6, B7, B8, B9>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, op9: IPipeOp<B8, B9>): IPipeableAsyncIterable<B9>; <B1, B2, B3, B4, B5, B6, B7, B8, B9, R>(op1: IPipeOp<T, B1>, op2: IPipeOp<B1, B2>, op3: IPipeOp<B2, B3>, op4: IPipeOp<B3, B4>, op5: IPipeOp<B4, B5>, op6: IPipeOp<B5, B6>, op7: IPipeOp<B6, B7>, op8: IPipeOp<B7, B8>, op9: IPipeOp<B8, B9>, term: ITermOp<B9, R>): PromiseLike<R>; <TOps extends readonly unknown[], R>(ops: readonly [...TOps], term: ITermOp<TPipeElementOf<T, TOps>, R>): TPipeGroupedTerm<T, TOps, R>; <TOps extends readonly unknown[]>(ops: readonly [...TOps]): TPipeGrouped<T, TOps>; }
-```
-
-## `ITermOp<I, R>` (interface)
-
-```text
-(source: AsyncIterable<I>): PromiseLike<R>
-readonly [TERM_OP_BRAND]: true
-```
-
-## `TFlatMapped<R>` (type)
-
-```text
-TCallbackValue<R> extends AsyncIterable<infer E> ? E : TCallbackValue<R> extends Iterable<infer E> ? E : never
 ```
 
 ## `TIterPredicate<T>` (type)
@@ -130,12 +109,6 @@ TCallbackValue<R> extends AsyncIterable<infer E> ? E : TCallbackValue<R> extends
 
 ```text
 <I>(searchValue: I): ICancelableTermOp<I, boolean>
-```
-
-## `isPipeable` (function)
-
-```text
-(value: unknown): value is IPipeableAsyncIterable<any>
 ```
 
 ## `map<I, R>` (function)

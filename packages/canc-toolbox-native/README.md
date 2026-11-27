@@ -127,6 +127,8 @@ rejects with the signal's `reason`. The underlying work itself keeps going. Only
 `delay`, `timeout`, `retry`, `waitFor` and `promisify` accept `{ lazy: true }`. The call then equals
 `LazyPromise.try(() => helper(...))` with the options on the work, and returns that `LazyPromise`.
 
+Use `LazyPromise.reject(error)` to create a cold rejected native lazy promise. The prerelease typed `fail` shortcut belongs only to the cancelable flavor.
+
 ### Declared failures
 
 `@cancjs/toolbox-native` operates entirely on built-in native promises. Native promises in JavaScript do not track failure types at the type level, so helpers in this package do not declare typed failure sets. Applications requiring typed failure contracts should use [`@cancjs/toolbox`](https://github.com/cancjs/canc/tree/master/packages/canc-toolbox) with [`@cancjs/promise`](https://github.com/cancjs/canc/tree/master/packages/canc-promise).
