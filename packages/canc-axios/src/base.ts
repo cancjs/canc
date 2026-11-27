@@ -3,7 +3,14 @@ import { cancelify, TEagerToolboxOptions } from '@cancjs/toolbox';
 
 import { isFunction, isObject } from '../../_util';
 import { createInterceptorFacade } from './interceptors';
-import { AbortControllerCtor, CancelScope, listenForAbort, SCOPE_KEY } from './scope';
+import {
+  AbortControllerCtor,
+  CancelScope,
+  holdScopeStream,
+  listenForAbort,
+  rejectOnScopeAbort,
+  SCOPE_KEY,
+} from './scope';
 import type { IAxiosInstanceLike, ICancelableAxiosInstance, ICancelableAxiosOptions } from './types';
 
 export type ICancelableAxiosWrapOptions = ICancelableAxiosOptions & TEagerToolboxOptions;
@@ -149,7 +156,7 @@ export function wrapAxios(
     const requestConfig = { ...config, signal: composed.signal, [SCOPE_KEY]: scope };
 
     return new Promise(function (resolve, reject) {
-      scope.rejectOnAbort(reject);
+      rejectOnScopeAbort(scope, reject);
 
       let request: Promise<any>;
 
@@ -180,7 +187,7 @@ export function wrapAxios(
               };
               stream.on('end', release);
               stream.on('close', release);
-              scope.holdStream(stream);
+              holdScopeStream(scope, stream);
 
               if (!scope.aborted) {
                 scope.watch(response.config?.signal);

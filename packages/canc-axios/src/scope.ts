@@ -130,6 +130,12 @@ const toAbortCancelError = (reason?: any): CancelError => {
   return new CancelError('', { cause });
 };
 
+const REJECT_ON_ABORT = Symbol('rejectOnAbort');
+const HOLD_STREAM = Symbol('holdStream');
+
+export let rejectOnScopeAbort: (scope: CancelScope, reject: (error: CancelError) => void) => void;
+export let holdScopeStream: (scope: CancelScope, stream: any) => void;
+
 /**
  * Per-request cancellation state, shared with interceptors through the request config.
  *
@@ -140,6 +146,11 @@ const toAbortCancelError = (reason?: any): CancelError => {
  * cancels whatever promises interceptors registered.
  */
 export class CancelScope {
+  static {
+    rejectOnScopeAbort = (scope, reject) => scope[REJECT_ON_ABORT](reject);
+    holdScopeStream = (scope, stream) => scope[HOLD_STREAM](stream);
+  }
+
   /** The Canc-owned signal used to compose the initial transport signal. */
   signal: any;
   aborted: boolean;
@@ -231,13 +242,15 @@ export class CancelScope {
 
   /** Registers how to reject the outer promise when the scope aborts, so an adapter that ignores
    * the signal cannot keep the caller waiting. */
-  rejectOnAbort(reject: (error: CancelError) => void): void {
+  /** @internal */
+  private [REJECT_ON_ABORT](reject: (error: CancelError) => void): void {
     this._reject = reject;
   }
 
   /** Keeps the scope armed for a streamed response body: an abort destroys the stream, and the
    * caller signal is released once the stream closes. */
-  holdStream(stream: any): void {
+  /** @internal */
+  private [HOLD_STREAM](stream: any): void {
     this._stream = stream;
 
     if (this.aborted) {
