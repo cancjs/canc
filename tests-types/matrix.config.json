@@ -123,7 +123,15 @@
       "peerDependencies": {
         "@types/node": "18"
       },
-      "fixtures": ["node/node-types.ts"]
+      "fixtures": [
+        "node/node-types.ts",
+        "node/node-json-surface.ts",
+        "node/node-features-surface.ts",
+        "node/node-brand-surface.ts",
+        "node/dgram-surface.ts",
+        "node/zlib-surface.ts",
+        "node/crypto-surface.ts"
+      ]
     },
     {
       "id": "5.9-types-node-latest",
@@ -136,7 +144,15 @@
       "peerDependencies": {
         "@types/node": "latest"
       },
-      "fixtures": ["node/node-types.ts"]
+      "fixtures": [
+        "node/node-types.ts",
+        "node/node-json-surface.ts",
+        "node/node-features-surface.ts",
+        "node/node-brand-surface.ts",
+        "node/dgram-surface.ts",
+        "node/zlib-surface.ts",
+        "node/crypto-surface.ts"
+      ]
     },
     {
       "id": "5.9-server-floors",

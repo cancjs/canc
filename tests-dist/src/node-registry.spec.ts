@@ -95,10 +95,14 @@ describe('node package cross-subpath registry and error identity (CommonJS)', ()
     runCjs(`
       const assert = require('node:assert/strict');
       const { NotImplementedError } = require('@cancjs/node');
-      const { ZipBuffer } = require('@cancjs/node/zlib');
+      const native = require('node:zlib');
+      const previous = native.ZstdCompress;
+      native.ZstdCompress = undefined;
+      const { ZstdCompress } = require('@cancjs/node/zlib');
+      native.ZstdCompress = previous;
       let thrown = null;
       try {
-        new ZipBuffer();
+        new ZstdCompress();
       } catch (err) {
         thrown = err;
       }
@@ -179,11 +183,15 @@ describe('node package cross-subpath registry and error identity (ESM)', () => {
     runEsm(`
       import assert from 'node:assert/strict';
       import { NotImplementedError } from '@cancjs/node';
-      import { ZipBuffer } from '@cancjs/node/zlib';
+      import native from 'node:zlib';
+      const previous = native.ZstdCompress;
+      native.ZstdCompress = undefined;
+      const { ZstdCompress } = await import('@cancjs/node/zlib');
+      native.ZstdCompress = previous;
 
       let thrown = null;
       try {
-        new ZipBuffer();
+        new ZstdCompress();
       } catch (err) {
         thrown = err;
       }

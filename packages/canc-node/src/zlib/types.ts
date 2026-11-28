@@ -53,6 +53,3 @@ export type TCreateZipArchiveFn = (
   entries: AsyncIterable<unknown> | Iterable<unknown>,
   options?: TZipArchiveOptions,
 ) => Readable;
-
-/** Node's `createZipArchiveSync` shape: `ZipEntry` values in, an iterator of archive chunks out. */
-export type TCreateZipArchiveSyncFn = (entries: Iterable<unknown>, options?: TZipArchiveOptions) => Iterator<Buffer>;

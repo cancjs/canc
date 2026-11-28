@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/fs-extra/index.d.ts`
-- Exports: 46
+- Exports: 45
 
 ## `ICopyOptions` (interface)
 
@@ -40,17 +40,6 @@ overwrite?: boolean | undefined
 
 ```text
 WriteFileOptions | undefined
-```
-
-## `IOutputJsonOptions` (type)
-
-```text
-EOL?: string | undefined
-encoding?: BufferEncoding | null | undefined
-flag?: string | undefined
-mode?: number | string | undefined
-replacer?: ((this: unknown, key: string, value: unknown) => unknown) | Array<number | string> | null | undefined
-spaces?: null | number | string | undefined
 ```
 
 ## `IReadJsonOptions` (interface)

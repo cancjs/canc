@@ -184,46 +184,6 @@
       "callPath": "sync"
     },
     {
-      "name": "ZipBuffer",
-      "kind": "class",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 26,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "in-memory archive builder, re-exported unchanged; throws NotImplementedError below 26.8.0",
-      "callPath": "sync"
-    },
-    {
-      "name": "ZlibBase",
-      "kind": "class",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "transform stream class, re-exported unchanged; destroy() genuinely stops it, unlike the one-shot buffer form of the same codec",
-      "callPath": "sync"
-    },
-    {
       "name": "ZstdCompress",
       "kind": "class",
       "cancelCategory": null,
@@ -285,26 +245,6 @@
       "callPath": "callback"
     },
     {
-      "name": "brotliCompressSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
-    },
-    {
       "name": "brotliDecompress",
       "kind": "fn",
       "cancelCategory": "B",
@@ -324,26 +264,6 @@
       },
       "notes": "one-shot buffer decompression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot",
       "callPath": "callback"
-    },
-    {
-      "name": "brotliDecompressSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
     },
     {
       "name": "compressBrotli",
@@ -367,26 +287,6 @@
       "callPath": "promises"
     },
     {
-      "name": "compressBrotliSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
-    },
-    {
       "name": "compressDeflate",
       "kind": "fn",
       "cancelCategory": "A",
@@ -406,26 +306,6 @@
       },
       "notes": "iterable codec, cancel takes effect between chunks; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
       "callPath": "promises"
-    },
-    {
-      "name": "compressDeflateSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
     },
     {
       "name": "compressGzip",
@@ -449,26 +329,6 @@
       "callPath": "promises"
     },
     {
-      "name": "compressGzipSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
-    },
-    {
       "name": "compressZstd",
       "kind": "fn",
       "cancelCategory": "A",
@@ -490,26 +350,6 @@
       "callPath": "promises"
     },
     {
-      "name": "compressZstdSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
-    },
-    {
       "name": "constants",
       "kind": "const",
       "cancelCategory": null,
@@ -527,26 +367,6 @@
         "bun": "ok"
       },
       "notes": "exported object of zlib constants, re-exported unchanged",
-      "callPath": "sync"
-    },
-    {
-      "name": "crc32",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 20,
-      "gate": "throw",
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous checksum helper; throws NotImplementedError below 20.15.0",
       "callPath": "sync"
     },
     {
@@ -750,26 +570,6 @@
       "callPath": "sync"
     },
     {
-      "name": "createZipArchiveSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 26,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "node's createZipArchiveSync(entries[, options]), returns its chunk iterator; throws NotImplementedError below 26.8.0",
-      "callPath": "sync"
-    },
-    {
       "name": "createZstdCompress",
       "kind": "fn",
       "cancelCategory": null,
@@ -831,26 +631,6 @@
       "callPath": "promises"
     },
     {
-      "name": "decompressBrotliSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
-    },
-    {
       "name": "decompressDeflate",
       "kind": "fn",
       "cancelCategory": "A",
@@ -870,26 +650,6 @@
       },
       "notes": "iterable codec, cancel takes effect between chunks; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
       "callPath": "promises"
-    },
-    {
-      "name": "decompressDeflateSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
     },
     {
       "name": "decompressGzip",
@@ -913,26 +673,6 @@
       "callPath": "promises"
     },
     {
-      "name": "decompressGzipSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
-    },
-    {
       "name": "decompressZstd",
       "kind": "fn",
       "cancelCategory": "A",
@@ -952,26 +692,6 @@
       },
       "notes": "iterable codec, cancel takes effect between chunks; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
       "callPath": "promises"
-    },
-    {
-      "name": "decompressZstdSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 25,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "synchronous iterable codec counterpart, re-exported unchanged; throws NotImplementedError below 25.9.0 (24.x needs --experimental-stream-iter)",
-      "callPath": "sync"
     },
     {
       "name": "deflate",
@@ -1016,66 +736,6 @@
       "callPath": "callback"
     },
     {
-      "name": "deflateRawSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
-    },
-    {
-      "name": "deflateSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
-    },
-    {
-      "name": "getMaxZipContentSize",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 26,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "reads the configured maximum decompressed entry size; throws NotImplementedError below 26.8.0",
-      "callPath": "sync"
-    },
-    {
       "name": "gunzip",
       "kind": "fn",
       "cancelCategory": "B",
@@ -1097,26 +757,6 @@
       "callPath": "callback"
     },
     {
-      "name": "gunzipSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
-    },
-    {
       "name": "gzip",
       "kind": "fn",
       "cancelCategory": "B",
@@ -1136,26 +776,6 @@
       },
       "notes": "one-shot buffer compression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot",
       "callPath": "callback"
-    },
-    {
-      "name": "gzipSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
     },
     {
       "name": "inflate",
@@ -1200,66 +820,6 @@
       "callPath": "callback"
     },
     {
-      "name": "inflateRawSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
-    },
-    {
-      "name": "inflateSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
-    },
-    {
-      "name": "setMaxZipContentSize",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 26,
-      "gate": "throw",
-      "runtime": {
-        "deno": "unverified",
-        "bun": "unverified"
-      },
-      "notes": "sets the configured maximum decompressed entry size; throws NotImplementedError below 26.8.0",
-      "callPath": "sync"
-    },
-    {
       "name": "unzip",
       "kind": "fn",
       "cancelCategory": "B",
@@ -1279,26 +839,6 @@
       },
       "notes": "one-shot buffer decompression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot",
       "callPath": "callback"
-    },
-    {
-      "name": "unzipSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "passthrough",
-      "failures": [],
-      "minMajor": null,
-      "gate": null,
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel",
-      "callPath": "sync"
     },
     {
       "name": "zipFiles",
@@ -1342,26 +882,6 @@
       "callPath": "callback"
     },
     {
-      "name": "zstdCompressSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 22,
-      "gate": "throw",
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel; throws NotImplementedError below 22.15.0",
-      "callPath": "sync"
-    },
-    {
       "name": "zstdDecompress",
       "kind": "fn",
       "cancelCategory": "B",
@@ -1381,26 +901,6 @@
       },
       "notes": "one-shot buffer decompression on the threadpool; cancel stops waiting only, the codec keeps running and does not free the pool slot; throws NotImplementedError below 22.15.0",
       "callPath": "callback"
-    },
-    {
-      "name": "zstdDecompressSync",
-      "kind": "fn",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 22,
-      "gate": "throw",
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "synchronous buffer codec, re-exported unchanged; no promise to cancel; throws NotImplementedError below 22.15.0",
-      "callPath": "sync"
     }
   ]
 }

@@ -13,7 +13,7 @@ export { gated as gatedWrapped };
  * Return a constructor unchanged when available, or one throwing `NotImplementedError`.
  *
  * `../gate.ts`'s `gated()` is constrained to callable signatures, which a `new`-able class does not
- * structurally match, so the gated stream classes (`ZstdCompress`, `ZipBuffer`, ...) route through
+ * structurally match, so the gated stream classes (such as `ZstdCompress`) route through
  * this instead of that one.
  */
 export function gatedClassWrapped<TCtor extends abstract new (...args: any[]) => any>(

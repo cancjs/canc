@@ -744,11 +744,13 @@ A `Resolver` instance is different: canceling one of its queries is real, and it
 
 Every promisified function in this subpath runs on Node's libuv threadpool, and node gives no way to preempt that work once it has started. Canceling stops waiting: the returned promise rejects with `CancelError`, but the call keeps running to completion in the background, and the threadpool slot it holds stays occupied until it finishes. With the default pool of four slots, a canceled `scrypt` or `argon2` call can delay unrelated `fs` and `dns` operations that are queued behind it. Bound the cost up front (smaller iteration counts, smaller inputs) rather than relying on cancellation to free resources.
 
-The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `webcrypto`, `constants`, and everything else that never had a callback form) passes through unchanged, so building a cipher or a hash does not need a second import.
+The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `webcrypto`, `constants`, and the explicitly exported native hash, HMAC, signature and key helpers) passes through unchanged. Other native helpers (including synchronous one-shots) belong to `node:crypto`.
 
 `argon2`, `encapsulate`, and `decapsulate` need Node 24 or later and throw `NotImplementedError` on older runtimes.
 
 ### zlib
+
+Synchronous codecs, raw diagnostic constants and ZIP buffer helpers belong to `node:zlib`. The cancelable entry keeps the documented stream factories, asynchronous codecs and Readable archive helpers. Use native constants where available; six former Z_* names (Z_ASCII, Z_BINARY, Z_DEFLATED, Z_TEXT, Z_TREES, Z_UNKNOWN) are not present in `constants` on the measured Node 18 and 24 hosts.
 
 This subpath ships three different cancellation shapes, and they are not interchangeable:
 
@@ -770,6 +772,8 @@ A `Worker` has exactly one terminal event, `exit`, so it carries a lazy `promise
 A holder whose lock is taken by a `steal: true` request rejects with `CancelError`, with node's `AbortError` as its `cause`, and its body's signal aborts the same way.
 
 ### dgram
+
+Use `createSocket` here or import the raw factory from `node:dgram`; the prerelease `nodeCreateSocket` alias is no longer exported. The `DgramSocket` type remains available.
 
 `send` resolves once the datagram is handed to the kernel. **A sent datagram cannot be recalled**: canceling stops waiting for that result, but a datagram already passed to `socket.send` is still delivered. A string message is sent as its UTF-8 bytes. `bind` and `connect` are cancelable up to the point they complete: canceling either closes the socket, which frees the port. A failed `connect`, such as an unresolvable host, rejects with node's error and leaves the socket unconnected. `dgram.Socket` has no `promise` property, because it has two terminal events (`listening` and `close`) rather than one.
 
@@ -874,9 +878,13 @@ For multi-step operations (`copy`, `move` across devices, `emptyDir`, `walk`), c
 
 CommonJS and ESM are separate module instances; `instanceof` against root error classes holds within one format, while `is*` error guards are the cross-package, cross-realm, and cross-format identity truth because they inspect the error brand symbol.
 
+The four error brand constants are internal; use the exported error classes and guards. Their cross-copy protocol is unchanged.
+
 ### Feature detection
 
-- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasSqlite`, `hasDuplexPair`, `hasWorkerLocks`)
+- `features`: frozen object containing detected runtime version properties (`nodeVersion`, `nodeMajor`) and module-level capability flags (`hasGlob`, `hasMkdtempDisposable`, `hasStatfs`, `hasAddAbortListener`, `hasAsyncDispose`, `hasConsumersBytes`, `hasDuplexPair`, `hasWorkerLocks`)
+
+`outputJson` and `outputJsonSync` use `IWriteJsonOptions`; the duplicate prerelease `IOutputJsonOptions` name is no longer exported.
 
 ## Compatibility
 

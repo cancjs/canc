@@ -1,6 +1,5 @@
 import * as events from 'node:events';
 import * as fsp from 'node:fs/promises';
-import { builtinModules } from 'node:module';
 import * as nodeStream from 'node:stream';
 import * as consumers from 'node:stream/consumers';
 import * as workerThreads from 'node:worker_threads';
@@ -65,8 +64,8 @@ describe('features', () => {
     expect(features.hasConsumersBytes).toBe(typeof (consumers as { bytes?: unknown }).bytes === 'function');
   });
 
-  it('detects hasSqlite via builtinModules', () => {
-    expect(features.hasSqlite).toBe(builtinModules.includes('node:sqlite'));
+  it('does not expose unrelated SQLite detection', () => {
+    expect('hasSqlite' in features).toBe(false);
   });
 
   it('detects hasWorkerLocks dynamically matching host runtime', () => {

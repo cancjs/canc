@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/zlib/index.d.ts`
-- Exports: 112
+- Exports: 54
 
 ## `BrotliCompress` (class)
 
@@ -27,12 +27,6 @@ finishFlush?: number | undefined
 flush?: number | undefined
 maxOutputLength?: number | undefined
 params?: undefined | { [key: number]: boolean | number; }
-```
-
-## `CompressCallback` (type)
-
-```text
-(error: Error | null, result: NonSharedBuffer): void
 ```
 
 ## `Deflate` (class)
@@ -89,12 +83,6 @@ ArrayBuffer | NodeJS.ArrayBufferView<ArrayBufferLike> | string
 (entries: AsyncIterable<unknown> | Iterable<unknown>, options?: TZipArchiveOptions | undefined): Readable
 ```
 
-## `TCreateZipArchiveSyncFn` (type)
-
-```text
-(entries: Iterable<unknown>, options?: TZipArchiveOptions | undefined): Iterator<Buffer<ArrayBufferLike>, any, any>
-```
-
 ## `TIterableCodecFn` (type)
 
 ```text
@@ -132,222 +120,6 @@ extends stream.Transform
 new (options?: ZlibOptions | undefined): Unzip
 ```
 
-## `Z_ASCII` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_BEST_COMPRESSION` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_BEST_SPEED` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_BINARY` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_BLOCK` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_BUF_ERROR` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_DATA_ERROR` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_DEFAULT_COMPRESSION` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_DEFAULT_STRATEGY` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_DEFLATED` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_ERRNO` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_FILTERED` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_FINISH` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_FIXED` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_FULL_FLUSH` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_HUFFMAN_ONLY` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_MEM_ERROR` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_NEED_DICT` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_NO_COMPRESSION` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_NO_FLUSH` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_OK` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_PARTIAL_FLUSH` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_RLE` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_STREAM_END` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_STREAM_ERROR` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_SYNC_FLUSH` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_TEXT` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_TREES` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_UNKNOWN` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `Z_VERSION_ERROR` (const)
-
-```text
-// @deprecated
-number
-```
-
-## `ZipBuffer` (const)
-
-```text
-new (...args: Array<unknown>): object
-```
-
 ## `Zlib` (interface)
 
 ```text
@@ -373,18 +145,6 @@ strategy?: number | undefined
 windowBits?: number | undefined
 ```
 
-## `ZlibParams` (interface)
-
-```text
-params: (level: number, strategy: number, callback: () => void) => void
-```
-
-## `ZlibReset` (interface)
-
-```text
-reset: () => void
-```
-
 ## `ZstdCompress` (const)
 
 ```text
@@ -403,22 +163,10 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 (data: InputType, options?: BrotliOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `brotliCompressSync` (function)
-
-```text
-(buf: InputType, options?: BrotliOptions | undefined): NonSharedBuffer
-```
-
 ## `brotliDecompress` (const)
 
 ```text
 (data: InputType, options?: BrotliOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `brotliDecompressSync` (function)
-
-```text
-(buf: InputType, options?: BrotliOptions | undefined): NonSharedBuffer
 ```
 
 ## `compressBrotli` (const)
@@ -427,22 +175,10 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `compressBrotliSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
-```
-
 ## `compressDeflate` (const)
 
 ```text
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `compressDeflateSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
 ```
 
 ## `compressGzip` (const)
@@ -451,22 +187,10 @@ new (options?: Readonly<Record<string, unknown>> | undefined): Transform
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `compressGzipSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
-```
-
 ## `compressZstd` (const)
 
 ```text
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `compressZstdSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
 ```
 
 ## `constants` (namespace)
@@ -582,12 +306,6 @@ Z_TREES: number
 Z_VERSION_ERROR: number
 ```
 
-## `crc32` (const)
-
-```text
-(data: ArrayBufferView<ArrayBufferLike> | string, value?: number | undefined): number
-```
-
 ## `createBrotliCompress` (function)
 
 ```text
@@ -648,12 +366,6 @@ Z_VERSION_ERROR: number
 (entries: AsyncIterable<unknown> | Iterable<unknown>, options?: TZipArchiveOptions | undefined): Readable
 ```
 
-## `createZipArchiveSync` (const)
-
-```text
-(entries: Iterable<unknown>, options?: TZipArchiveOptions | undefined): Iterator<Buffer<ArrayBufferLike>, any, any>
-```
-
 ## `createZstdCompress` (const)
 
 ```text
@@ -672,22 +384,10 @@ Z_VERSION_ERROR: number
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `decompressBrotliSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
-```
-
 ## `decompressDeflate` (const)
 
 ```text
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `decompressDeflateSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
 ```
 
 ## `decompressGzip` (const)
@@ -696,22 +396,10 @@ Z_VERSION_ERROR: number
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `decompressGzipSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
-```
-
 ## `decompressZstd` (const)
 
 ```text
 (source: AsyncIterable<InputType> | Iterable<InputType>, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `decompressZstdSync` (const)
-
-```text
-(source: Iterable<unknown>, options?: unknown): Buffer<ArrayBufferLike>
 ```
 
 ## `deflate` (const)
@@ -726,46 +414,16 @@ Z_VERSION_ERROR: number
 (data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `deflateRawSync` (function)
-
-```text
-(buf: InputType, options?: ZlibOptions | undefined): NonSharedBuffer
-```
-
-## `deflateSync` (function)
-
-```text
-(buf: InputType, options?: ZlibOptions | undefined): NonSharedBuffer
-```
-
-## `getMaxZipContentSize` (const)
-
-```text
-(): number
-```
-
 ## `gunzip` (const)
 
 ```text
 (data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `gunzipSync` (function)
-
-```text
-(buf: InputType, options?: ZlibOptions | undefined): NonSharedBuffer
-```
-
 ## `gzip` (const)
 
 ```text
 (data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `gzipSync` (function)
-
-```text
-(buf: InputType, options?: ZlibOptions | undefined): NonSharedBuffer
 ```
 
 ## `inflate` (const)
@@ -780,34 +438,10 @@ Z_VERSION_ERROR: number
 (data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `inflateRawSync` (function)
-
-```text
-(buf: InputType, options?: ZlibOptions | undefined): NonSharedBuffer
-```
-
-## `inflateSync` (function)
-
-```text
-(buf: InputType, options?: ZlibOptions | undefined): NonSharedBuffer
-```
-
-## `setMaxZipContentSize` (const)
-
-```text
-(size: number): void
-```
-
 ## `unzip` (const)
 
 ```text
 (data: InputType, options?: ZlibOptions | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `unzipSync` (function)
-
-```text
-(buf: InputType, options?: ZlibOptions | undefined): NonSharedBuffer
 ```
 
 ## `zipFiles` (const)
@@ -822,20 +456,8 @@ Z_VERSION_ERROR: number
 (data: InputType, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 ```
 
-## `zstdCompressSync` (const)
-
-```text
-(data: unknown, options?: Readonly<Record<string, unknown>> | undefined): Buffer<ArrayBufferLike>
-```
-
 ## `zstdDecompress` (const)
 
 ```text
 (data: InputType, options?: Readonly<Record<string, unknown>> | undefined): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `zstdDecompressSync` (const)
-
-```text
-(data: unknown, options?: Readonly<Record<string, unknown>> | undefined): Buffer<ArrayBufferLike>
 ```

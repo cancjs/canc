@@ -2,10 +2,6 @@
 // re-exports render in export-list order, and a sorted list changes that rendering
 // eslint-disable-next-line simple-import-sort/exports -- see comment above
 export {
-  NOT_IMPLEMENTED_ERROR_BRAND,
-  PROCESS_EXIT_ERROR_BRAND,
-  PROCESS_SPAWN_ERROR_BRAND,
-  JSON_PARSE_ERROR_BRAND,
   type INotImplementedErrorOptions,
   NotImplementedError,
   type IProcessExitErrorOptions,
