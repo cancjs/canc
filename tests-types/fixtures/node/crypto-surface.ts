@@ -7,9 +7,6 @@ import type {
   CipherCCM,
   CipherCCMOptions,
   CipherCCMTypes,
-  CipherChaCha20Poly1305,
-  CipherChaCha20Poly1305Options,
-  CipherChaCha20Poly1305Types,
   CipherGCM,
   CipherGCMOptions,
   CipherGCMTypes,
@@ -18,7 +15,6 @@ import type {
   CipherOCBOptions,
   CipherOCBTypes,
   DecipherCCM,
-  DecipherChaCha20Poly1305,
   DecipherGCM,
   DecipherOCB,
   Encoding,
@@ -40,13 +36,10 @@ import type {
   PublicKeyInput,
   RandomUUIDOptions,
   ScryptOptions,
-  SignJsonWebKeyInput,
   SignKeyObjectInput,
   SignPrivateKeyInput,
   SigningOptions,
   TKeyLike,
-  UUID,
-  VerifyJsonWebKeyInput,
   VerifyKeyObjectInput,
   VerifyPublicKeyInput,
 } from '@cancjs/node/crypto';
@@ -79,9 +72,24 @@ import {
   randomFill,
   randomUUID,
   scrypt,
-  subtle,
   webcrypto,
 } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { CipherChaCha20Poly1305 } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { CipherChaCha20Poly1305Options } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { CipherChaCha20Poly1305Types } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { DecipherChaCha20Poly1305 } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { SignJsonWebKeyInput } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { UUID } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { VerifyJsonWebKeyInput } from '@cancjs/node/crypto';
+// @ts-expect-error Removed native re-export
+import type { subtle } from '@cancjs/node/crypto';
 // @ts-expect-error E6 removed named export
 import type { BasePrivateKeyEncodingOptions } from '@cancjs/node/crypto';
 // @ts-expect-error E6 removed named export
@@ -258,6 +266,5 @@ void [
   randomFill,
   randomUUID,
   scrypt,
-  subtle,
   webcrypto,
 ];

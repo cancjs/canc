@@ -746,11 +746,49 @@ Every promisified function in this subpath runs on Node's libuv threadpool, and 
 
 The synchronous factory surface (`createHash`, `createCipheriv`, `randomUUID`, `webcrypto`, `constants`, and the explicitly exported native hash, HMAC, signature and key helpers) passes through unchanged. Other native helpers (including synchronous one-shots) belong to `node:crypto`.
 
+**Breaking prerelease imports.** The crypto entry no longer mirrors the native module with a wildcard export. In addition to removed native functions, the following peer-dependent named types are no longer re-exported. Import them with `import type` from `node:crypto` only when your resolved Node declarations provide them. Native types are not necessarily equivalent to the local wrapper types; native callback or promise APIs are not cancelable promises.
+
+`Argon2Algorithm`, `Argon2Parameters`, `MLDSAKeyPairOptions`, `MLKEMKeyPairOptions`, `OneShotDigestOptions`, `OneShotDigestOptionsWithBufferEncoding`, `OneShotDigestOptionsWithStringEncoding`, `SLHDSAKeyPairOptions`, `AsymmetricKeyType`, `DHKeyPairOptions`, `KeyExportResult`, `KeyPairExportCallback`, `KeyPairExportOptions`, `KeyPairExportResult`, `MLDSAKeyType`, `MLKEMKeyType`, `PrivateKeyExportOptions`, `PrivateKeyExportType`, `PublicKeyExportOptions`, `PublicKeyExportType`, `SLHDSAKeyType`, `SymmetricKeyExportOptions`, `CipherAEADMethods`, `DecipherAEADMethods`, `DiffieHellmanOptions`, `HmacOptions`, `PublicDecryptJsonWebKeyInput`, `PublicDecryptKeyObjectInput`, `PublicDecryptOptions`, `PublicDecryptPrivateKeyInput`, `PublicDecryptPublicKeyInput`, `PublicEncryptJsonWebKeyInput`, `PublicEncryptKeyObjectInput`, `PublicEncryptOptions`, `PublicEncryptPrivateKeyInput`, `PublicEncryptPublicKeyInput`, `RawPrivateKeyExportOptions`, `RawPublicKeyExportOptions`, `SecretKeyOptions`, `MLDSAKeyPairKeyObjectOptions`, `MLKEMKeyPairKeyObjectOptions`, `SLHDSAKeyPairKeyObjectOptions`, `RandomUUIDV7Options`, `RawPrivateKeyInput`, `RawPublicKeyInput`, `SignRawPrivateKeyInput`, `VerifyRawPublicKeyInput`.
+
+Older Node declaration patches also lack some previously mirrored names. The following named re-exports have been removed to keep the entry compatible with those patches: `CipherChaCha20Poly1305`, `CipherChaCha20Poly1305Options`, `CipherChaCha20Poly1305Types`, `DecipherChaCha20Poly1305`, `SignJsonWebKeyInput`, `UUID`, `VerifyJsonWebKeyInput`. Use native type imports when the resolved declarations provide them; the native factory overloads remain unchanged. The native `subtle` value is no longer re-exported: use `node:crypto` or native `webcrypto.subtle` on a host and type version supporting it. The `webcrypto` and `randomUUID` exports remain.
+
+The historical `DEFAULT_ENCODING` declaration is also no longer re-exported. Avoid relying on this value: there is no verified runtime replacement across the supported hosts. The native `createMac`, `getMacs` and `parsePKCS12` values are no longer re-exported. Use direct native imports in JavaScript on hosts that actually expose them (verified on Node 26.12.0); TypeScript imports also require declarations for those values. The measured Node type versions did not provide them. Native runtime availability and resolved type version are independent.
+
 `argon2`, `encapsulate`, and `decapsulate` need Node 24 or later and throw `NotImplementedError` on older runtimes.
 
 ### zlib
 
 Synchronous codecs, raw diagnostic constants and ZIP buffer helpers belong to `node:zlib`. The cancelable entry keeps the documented stream factories, asynchronous codecs and Readable archive helpers. Use native constants where available; six former Z_* names (Z_ASCII, Z_BINARY, Z_DEFLATED, Z_TEXT, Z_TREES, Z_UNKNOWN) are not present in `constants` on the measured Node 18 and 24 hosts.
+
+**Breaking prerelease imports.** The zlib entry no longer mirrors the native module with a wildcard export. These peer-dependent named types are no longer re-exported: `CreateZipArchiveOptions`, `ZipEntryContentIterOptions`, `ZipEntryContentOptions`, `ZipEntryCreateOptions`, `ZipEntryCreateOptionsBase`, `ZipEntryCreateStreamOptions`, `ZipEntryCreateSymlinkOptions`, `ZipFileOpenOptions`, `ZipFilesOptions`, `ZipInputType`, `ZstdOptions`. Import them with `import type` from `node:zlib` only when provided by your resolved Node declarations. Keep using the local wrapper signatures, including `TZstdOptions`, `TZipArchiveOptions` and `TZipFilesOptions`; these are not promises of exact native type parity.
+
+Use native `ZipEntry` and `ZipFile` directly on runtimes exposing them, rather than importing those classes from this package. The example uses the experimental native ZIP API (verified with Node 26.12.0 and, separately, `@types/node@26.6.6`). The native entry creation call returns a native promise. Await it before passing the genuine entry to the retained archive wrapper; plain descriptors and promises of entries are not native entry handles. Consume the returned Readable, or destroy it to cancel. Older hosts still reject the gated archive wrappers with `NotImplementedError`.
+
+```js
+import { ZipEntry, ZipFile } from "node:zlib";
+import { buffer } from "node:stream/consumers";
+import { createZipArchive, zipFiles } from "@cancjs/node/zlib";
+import { writeFile } from "node:fs/promises";
+
+const entry = await ZipEntry.create("note.txt", Buffer.from("hello"));
+const stream = createZipArchive([entry]);
+await writeFile("archive.zip", await buffer(stream));
+
+const archive = await ZipFile.open("archive.zip");
+try {
+  for (const [name, pendingEntry] of archive.entries()) {
+    console.log(name, (await (await pendingEntry).content()).toString());
+  }
+} finally {
+  await archive.close();
+}
+
+// Alternatively, archive existing files with zipFiles.
+await writeFile(
+  "files.zip",
+  await buffer(zipFiles([["archive.zip", "archive.zip"]])),
+);
+```
 
 This subpath ships three different cancellation shapes, and they are not interchangeable:
 

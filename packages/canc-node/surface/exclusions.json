@@ -936,6 +936,12 @@
   },
   {
     "module": "crypto",
+    "key": "`node:crypto`_module_methods_and_properties.subtle",
+    "status": "excluded",
+    "reason": "The native subtle alias is not a named export of this package; use node:crypto or webcrypto.subtle."
+  },
+  {
+    "module": "crypto",
     "key": "crypto.legacy_api.exportChallenge",
     "status": "excluded",
     "reason": "E8/E6: legacy crypto API is not part of explicit public entry; use node:crypto."

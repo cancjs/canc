@@ -2145,6 +2145,54 @@
       "entry": "./fs/extra",
       "name": "IOutputJsonOptions",
       "reason": "E8 approved redundant prerelease alias removal; use IWriteJsonOptions."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "CipherChaCha20Poly1305",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "CipherChaCha20Poly1305Options",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "CipherChaCha20Poly1305Types",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "DecipherChaCha20Poly1305",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "SignJsonWebKeyInput",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "UUID",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "VerifyJsonWebKeyInput",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
+    },
+    {
+      "package": "@cancjs/node",
+      "entry": "./crypto",
+      "name": "subtle",
+      "reason": "Prerelease native re-export removed to retain compatibility with older supported Node declarations; use the native module where available."
     }
   ]
 }

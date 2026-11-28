@@ -576,26 +576,6 @@
       "callPath": "callback"
     },
     {
-      "name": "subtle",
-      "kind": "const",
-      "cancelCategory": null,
-      "nodeSignal": {
-        "documented": false,
-        "since": null,
-        "probed": null
-      },
-      "wrapper": "gated",
-      "failures": [],
-      "minMajor": 26,
-      "gate": "feature-detect",
-      "runtime": {
-        "deno": "ok",
-        "bun": "ok"
-      },
-      "notes": "WebCrypto SubtleCrypto instance, alias of webcrypto.subtle",
-      "callPath": "sync"
-    },
-    {
       "name": "webcrypto",
       "kind": "const",
       "cancelCategory": null,

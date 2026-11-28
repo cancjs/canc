@@ -55,9 +55,6 @@ declare module 'node:crypto' {
   export type CipherCCM = any;
   export type CipherCCMOptions = any;
   export type CipherCCMTypes = any;
-  export type CipherChaCha20Poly1305 = any;
-  export type CipherChaCha20Poly1305Options = any;
-  export type CipherChaCha20Poly1305Types = any;
   export type CipherGCM = any;
   export type CipherGCMOptions = any;
   export type CipherGCMTypes = any;
@@ -66,7 +63,6 @@ declare module 'node:crypto' {
   export type CipherOCBOptions = any;
   export type CipherOCBTypes = any;
   export type DecipherCCM = any;
-  export type DecipherChaCha20Poly1305 = any;
   export type DecipherGCM = any;
   export type DecipherOCB = any;
   export type Encoding = any;
@@ -81,12 +77,9 @@ declare module 'node:crypto' {
   export type PrivateKeyInput = any;
   export type PublicKeyInput = any;
   export type RandomUUIDOptions = any;
-  export type SignJsonWebKeyInput = any;
   export type SignKeyObjectInput = any;
   export type SignPrivateKeyInput = any;
   export type SigningOptions = any;
-  export type UUID = any;
-  export type VerifyJsonWebKeyInput = any;
   export type VerifyKeyObjectInput = any;
   export type VerifyPublicKeyInput = any;
   export const Hash: any;
@@ -104,7 +97,6 @@ declare module 'node:crypto' {
   export const createSign: any;
   export const createVerify: any;
   export const randomUUID: any;
-  export const subtle: any;
 }
 
 declare module 'node:dgram' {
