@@ -3,7 +3,7 @@
 Generated. Do not edit by hand.
 
 - Declarations: `packages/canc-node/dist/types/crypto/index.d.ts`
-- Exports: 80
+- Exports: 72
 
 ## `AsymmetricKeyDetails` (interface)
 
@@ -59,24 +59,6 @@ extends stream.TransformOptions
 "aes-128-ccm" | "aes-192-ccm" | "aes-256-ccm"
 ```
 
-## `CipherChaCha20Poly1305` (interface)
-
-```text
-extends Cipher
-```
-
-## `CipherChaCha20Poly1305Options` (interface)
-
-```text
-extends stream.TransformOptions
-```
-
-## `CipherChaCha20Poly1305Types` (type)
-
-```text
-"chacha20-poly1305"
-```
-
 ## `CipherGCM` (interface)
 
 ```text
@@ -120,12 +102,6 @@ extends stream.TransformOptions
 ```
 
 ## `DecipherCCM` (interface)
-
-```text
-extends Decipher
-```
-
-## `DecipherChaCha20Poly1305` (interface)
 
 ```text
 extends Decipher
@@ -314,12 +290,6 @@ extends stream.Writable
 new (): Sign
 ```
 
-## `SignJsonWebKeyInput` (interface)
-
-```text
-extends JsonWebKeyInput, SigningOptions
-```
-
 ## `SignKeyObjectInput` (interface)
 
 ```text
@@ -346,23 +316,11 @@ saltLength?: number | undefined
 KeyObject | NodeJS.ArrayBufferView<ArrayBufferLike> | string | webcrypto.CryptoKey
 ```
 
-## `UUID` (type)
-
-```text
-`${string}-${string}-${string}-${string}-${string}`
-```
-
 ## `Verify` (class)
 
 ```text
 extends stream.Writable
 new (): Verify
-```
-
-## `VerifyJsonWebKeyInput` (interface)
-
-```text
-extends JsonWebKeyInput, SigningOptions
 ```
 
 ## `VerifyKeyObjectInput` (interface)
@@ -620,23 +578,6 @@ defaultCoreCipherList: string
 ```text
 (password: BinaryLike, salt: BinaryLike, keylen: number): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
 (password: BinaryLike, salt: BinaryLike, keylen: number, options: ScryptOptions): CancelablePromise<Buffer<ArrayBufferLike>, Unlisted>
-```
-
-## `subtle` (const)
-
-```text
-decrypt: (algorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
-deriveBits: { (algorithm: EcdhKeyDeriveParams, baseKey: CryptoKey, length: null | number): Promise<ArrayBuffer>; (algorithm: AlgorithmIdentifier | HkdfParams | Pbkdf2Params, baseKey: CryptoKey, length: number): Promise<ArrayBuffer>; }
-deriveKey: (algorithm: AlgorithmIdentifier | EcdhKeyDeriveParams | HkdfParams | Pbkdf2Params, baseKey: CryptoKey, derivedKeyAlgorithm: AesDerivedKeyParams | AlgorithmIdentifier | HkdfParams | HmacImportParams | Pbkdf2Params, extractable: boolean, keyUsages: readonly KeyUsage[]) => Promise<CryptoKey>
-digest: (algorithm: AlgorithmIdentifier, data: BufferSource) => Promise<ArrayBuffer>
-encrypt: (algorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
-exportKey: { (format: "jwk", key: CryptoKey): Promise<JsonWebKey>; (format: Exclude<KeyFormat, "jwk">, key: CryptoKey): Promise<ArrayBuffer>; }
-generateKey: { (algorithm: EcKeyGenParams | RsaHashedKeyGenParams, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKeyPair>; (algorithm: AesKeyGenParams | HmacKeyGenParams | Pbkdf2Params, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKey>; (algorithm: AlgorithmIdentifier, extractable: boolean, keyUsages: KeyUsage[]): Promise<CryptoKey | CryptoKeyPair>; }
-importKey: { (format: "jwk", keyData: JsonWebKey, algorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams, extractable: boolean, keyUsages: readonly KeyUsage[]): Promise<CryptoKey>; (format: Exclude<KeyFormat, "jwk">, keyData: BufferSource, algorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams, extractable: boolean, keyUsages: KeyUsage[]): Promise<CryptoKey>; }
-sign: (algorithm: AlgorithmIdentifier | EcdsaParams | Ed448Params | RsaPssParams, key: CryptoKey, data: BufferSource) => Promise<ArrayBuffer>
-unwrapKey: (format: KeyFormat, wrappedKey: BufferSource, unwrappingKey: CryptoKey, unwrapAlgorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams, unwrappedKeyAlgorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams, extractable: boolean, keyUsages: KeyUsage[]) => Promise<CryptoKey>
-verify: (algorithm: AlgorithmIdentifier | EcdsaParams | Ed448Params | RsaPssParams, key: CryptoKey, signature: BufferSource, data: BufferSource) => Promise<boolean>
-wrapKey: (format: KeyFormat, key: CryptoKey, wrappingKey: CryptoKey, wrapAlgorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams) => Promise<ArrayBuffer>
 ```
 
 ## `webcrypto` (namespace)
