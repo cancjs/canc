@@ -113,6 +113,33 @@
       "serverKoaTypes": true
     },
     {
+      "id": "4.2-types-node-floor",
+      "typescript": "4.2.4",
+      "moduleResolution": "node",
+      "lib": ["es2020"],
+      "types": ["node"],
+      "commonFixtures": false,
+      "packages": ["canc-promise", "canc-node"],
+      "peerDependencies": {
+        "@types/node": "18.0.0"
+      },
+      "fixtures": ["node/native-floor-surface.ts"]
+    },
+    {
+      "id": "4.7-types-node-old-patch",
+      "typescript": "4.7.4",
+      "moduleResolution": "node16",
+      "lib": ["es2022"],
+      "types": ["node"],
+      "commonFixtures": false,
+      "packages": ["canc-promise", "canc-node"],
+      "peerDependencies": {
+        "@types/node": "18.19.0",
+        "undici-types": "5.26.5"
+      },
+      "fixtures": ["node/native-floor-surface.ts"]
+    },
+    {
       "id": "5.9-types-node-18",
       "typescript": "5.9.3",
       "moduleResolution": "bundler",
